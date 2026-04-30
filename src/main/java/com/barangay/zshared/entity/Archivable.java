@@ -4,15 +4,14 @@ import java.time.LocalDateTime;
 
 public interface Archivable {
 
-    Boolean GetIsArchived();
-    void setIsArchived(boolean isArchived);
+    Boolean getIsArchived();
+    void setIsArchived(Boolean isArchived);
 
-    LocalDateTime GetArchiveTime();
+    LocalDateTime getArchivedAt();
     void setArchivedAt(LocalDateTime archivedAt);
 
-    String archivedRemarks();
-    void setArchiveRemarks(String archivedRemarks);
-
+    String getArchiveRemarks();
+    void setArchiveRemarks(String archiveRemarks);
 
     default void archive(String remarks) {
         setIsArchived(true);
