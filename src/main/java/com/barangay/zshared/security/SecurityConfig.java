@@ -88,6 +88,7 @@ public class SecurityConfig {
     }
 
 
+    //helper to write response error 
     private void writeErrorResponse(HttpServletResponse response, HttpStatus status, String code, String message) throws IOException {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setStatus(status.value());
