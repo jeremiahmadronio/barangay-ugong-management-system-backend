@@ -25,20 +25,29 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Arrays;
-
 import static com.barangay.zshared.security.SecurityConstant.*;
-import static org.ietf.jgss.GSSException.UNAUTHORIZED;
-import static org.springframework.boot.actuate.autoconfigure.cloudfoundry.CloudFoundryAuthorizationException.Reason.ACCESS_DENIED;
 
+/**
+ * The main security rulebook of the application.
+ * Defines which endpoints are public, which require a specific role,
+ * and which require a specific department assignment.
+ * Also sets up CORS and returns clean JSON error responses
+ * for unauthorized and forbidden requests.
+ */
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity   // enables @PreAuthorize
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final AuthenticationProvider authenticationProvider;
 
+
+    /**
+     * Creates an access rule for department-specific endpoints.
+     * ROOT_ADMIN can always access. ADMIN and STAFF need the matching department.
+     */
     private static AuthorizationManager<RequestAuthorizationContext> deptAccess(String dept) {
         return new WebExpressionAuthorizationManager(
                 "hasRole('ROOT_ADMIN') or " +
@@ -46,6 +55,11 @@ public class SecurityConfig {
         );
     }
 
+    /**
+     * Configures all HTTP security rules.
+     * Disables CSRF, sets up CORS, defines endpoint permissions,
+     * enforces stateless sessions, and registers the JWT filter.
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -59,6 +73,8 @@ public class SecurityConfig {
                         .requestMatchers(LUPON_ENDPOINTS).access(deptAccess("LUPON"))
                         .requestMatchers(BLOTTER_ENDPOINTS).access(deptAccess("BLOTTER"))
                         .requestMatchers(BCPC_ENDPOINTS).access(deptAccess("BCPC"))
+                        .requestMatchers(CLEARANCE_ENDPOINTS).access(deptAccess("CLEARANCE"))
+                        .requestMatchers(FTJS_ENDPOINTS).access(deptAccess("FTJS"))
                         .requestMatchers(SHARED_CASE_ENDPOINTS).hasAnyRole(ROLE_ROOT_ADMIN, ROLE_ADMIN, ROLE_STAFF)
                         .anyRequest().authenticated()
                 )
@@ -75,6 +91,8 @@ public class SecurityConfig {
         return http.build();
     }
 
+
+    /** Sets up which origins, methods, and headers are allowed for cross-origin requests. */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
@@ -88,7 +106,7 @@ public class SecurityConfig {
     }
 
 
-    //helper to write response error 
+    /** Builds and sends a JSON error response when a request is blocked by security. */
     private void writeErrorResponse(HttpServletResponse response, HttpStatus status, String code, String message) throws IOException {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setStatus(status.value());

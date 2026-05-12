@@ -20,7 +20,13 @@ import java.io.IOException;
 import static com.barangay.zshared.security.SecurityConstant.HEADER_STRING;
 import static com.barangay.zshared.security.SecurityConstant.TOKEN_PREFIX;
 
-
+/**
+ * Runs on every incoming request to check if the user is authenticated.
+ * Reads the JWT token from the Authorization header, validates it,
+ * and sets the current user in the security context.
+ * If no token is present, the request passes through as unauthenticated.
+ * SecurityConfig then decides if the endpoint requires authentication or not.
+ */
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -28,6 +34,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
 
+
+
+    /**
+     * The main filter logic that runs once per request.
+     * Steps:
+     * 1. Read the Authorization header
+     * 2. If no Bearer token found, skip and continue
+     * 3. Extract the email from the token
+     * 4. Load the user from the database
+     * 5. If token is valid, mark the user as authenticated
+     * 6. Pass the request to the next filter
+     */
     @Override
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,

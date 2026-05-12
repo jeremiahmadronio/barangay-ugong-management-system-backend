@@ -1,19 +1,22 @@
 package com.barangay.zshared.security;
-
+/**
+ * Holds all the constant values used across the security layer.
+ * Keeps role names, endpoint arrays, and CORS settings in one place
+ * so they are easy to find and update.
+ */
 public class SecurityConstant {
 
-    // ── Roles ────────────────────────────────────────────────────────
+    // Role name constants used in security rules and authority checks
     public static final String ROLE_ROOT_ADMIN = "ROOT_ADMIN";
     public static final String ROLE_ADMIN      = "ADMIN";
     public static final String ROLE_STAFF      = "STAFF";
 
-    // ── Public (no auth needed) ───────────────────────────────────────
+    // Endpoints that anyone can access without a token
     public static final String[] PUBLIC_ENDPOINTS = {
             "/api/v1/auth/**",
             "/error"
     };
-
-    // ── ROOT_ADMIN only ───────────────────────────────────────────────
+    // Endpoints that only ROOT_ADMIN can access
     public static final String[] ROOT_ADMIN_ENDPOINTS = {
             "/api/v1/dashboard/**",
             "/api/v1/users/create-admin",
@@ -23,34 +26,47 @@ public class SecurityConstant {
             "/api/v1/audit/**"
     };
 
-    // ── Any authenticated ADMIN or higher ────────────────────────────
+    // Endpoints that ADMIN and ROOT_ADMIN can access
     public static final String[] ADMIN_ENDPOINTS = {
             "/api/v1/user-management/stats",
             "/api/v1/users/{userId}/lock",
             "/api/v1/users/update-status"
     };
 
-    // ── Department-specific (enforced via WebExpressionAuthorizationManager) ─
+    // Endpoints restricted to ROOT_ADMIN or staff assigned to the VAWC department
     public static final String[] VAWC_ENDPOINTS = {
             "/api/v1/vawc/**",
             "/api/v1/bpo/**"
     };
 
+    // Endpoints restricted to ROOT_ADMIN or staff assigned to the LUPON department
     public static final String[] LUPON_ENDPOINTS = {
             "/api/v1/lupon/**",
             "/api/v1/sessions/**",
             "/api/v1/lupon-extensions/**"
     };
 
+    // Endpoints restricted to ROOT_ADMIN or staff assigned to the BLOTTER department
     public static final String[] BLOTTER_ENDPOINTS = {
             "/api/v1/blotter/**"
     };
 
+    // Endpoints restricted to ROOT_ADMIN or staff assigned to the BCPC department
     public static final String[] BCPC_ENDPOINTS = {
             "/api/v1/bcpc/**"
     };
 
-    // ── Shared case/resident endpoints (any dept staff) ──────────────
+    // Endpoints restricted to ROOT_ADMIN or staff assigned to the CLEARANCE department
+    public static final String[] CLEARANCE_ENDPOINTS = {
+            "/api/v1/clearance/**"
+    };
+
+    // Endpoints restricted to ROOT_ADMIN or staff assigned to the FTJS department
+    public static final String[] FTJS_ENDPOINTS = {
+            "/api/v1/ftjs/**"
+    };
+
+    // Endpoints that any authenticated user can access regardless of department
     public static final String[] SHARED_CASE_ENDPOINTS = {
             "/api/v1/cases/**",
             "/api/v1/residents/**",
@@ -59,18 +75,26 @@ public class SecurityConstant {
             "/api/v1/certificates/**"
     };
 
-    // ── CORS ─────────────────────────────────────────────────────────
+    // Allowed frontend origins for cross-origin requests
     public static final String[] ALLOWED_ORIGINS = {
             "http://localhost:5173",
             "http://localhost:3000",
             "https://baranggay-management.vercel.app"
     };
+
+    // Allowed HTTP methods for cross-origin requests
     public static final String[] ALLOWED_METHODS =
             {"GET","POST","PUT","DELETE","PATCH","OPTIONS"};
+
+    // Allowed request headers for cross-origin requests
     public static final String[] ALLOWED_HEADERS = {"*"};
 
+    // The prefix expected before the JWT token in the Authorization header
     public static final String TOKEN_PREFIX  = "Bearer ";
+
+    // The name of the HTTP header that carries the JWT token
     public static final String HEADER_STRING = "Authorization";
 
+    // Prevent instantiation — this class is a constants holder only
     private SecurityConstant() { throw new UnsupportedOperationException(); }
 }

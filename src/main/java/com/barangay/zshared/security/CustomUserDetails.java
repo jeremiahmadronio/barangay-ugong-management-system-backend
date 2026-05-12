@@ -10,8 +10,18 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+
+/**
+ * Wraps the User entity so Spring Security can understand it.
+ * Tells Spring who the user is, what their password is,
+ * and what they are allowed to do.
+ */
 public record CustomUserDetails(User user) implements UserDetails {
 
+    /**
+     * Returns the list of permissions for this user.
+     * Includes their role (e.g. ROLE_STAFF) and department (e.g. DEPT_BLOTTER).
+     */
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         List<GrantedAuthority> authorities = new ArrayList<>();
@@ -27,26 +37,32 @@ public record CustomUserDetails(User user) implements UserDetails {
                     ))
             );
         }
-
         return authorities;
     }
 
+    /** Returns the user's hashed password stored in the database. */
     @Override
     public String getPassword()  { return user.getPassword(); }
 
+    /** Returns the user's system email. Used as the identifier in the JWT token. */
     @Override
     public String getUsername()  { return user.getSystemEmail(); }
 
+    /** Returns true if the user is not locked out of the system. */
     @Override
     public boolean isAccountNonLocked() {
         return user.getIsLocked() != null && !user.getIsLocked();
     }
 
+    /** Returns true only if the user's status is ACTIVE. */
     @Override
     public boolean isEnabled() {
         return user.getStatus() == UserStatus.ACTIVE;
     }
 
+    /** Always true. Account expiry is not used in this system. */
     @Override public boolean isAccountNonExpired()   { return true; }
+
+    /** Always true. Credential expiry is not used in this system. */
     @Override public boolean isCredentialsNonExpired() { return true; }
 }

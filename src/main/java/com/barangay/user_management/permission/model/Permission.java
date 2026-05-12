@@ -4,13 +4,12 @@ import com.barangay.zshared.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
 @Entity
 @Table(name = "permission")
 @Getter @Setter
-@RequiredArgsConstructor @NoArgsConstructor
+ @NoArgsConstructor
 public class Permission extends BaseEntity {
 
     @Id
