@@ -2,23 +2,15 @@ package com.barangay.user_management.user.repository;
 
 import com.barangay.user_management.user.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.Optional;
-
+/**
+ * The main access point for all User data.
+ * It combines standard Spring Boot tools with our Manual/Complex
+ * queries from "UserRepositoryCustom".
+ */
 @Repository
-public interface UserRepository extends JpaRepository<User,Long> {
+public interface UserRepository extends JpaRepository<User,Long>,UserRepositoryCustom {
 
-    @Query("""
-        SELECT u FROM User u
-        LEFT JOIN FETCH u.role
-        LEFT JOIN FETCH u.departments
-        WHERE u.systemEmail = :email
-          AND u.isArchived = false
-        """)
-    Optional<User> findByEmailWithRoleAndDepartments(
-            @Param("email") String email
-    );
+
 }
