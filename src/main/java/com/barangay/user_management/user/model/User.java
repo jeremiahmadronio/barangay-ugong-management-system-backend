@@ -7,13 +7,13 @@ import com.barangay.zshared.entity.Archivable;
 import com.barangay.zshared.entity.BaseEntity;
 import com.barangay.zshared.enumerated.MfaType;
 import com.barangay.zshared.enumerated.UserStatus;
+import com.barangay.zshared.security.EncryptedFieldConverter;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -41,7 +41,8 @@ public class User extends BaseEntity implements Archivable {
     @Column(unique = true, columnDefinition = "TEXT")
     private String systemEmail;
 
-    @Column
+    @Convert(converter = EncryptedFieldConverter.class)
+    @Column(columnDefinition = "TEXT")
     private String systemBackupEmail;
 
     @Column
@@ -67,6 +68,7 @@ public class User extends BaseEntity implements Archivable {
     private LocalDateTime lastLoginAt;
 
 
+    @Convert(converter = EncryptedFieldConverter.class)
     @Column(name = "mfa_code", columnDefinition = "TEXT")
     private String mfaCode;
 
@@ -81,6 +83,7 @@ public class User extends BaseEntity implements Archivable {
     private Boolean isNewAccount = true;
 
     @Column(name = "totp_secret", columnDefinition = "TEXT")
+    @Convert(converter = EncryptedFieldConverter.class)
     private String totpSecret;
 
     @Column(name = "totp_enabled")
