@@ -1,7 +1,6 @@
 package com.barangay.user_management.user.repository;
 
 import com.barangay.user_management.user.model.User;
-import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
@@ -17,6 +16,6 @@ public interface UserRepositoryCustom {
      * This is only for the User entity logic.
      */
     Optional<User> findByEmailWithRoleAndDepartments(
-            @Param("email") String email
+            String email
     );
 }

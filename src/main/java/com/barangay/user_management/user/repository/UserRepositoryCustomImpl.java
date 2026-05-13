@@ -20,14 +20,14 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
   public Optional<User>findByEmailWithRoleAndDepartments(@Param("email") String email){
 
       // We manually write the query to fetch Role and Departments
-      // linked to the User entity in one trip. 
+      // linked to the User entity in one trip.
       String jpql = """
-              Select u from User u
-              Left join fetch u.role
-              Left join fetch u.departments
-              Where u.systemEmail = :email
-              And u.isArchived = false
-              """;
+              SELECT u FROM User u
+             LEFT JOIN FETCH u.role
+             LEFT JOIN FETCH u.departments
+             WHERE u.systemEmail = :email
+             AND u.isArchived = false
+             """;
       TypedQuery<User> query = entityManager.createQuery(jpql, User.class);
       query.setParameter("email", email);
 
