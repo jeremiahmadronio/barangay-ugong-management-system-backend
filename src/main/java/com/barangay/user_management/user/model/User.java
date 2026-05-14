@@ -1,5 +1,6 @@
 package com.barangay.user_management.user.model;
 
+import com.barangay.people.person.model.Person;
 import com.barangay.user_management.department.model.Department;
 import com.barangay.user_management.permission.model.Permission;
 import com.barangay.user_management.role.model.Role;
@@ -13,6 +14,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -28,7 +31,7 @@ public class User extends BaseEntity implements Archivable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Lob
+    @JdbcTypeCode(SqlTypes.VARBINARY)
     @Column(name = "system_photo", columnDefinition = "bytea")
     private byte[] systemPhoto;
 
@@ -106,6 +109,10 @@ public class User extends BaseEntity implements Archivable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
+
+    @OneToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "person_id", referencedColumnName = "id", unique = true)
+    private Person person;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(

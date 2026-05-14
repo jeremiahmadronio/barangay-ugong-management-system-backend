@@ -57,7 +57,8 @@ public record CustomUserDetails(User user) implements UserDetails {
     /** Returns true only if the user's status is ACTIVE. */
     @Override
     public boolean isEnabled() {
-        return user.getStatus() == UserStatus.ACTIVE;
+        return user.getStatus() == UserStatus.ACTIVE
+                && !Boolean.TRUE.equals(user.getIsArchived());
     }
 
     /** Always true. Account expiry is not used in this system. */
