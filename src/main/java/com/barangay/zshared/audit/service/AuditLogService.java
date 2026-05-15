@@ -37,6 +37,7 @@ public class AuditLogService {
         String actionTaken,
         Severity severity,
         String reason,
+        String ipAddress,
         Object oldValue,
         Object newValue
         ){
@@ -48,7 +49,7 @@ public class AuditLogService {
                     .actionTaken(actionTaken)
                     .severity(severity)
                     .reason(reason)
-                    .ipAddress(getClientIp())
+                    .ipAddress(ipAddress)
                     .oldValue(toJson(oldValue))
                     .newValue(toJson(newValue))
                     .build();

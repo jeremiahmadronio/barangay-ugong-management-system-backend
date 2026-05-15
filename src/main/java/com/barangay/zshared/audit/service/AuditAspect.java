@@ -3,6 +3,7 @@ package com.barangay.zshared.audit.service;
 import com.barangay.user_management.user.model.User;
 import com.barangay.zshared.audit.annotations.LogAudit;
 import com.barangay.zshared.security.CustomUserDetails;
+import com.barangay.zshared.util.NetworkUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -60,6 +61,9 @@ public class AuditAspect {
         // Get the currently logged-in user
         User currentUser = getCurrentUser();
 
+        // Get the current ipAddress of the user
+        String clientIp = NetworkUtil.getClientIp();
+
         // Save the audit log asynchronously
         auditService.log(
                 currentUser,
@@ -67,6 +71,7 @@ public class AuditAspect {
                 annotation.action(),
                 annotation.severity(),
                 annotation.reason().isBlank() ? null : annotation.reason(),
+                clientIp,
                 oldValue,
                 newValue
         );

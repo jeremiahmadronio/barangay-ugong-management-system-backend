@@ -83,6 +83,7 @@ public class TotpSetUpService {
                 "TOTP_ENABLED",
                 Severity.INFO,
                 "User enabled authenticator app",
+                ipAddress,
                 null,
                 null
         );
@@ -112,6 +113,7 @@ public class TotpSetUpService {
                 "TOTP_DISABLED",
                 Severity.WARNING,
                 "User disabled authenticator app",
+                ipAddress,
                 null,
                 null
         );

@@ -60,7 +60,7 @@ public class AuthService {
 
                 auditLogService.log(
                         user, AuditModule.SECURITY, "LOGIN_ATTEMPT_LOCKED",
-                        Severity.WARNING, "Attempt on locked account", null, null
+                        Severity.WARNING, "Attempt on locked account", ipAddress,null, null
                 );
                 throw new LockedException("Account is temporarily locked. Try again in " + minutesLeft + " minutes.");
             }
@@ -74,7 +74,7 @@ public class AuthService {
         if (user.getStatus() != UserStatus.ACTIVE) {
             auditLogService.log(
                     user, AuditModule.SECURITY, "LOGIN_ATTEMPT_INACTIVE",
-                    Severity.WARNING, "Attempt on inactive account: " + user.getStatus(), null, null
+                    Severity.WARNING, "Attempt on inactive account: " + user.getStatus(), ipAddress,null, null
             );
             throw new DisabledException("Account is inactive. Contact your administrator.");
         }
@@ -82,7 +82,7 @@ public class AuthService {
         if (Boolean.TRUE.equals(user.getIsArchived())) {
             auditLogService.log(
                     user, AuditModule.SECURITY, "LOGIN_ATTEMPT_ARCHIVED",
-                    Severity.WARNING, "Attempt on archived account", null, null
+                    Severity.WARNING, "Attempt on archived account", ipAddress,null, null
             );
             throw new DisabledException("This account has been removed. Contact your administrator.");
         }
@@ -114,7 +114,7 @@ public class AuthService {
 
         auditLogService.log(
                 user, AuditModule.SECURITY, "LOGIN_OTP_SENT",
-                Severity.INFO, "OTP sent to primary email", null, null
+                Severity.INFO, "OTP sent to primary email", ipAddress,null, null
         );
 
         return new LoginResponse(
@@ -135,7 +135,7 @@ public class AuthService {
      * Returns JWT on success.
      */
     @Transactional
-    public LoginResponse verifyMfa(MfaRequest request) {
+    public LoginResponse verifyMfa(MfaRequest request,String ipAddress) {
 
         User user = userRepository.findBySystemEmail(request.email())
                 .orElseThrow(() -> new UsernameNotFoundException("No account found with this email."));
@@ -166,7 +166,7 @@ public class AuthService {
         if (!isVerified) {
             auditLogService.log(
                     user, AuditModule.SECURITY, "MFA_VERIFICATION_FAILED",
-                    Severity.WARNING, "Failed MFA attempt via " + request.type(), null, null
+                    Severity.WARNING, "Failed MFA attempt via " + request.type(), ipAddress,null, null
             );
             throw new BadCredentialsException("Invalid or expired verification code. Please try again.");
         }
@@ -198,7 +198,7 @@ public class AuthService {
 
         auditLogService.log(
                 user, AuditModule.SECURITY, "LOGIN_SUCCESS",
-                Severity.INFO, "Successful login via " + request.type(), null, null
+                Severity.INFO, "Successful login via " + request.type(), ipAddress,null, null
         );
 
         return new LoginResponse(
@@ -215,7 +215,7 @@ public class AuthService {
 
 
     @Transactional
-    public void sendBackupOtp(String email) {
+    public void sendBackupOtp(String email,String ipAddress) {
         User user = userRepository.findBySystemEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("No account found."));
 
@@ -234,11 +234,11 @@ public class AuthService {
         mfaService.sendMfaEmail(user.getSystemBackupEmail(), user.getMfaCode());
 
         auditLogService.log(user, AuditModule.SECURITY, "BACKUP_OTP_SENT",
-                Severity.INFO, "OTP sent to backup email", null, null);
+                Severity.INFO, "OTP sent to backup email",ipAddress, null, null);
     }
 
     @Transactional
-    public void resendOtp(String email) {
+    public void resendOtp(String email,String ipAddress) {
         User user = userRepository.findBySystemEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("No account found."));
 
@@ -250,7 +250,7 @@ public class AuthService {
         mfaService.sendMfaEmail(user.getSystemEmail(), code);
 
         auditLogService.log(user, AuditModule.SECURITY, "OTP_RESENT",
-                Severity.INFO, "OTP resent to primary email", null, null);
+                Severity.INFO, "OTP resent to primary email", ipAddress,null, null);
     }
 
 
@@ -258,7 +258,7 @@ public class AuthService {
 
 
     @Transactional
-    public LoginResponse changePasswordNewAccount(ChangePasswordRequest request){
+    public LoginResponse changePasswordNewAccount(ChangePasswordRequest request,String ipAddress) {
 
         User user = userRepository.findBySystemEmail(request.email())
                 .orElseThrow(() -> new UsernameNotFoundException("No account found with this email: " + request.email()));
@@ -270,6 +270,7 @@ public class AuthService {
                     "Unauthorized password change",
                     Severity.WARNING,
                     "Unauthorized password change attempt on existing account",
+                    ipAddress,
                     null,
                     null
             );
@@ -291,7 +292,7 @@ public class AuthService {
                 user,
                 AuditModule.SECURITY,
                 "New Account Initialized",
-                Severity.INFO, null, null, null
+                Severity.INFO, null, ipAddress,null, null
         );
         return new LoginResponse(
                 "SUCCESS",
@@ -306,10 +307,23 @@ public class AuthService {
 
 
     @Transactional
-    public void initiateBackupEmailSetup(String primaryEmail, String backupEmail){
+    public void initiateBackupEmailSetup(String primaryEmail, String backupEmail,String ipAddress) {
         User user = userRepository.findBySystemEmail(primaryEmail)
                 .orElseThrow(() -> new UsernameNotFoundException("No account found with this email: " + primaryEmail));
 
+            // Validate backup email format first
+            if (backupEmail == null || backupEmail.isBlank()) {
+                throw new IllegalArgumentException("Backup email cannot be empty.");
+            }
+
+            if (!backupEmail.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
+                throw new IllegalArgumentException("Invalid email format: " + backupEmail);
+            }
+
+            // Cannot use same email as primary
+            if (backupEmail.equalsIgnoreCase(primaryEmail)) {
+                throw new IllegalArgumentException("Backup email cannot be the same as your primary email.");
+            }
 
         String code  = mfaService.generateCode();
         user.setMfaCode(code);
@@ -324,6 +338,7 @@ public class AuthService {
                 "Backup email setup initialized",
                 Severity.INFO,
                 null,
+                ipAddress,
                 null,
                 null
         );
@@ -331,7 +346,7 @@ public class AuthService {
 
 
     @Transactional
-    public void verifyAndSaveBackupEmail(String primaryEmail, String backupEmail, String code){
+    public void verifyAndSaveBackupEmail(String primaryEmail, String backupEmail, String code,String ipAddress) {
 
         User user = userRepository.findBySystemEmail(primaryEmail)
                 .orElseThrow(() -> new UsernameNotFoundException("No account found with this email: " + primaryEmail));
@@ -350,7 +365,7 @@ public class AuthService {
 
         auditLogService.log(
                 user, AuditModule.SECURITY, "Backup email set to: " + backupEmail,
-                Severity.INFO, null, null, null
+                Severity.INFO, null, ipAddress,null, null
         );
 
     }
@@ -412,7 +427,7 @@ public class AuthService {
 
         auditLogService.log(
                 user, AuditModule.SECURITY, "PASSWORD_RESET_SUCCESS",
-                Severity.WARNING, "User successfully reset password", null, null
+                Severity.WARNING, "User successfully reset password",ipAddress, null, null
         );
     }
 
@@ -450,7 +465,7 @@ public class AuthService {
 
             auditLogService.log(
                     user, AuditModule.SECURITY, "ACCOUNT_LOCKED",
-                    Severity.CRITICAL, "Account locked after " + attempts + " failed attempts", null, null
+                    Severity.CRITICAL, "Account locked after " + attempts + " failed attempts", ipAddress,null, null
             );
 
             throw new LockedException("Too many failed attempts. Account locked for 15 minutes.");
@@ -460,7 +475,7 @@ public class AuthService {
 
         auditLogService.log(
                 user, AuditModule.SECURITY, "LOGIN_FAILED",
-                Severity.WARNING, "Failed login attempt #" + attempts, null, null
+                Severity.WARNING, "Failed login attempt #" + attempts, ipAddress,null, null
         );
 
         throw new BadCredentialsException("Invalid email or password. Attempt " + attempts + " of 10.");
