@@ -214,6 +214,7 @@ public class AuthService {
 
 
 
+    /** Sends the OTP to the user's backup email instead of the primary email. */
     @Transactional
     public void sendBackupOtp(String email,String ipAddress) {
         User user = userRepository.findBySystemEmail(email)
@@ -237,6 +238,7 @@ public class AuthService {
                 Severity.INFO, "OTP sent to backup email",ipAddress, null, null);
     }
 
+    /** Generates and resends a new OTP to the user's primary email. */
     @Transactional
     public void resendOtp(String email,String ipAddress) {
         User user = userRepository.findBySystemEmail(email)
@@ -256,7 +258,11 @@ public class AuthService {
 
 
 
-
+    /**
+     * Sets the initial password for a newly created account.
+     * Only works once — throws an error if the account is already initialized.
+     * Returns a JWT on success.
+     */
     @Transactional
     public LoginResponse changePasswordNewAccount(ChangePasswordRequest request,String ipAddress) {
 
@@ -306,6 +312,10 @@ public class AuthService {
     }
 
 
+    /**
+     * Step 1 of backup email setup.
+     * Validates the backup email format, then sends an OTP to it for verification.
+     */
     @Transactional
     public void initiateBackupEmailSetup(String primaryEmail, String backupEmail,String ipAddress) {
         User user = userRepository.findBySystemEmail(primaryEmail)
@@ -345,6 +355,10 @@ public class AuthService {
     }
 
 
+    /**
+     * Step 2 of backup email setup.
+     * Verifies the OTP and saves the backup email to the user's account.
+     */
     @Transactional
     public void verifyAndSaveBackupEmail(String primaryEmail, String backupEmail, String code,String ipAddress) {
 
@@ -370,6 +384,10 @@ public class AuthService {
 
     }
 
+    /**
+     * Step 1 of forgot password flow.
+     * Sends an OTP to the user's primary email to verify their identity.
+     */
     @Transactional
     public void initiateForgotPassword(String email){
         User user = userRepository.findBySystemEmail(email)
@@ -384,7 +402,10 @@ public class AuthService {
     }
 
 
-
+    /**
+     * Step 2 of forgot password flow.
+     * Verifies the OTP before allowing the user to set a new password.
+     */
     @Transactional
     public void verifyResetCode(VerifyCodeRequest request) {
 
@@ -401,6 +422,11 @@ public class AuthService {
     }
 
 
+
+    /**
+     * Step 3 of forgot password flow.
+     * Verifies the OTP one more time then saves the new password.
+     */
     @Transactional
     public void completePasswordReset(ResetPasswordRequest request, String ipAddress) {
 
@@ -431,19 +457,7 @@ public class AuthService {
         );
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+    /** Returns true if the user's current OTP is missing or already expired. */
     private boolean isOtpExpired(User user) {
         return user.getMfaCode() == null || user.getMfaExpiry() == null
                 || user.getMfaExpiry().isBefore(LocalDateTime.now());
