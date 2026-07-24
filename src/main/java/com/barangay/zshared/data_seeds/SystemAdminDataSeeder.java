@@ -1,5 +1,9 @@
 package com.barangay.zshared.data_seeds;
 
+import com.barangay.user_management.department.model.Department;
+import com.barangay.user_management.department.repository.DepartmentRepository;
+import com.barangay.user_management.permission.model.Permission;
+import com.barangay.user_management.permission.repository.PermissionRepository;
 import com.barangay.user_management.role.model.Role;
 import com.barangay.user_management.role.repository.RoleRepository;
 import com.barangay.user_management.user.model.User;
@@ -15,21 +19,27 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
 
 /**
  * SystemAdminDataSeeder.java
  *
  * Initializer responsible for bootstrapping the initial System Administrator account.
- * Executes third (@Order(3)) as it depends on pre-existing Roles generated in Order 1.
+ * Executes fourth (@Order(4)) as it depends on pre-existing Roles, Departments, and Permissions.
+ * Grants ALL department access and ALL system permissions to the System Admin.
  */
 @Slf4j
 @Component
-@Order(3)
+@Order(4)
 @RequiredArgsConstructor
 public class SystemAdminDataSeeder implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final DepartmentRepository departmentRepository;
+    private final PermissionRepository permissionRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Value("${app.setup.admin-email}")
@@ -45,13 +55,23 @@ public class SystemAdminDataSeeder implements CommandLineRunner {
     }
 
     private void seedSystemAdmin() {
-        if (userRepository.findBySystemEmail(adminEmail).isPresent()) {
-            log.info("System Admin already exists. Skipping.");
-            return;
-        }
-
         Role rootAdminRole = roleRepository.findByRoleName("SYSTEM_ADMIN")
                 .orElseThrow(() -> new RuntimeException("SYSTEM_ADMIN role not found. Ensure RoleDataSeeder ran first."));
+
+        Set<Department> allDepartments = new HashSet<>(departmentRepository.findAll());
+        Set<Permission> allPermissions = new HashSet<>(permissionRepository.findAll());
+
+        Optional<User> existingAdminOpt = userRepository.findBySystemEmail(adminEmail);
+
+        if (existingAdminOpt.isPresent()) {
+            User admin = existingAdminOpt.get();
+            admin.setDepartments(allDepartments);
+            admin.setCustomPermissions(allPermissions);
+            userRepository.save(admin);
+            log.info("System Admin already exists. Updated with ALL ({}) departments and ALL ({}) permissions.",
+                    allDepartments.size(), allPermissions.size());
+            return;
+        }
 
         User admin = new User();
         admin.setSystemEmail(adminEmail);
@@ -62,8 +82,11 @@ public class SystemAdminDataSeeder implements CommandLineRunner {
         admin.setIsNewAccount(false);
         admin.setMfaType(MfaType.EMAIL);
         admin.setRole(rootAdminRole);
+        admin.setDepartments(allDepartments);
+        admin.setCustomPermissions(allPermissions);
 
         userRepository.save(admin);
-        log.info("System Admin created: {}", adminEmail);
+        log.info("System Admin created: {} with ALL ({}) departments and ALL ({}) permissions.",
+                adminEmail, allDepartments.size(), allPermissions.size());
     }
 }

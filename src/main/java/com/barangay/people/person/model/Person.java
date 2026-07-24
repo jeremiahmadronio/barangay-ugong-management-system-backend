@@ -1,6 +1,13 @@
 package com.barangay.people.person.model;
 
+import com.barangay.people.complainant.model.Complainant;
+import com.barangay.people.resident.model.Resident;
+import com.barangay.people.respondent.model.Respondent;
+import com.barangay.people.witness.model.Witness;
 import com.barangay.zshared.entity.BaseEntity;
+import com.barangay.zshared.security.EncryptedFieldConverter;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -11,12 +18,16 @@ import org.hibernate.annotations.JdbcTypeCode;
 import java.sql.Types;
 import java.time.LocalDate;
 import java.time.Period;
-
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "person")
-@Getter @Setter
-@AllArgsConstructor @NoArgsConstructor
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Person extends BaseEntity {
 
     @Id
@@ -24,6 +35,7 @@ public class Person extends BaseEntity {
     private Long id;
 
     @Lob
+    @Basic(fetch = FetchType.LAZY)
     @Column(name = "photo", columnDefinition = "bytea")
     private byte[] photo;
 
@@ -41,33 +53,63 @@ public class Person extends BaseEntity {
     @Column(length = 10)
     private String suffix;
 
-    @Column(name = "contact_number", length = 50)
+    @Convert(converter = EncryptedFieldConverter.class)
+    @Column(name = "contact_number", columnDefinition = "TEXT")
     private String contactNumber;
 
-    @Column(name = "complete_address", columnDefinition = "TEXT")
+    @Convert(converter = EncryptedFieldConverter.class)
+    @Column(columnDefinition = "TEXT", name = "complete_address")
     private String completeAddress;
 
     @Column(name = "is_resident")
     private Boolean isResident = false;
 
+    @Column(name = "age")
+    private Short age;
+
     @Column(name = "birth_date")
     private LocalDate birthDate;
-
-    @Transient
-    public int getAge() {
-        if (birthDate == null) return 0;
-        return Period.between(birthDate, LocalDate.now()).getYears();
-    }
 
     @Column(length = 20, name = "gender")
     private String gender;
 
-    @Column(name = "civil_status")
+    @Column(length = 50, name = "civil_status")
     private String civilStatus;
 
-    @Column(length = 255, name = "email")
+    @Convert(converter = EncryptedFieldConverter.class)
+    @Column(name = "email", columnDefinition = "TEXT")
     private String email;
 
+    @Convert(converter = EncryptedFieldConverter.class)
     @Column(name = "occupation", columnDefinition = "TEXT")
     private String occupation;
+
+    @Column(length = 255, name = "grade_school")
+    private String gradeSchool;
+
+    @Convert(converter = EncryptedFieldConverter.class)
+    @Column(name = "guardian_name", columnDefinition = "TEXT")
+    private String guardianName;
+
+    @OneToOne(mappedBy = "person", cascade = CascadeType.ALL)
+    @JsonManagedReference
+    private Resident resident;
+
+    @OneToMany(mappedBy = "person", fetch = FetchType.LAZY)
+    private List<Complainant> asComplainant = new ArrayList<>();
+
+    @OneToMany(mappedBy = "person", fetch = FetchType.LAZY)
+    private List<Respondent> asRespondent = new ArrayList<>();
+
+    @OneToMany(mappedBy = "person", fetch = FetchType.LAZY)
+    private List<Witness> asWitness = new ArrayList<>();
+
+    @OneToMany(mappedBy = "person", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Relationship> relationships = new ArrayList<>();
+
+    @Transient
+    public int getCalculatedAge() {
+        if (birthDate == null) return age != null ? age : 0;
+        return Period.between(birthDate, LocalDate.now()).getYears();
+    }
 }

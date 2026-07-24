@@ -14,6 +14,12 @@ public class SecurityConstant {
     // Endpoints that anyone can access without a token
     public static final String[] PUBLIC_ENDPOINTS = {
             "/api/v1/auth/**",
+            "/api/v1/departments/**",
+            "/api/v1/permissions/**",
+            "/api/v1/persons/**",
+            "/api/v1/users/stats",
+            "/api/v1/users/table",
+            "/api/v1/users/1",
             "/error"
     };
     // Endpoints that only ROOT_ADMIN can access
@@ -29,6 +35,7 @@ public class SecurityConstant {
     // Endpoints that ADMIN and ROOT_ADMIN can access
     public static final String[] ADMIN_ENDPOINTS = {
             "/api/v1/user-management/stats",
+            "/api/v1/users/stats",
             "/api/v1/users/{userId}/lock",
             "/api/v1/users/update-status"
     };
