@@ -1,8 +1,5 @@
-package com.barangay.user_management.user.configuration;
+package com.barangay.zshared.data_seeds;
 
-
-import com.barangay.user_management.department.model.Department;
-import com.barangay.user_management.department.repository.DepartmentRepository;
 import com.barangay.user_management.role.model.Role;
 import com.barangay.user_management.role.repository.RoleRepository;
 import com.barangay.user_management.user.model.User;
@@ -13,20 +10,26 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 
+/**
+ * SystemAdminDataSeeder.java
+ *
+ * Initializer responsible for bootstrapping the initial System Administrator account.
+ * Executes third (@Order(3)) as it depends on pre-existing Roles generated in Order 1.
+ */
 @Slf4j
 @Component
+@Order(3)
 @RequiredArgsConstructor
-public class DataInitializer implements CommandLineRunner {
+public class SystemAdminDataSeeder implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
-    private final DepartmentRepository departmentRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Value("${app.setup.admin-email}")
@@ -38,52 +41,8 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        seedRoles();
-        seedDepartments();
         seedSystemAdmin();
     }
-
-
-    private void seedRoles() {
-        List<String> roles = List.of(
-                "ROOT_ADMIN",
-                "KAPITANA",
-                "ADMIN",
-                "STAFF"
-        );
-
-        roles.forEach(name -> {
-            if (roleRepository.findByRoleName(name).isEmpty()) {
-                Role role = new Role();
-                role.setRoleName(name);
-                roleRepository.save(role);
-                log.info("Seeded role: {}", name);
-            }
-        });
-    }
-
-
-    private void seedDepartments() {
-        List<String> departments = List.of(
-                "BLOTTER",
-                "LUPON",
-                "VAWC",
-                "BCPC",
-                "CLEARANCE",
-                "FTJS"
-        );
-
-        departments.forEach(name -> {
-            if (departmentRepository.findByName(name).isEmpty()) {
-                Department dept = new Department();
-                dept.setName(name);
-                dept.setIsActive(true);
-                departmentRepository.save(dept);
-                log.info("Seeded department: {}", name);
-            }
-        });
-    }
-
 
     private void seedSystemAdmin() {
         if (userRepository.findBySystemEmail(adminEmail).isPresent()) {
@@ -91,8 +50,8 @@ public class DataInitializer implements CommandLineRunner {
             return;
         }
 
-        Role rootAdminRole = roleRepository.findByRoleName("ROOT_ADMIN")
-                .orElseThrow(() -> new RuntimeException("ROOT_ADMIN role not found. Make sure seedRoles() ran first."));
+        Role rootAdminRole = roleRepository.findByRoleName("SYSTEM_ADMIN")
+                .orElseThrow(() -> new RuntimeException("SYSTEM_ADMIN role not found. Ensure RoleDataSeeder ran first."));
 
         User admin = new User();
         admin.setSystemEmail(adminEmail);
