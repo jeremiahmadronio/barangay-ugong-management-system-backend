@@ -85,6 +85,9 @@ public class SecurityConstant {
     // Allowed frontend origins for cross-origin requests
     public static final String[] ALLOWED_ORIGINS = {
             "http://localhost:5173",
+            "http://localhost:5174",
+            "http://localhost:5175",
+            "http://localhost:5176",
             "http://localhost:3000",
             "https://baranggay-management.vercel.app"
     };

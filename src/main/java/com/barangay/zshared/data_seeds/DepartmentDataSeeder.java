@@ -38,7 +38,9 @@ public class DepartmentDataSeeder implements CommandLineRunner {
                 "VAWC",
                 "BCPC",
                 "CLEARANCE",
-                "FTJS"
+                "FTJS",
+                "ADMIN",
+                "KAPITANA"
         );
 
         departments.forEach(name -> {
