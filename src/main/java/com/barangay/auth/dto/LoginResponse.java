@@ -26,5 +26,11 @@ public record LoginResponse(
         boolean totpEnabled,
 
         // Whether the user has a backup email registered
-        boolean hasBackupEmail
+        boolean hasBackupEmail,
+
+        // User profile details
+        String firstName,
+        String lastName,
+        String username,
+        String photoUrl
 ) {}

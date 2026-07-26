@@ -16,6 +16,7 @@ import java.util.Optional;
 
 /**
  * Implementation of custom manual queries for User entity.
+ * Filters out SYSTEM_ADMIN and ROOTADMIN accounts from user management table and stats calculations.
  */
 public class UserRepositoryCustomImpl implements UserRepositoryCustom {
 
@@ -39,17 +40,19 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
 
     @Override
     public UserCountRawStats getRawUserStats(LocalDateTime startOfCurrentMonth) {
-        String jpqlTotal = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false";
-        String jpqlTotalPrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.createdAt < :startOfMonth";
+        String baseExcludeAdmin = " AND (u.role IS NULL OR UPPER(u.role.roleName) NOT IN ('SYSTEM_ADMIN', 'ROOTADMIN')) ";
 
-        String jpqlActive = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.status = com.barangay.zshared.enumerated.UserStatus.ACTIVE";
-        String jpqlActivePrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.status = com.barangay.zshared.enumerated.UserStatus.ACTIVE AND u.createdAt < :startOfMonth";
+        String jpqlTotal = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false" + baseExcludeAdmin;
+        String jpqlTotalPrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false" + baseExcludeAdmin + "AND u.createdAt < :startOfMonth";
 
-        String jpqlLocked = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.isLocked = true";
-        String jpqlLockedPrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.isLocked = true AND u.createdAt < :startOfMonth";
+        String jpqlActive = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false" + baseExcludeAdmin + "AND u.status = com.barangay.zshared.enumerated.UserStatus.ACTIVE";
+        String jpqlActivePrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false" + baseExcludeAdmin + "AND u.status = com.barangay.zshared.enumerated.UserStatus.ACTIVE AND u.createdAt < :startOfMonth";
 
-        String jpqlInactive = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.status = com.barangay.zshared.enumerated.UserStatus.INACTIVE";
-        String jpqlInactivePrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.status = com.barangay.zshared.enumerated.UserStatus.INACTIVE AND u.createdAt < :startOfMonth";
+        String jpqlLocked = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false" + baseExcludeAdmin + "AND u.isLocked = true";
+        String jpqlLockedPrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false" + baseExcludeAdmin + "AND u.isLocked = true AND u.createdAt < :startOfMonth";
+
+        String jpqlInactive = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false" + baseExcludeAdmin + "AND u.status = com.barangay.zshared.enumerated.UserStatus.INACTIVE";
+        String jpqlInactivePrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false" + baseExcludeAdmin + "AND u.status = com.barangay.zshared.enumerated.UserStatus.INACTIVE AND u.createdAt < :startOfMonth";
 
         long currentTotal = entityManager.createQuery(jpqlTotal, Long.class).getSingleResult();
         long previousTotal = entityManager.createQuery(jpqlTotalPrev, Long.class).setParameter("startOfMonth", startOfCurrentMonth).getSingleResult();
@@ -79,12 +82,13 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
                 LEFT JOIN FETCH u.role r
                 LEFT JOIN FETCH u.departments d
                 WHERE u.isArchived = false
+                AND (r.roleName IS NULL OR UPPER(r.roleName) NOT IN ('SYSTEM_ADMIN', 'ROOTADMIN'))
                 """);
 
         Map<String, Object> params = new HashMap<>();
 
         if (filter != null) {
-            //  Search filter (matches username, systemEmail, firstName, lastName, fullName)
+            // Search filter (matches username, systemEmail, firstName, lastName, fullName)
             if (filter.search() != null && !filter.search().isBlank()) {
                 jpql.append("""
                         AND (
@@ -98,19 +102,19 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
                 params.put("search", "%" + filter.search().trim() + "%");
             }
 
-            //  Role / Account Type filter
+            // Role / Account Type filter
             if (filter.roleName() != null && !filter.roleName().isBlank() && !"ALL".equalsIgnoreCase(filter.roleName())) {
                 jpql.append(" AND LOWER(r.roleName) = LOWER(:roleName) ");
                 params.put("roleName", filter.roleName().trim());
             }
 
-            //  Department filter
+            // Department filter
             if (filter.departmentName() != null && !filter.departmentName().isBlank() && !"ALL".equalsIgnoreCase(filter.departmentName())) {
                 jpql.append(" AND LOWER(d.name) = LOWER(:departmentName) ");
                 params.put("departmentName", filter.departmentName().trim());
             }
 
-            //  Status filter
+            // Status filter
             if (filter.status() != null) {
                 jpql.append(" AND u.status = :status ");
                 params.put("status", filter.status());

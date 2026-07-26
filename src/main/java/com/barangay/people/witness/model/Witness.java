@@ -4,6 +4,8 @@ import com.barangay.cases.blotter.model.BlotterCase;
 import com.barangay.people.person.model.Person;
 import com.barangay.zshared.entity.BaseEntity;
 import com.barangay.zshared.security.EncryptedFieldConverter;
+import org.hibernate.annotations.JdbcTypeCode;
+import java.sql.Types;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -34,7 +36,7 @@ public class Witness extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String testimony;
 
-    @Lob
+    @JdbcTypeCode(Types.VARBINARY)
     @Basic(fetch = FetchType.LAZY)
     @Column(name = "testimony_file", columnDefinition = "bytea")
     private byte[] testimonyFile;

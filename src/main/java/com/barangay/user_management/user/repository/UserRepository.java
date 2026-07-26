@@ -18,6 +18,8 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
 
     boolean existsBySystemEmail(String systemEmail);
 
+    boolean existsBySystemEmailAndStatusNot(String systemEmail, com.barangay.zshared.enumerated.UserStatus status);
+
     boolean existsByUsername(String username);
 
     boolean existsByPersonId(Long personId);

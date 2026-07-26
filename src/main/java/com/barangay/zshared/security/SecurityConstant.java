@@ -7,9 +7,10 @@ package com.barangay.zshared.security;
 public class SecurityConstant {
 
     // Role name constants used in security rules and authority checks
-    public static final String ROLE_ROOT_ADMIN = "ROOT_ADMIN";
-    public static final String ROLE_ADMIN      = "ADMIN";
-    public static final String ROLE_STAFF      = "STAFF";
+    public static final String ROLE_ROOT_ADMIN   = "ROOT_ADMIN";
+    public static final String ROLE_SYSTEM_ADMIN = "SYSTEM_ADMIN";
+    public static final String ROLE_ADMIN        = "ADMIN";
+    public static final String ROLE_STAFF        = "STAFF";
 
     // Endpoints that anyone can access without a token
     public static final String[] PUBLIC_ENDPOINTS = {
@@ -17,27 +18,20 @@ public class SecurityConstant {
             "/api/v1/departments/**",
             "/api/v1/permissions/**",
             "/api/v1/persons/**",
-            "/api/v1/users/stats",
-            "/api/v1/users/table",
-            "/api/v1/users/1",
             "/error"
     };
     // Endpoints that only ROOT_ADMIN can access
     public static final String[] ROOT_ADMIN_ENDPOINTS = {
             "/api/v1/dashboard/**",
-            "/api/v1/users/create-admin",
-            "/api/v1/users/update-admin",
-            "/api/v1/departments/**",
-            "/api/v1/roles/**",
             "/api/v1/audit/**"
     };
 
-    // Endpoints that ADMIN and ROOT_ADMIN can access
+    // Endpoints that ADMIN and ROOT_ADMIN (SYSTEM_ADMIN) can access
     public static final String[] ADMIN_ENDPOINTS = {
+            "/api/v1/users/**",
             "/api/v1/user-management/stats",
-            "/api/v1/users/stats",
-            "/api/v1/users/{userId}/lock",
-            "/api/v1/users/update-status"
+            "/api/v1/departments/**",
+            "/api/v1/roles/**"
     };
 
     // Endpoints restricted to ROOT_ADMIN or staff assigned to the VAWC department

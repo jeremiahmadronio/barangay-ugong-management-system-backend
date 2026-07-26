@@ -124,7 +124,11 @@ public class AuthService {
                 null,
                 null,
                 Boolean.TRUE.equals(user.getTotpEnabled()),
-                user.getSystemBackupEmail() != null
+                user.getSystemBackupEmail() != null,
+                user.getPerson() != null ? user.getPerson().getFirstName() : null,
+                user.getPerson() != null ? user.getPerson().getLastName() : null,
+                user.getUsername(),
+                null
         );
     }
 
@@ -180,6 +184,12 @@ public class AuthService {
         user.setLastLoginAt(LocalDateTime.now());
         userRepository.save(user);
 
+        // Extract profile details from linked Person or User entity
+        String firstName = user.getPerson() != null ? user.getPerson().getFirstName() : null;
+        String lastName = user.getPerson() != null ? user.getPerson().getLastName() : null;
+        String username = user.getUsername() != null ? user.getUsername() : user.getSystemEmail();
+        String photoUrl = null; // Can be photo endpoint URL if needed
+
         // New account — must change password first
         if (Boolean.TRUE.equals(user.getIsNewAccount())) {
             return new LoginResponse(
@@ -189,7 +199,11 @@ public class AuthService {
                     null,
                     null,
                     Boolean.TRUE.equals(user.getTotpEnabled()),
-                    user.getSystemBackupEmail() != null
+                    user.getSystemBackupEmail() != null,
+                    firstName,
+                    lastName,
+                    username,
+                    photoUrl
             );
         }
 
@@ -208,7 +222,11 @@ public class AuthService {
                 getDepartmentNames(user),
                 token,
                 Boolean.TRUE.equals(user.getTotpEnabled()),
-                user.getSystemBackupEmail() != null
+                user.getSystemBackupEmail() != null,
+                firstName,
+                lastName,
+                username,
+                photoUrl
         );
     }
 
@@ -307,7 +325,11 @@ public class AuthService {
                 getDepartmentNames(user),
                 token,
                 Boolean.TRUE.equals(user.getTotpEnabled()),
-                user.getSystemBackupEmail() != null
+                user.getSystemBackupEmail() != null,
+                user.getPerson() != null ? user.getPerson().getFirstName() : null,
+                user.getPerson() != null ? user.getPerson().getLastName() : null,
+                user.getUsername(),
+                null
         );
     }
 

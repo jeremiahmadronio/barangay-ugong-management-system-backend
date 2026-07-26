@@ -3,6 +3,8 @@ package com.barangay.people.resident.model;
 import com.barangay.zshared.entity.BaseEntity;
 import com.barangay.zshared.enumerated.ResidentDocumentStatus;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import java.sql.Types;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -30,7 +32,7 @@ public class ResidentDocument extends BaseEntity {
     @Column(nullable = false, name = "document_type")
     private String documentType;
 
-    @Lob
+    @JdbcTypeCode(Types.VARBINARY)
     @Column(name = "file_data", columnDefinition = "bytea")
     private byte[] fileData;
 

@@ -37,6 +37,7 @@ public record UserDetailResponse(
         Integer failedAttempts,
         LocalDateTime lockUntil,
         String statusRemarks,
+        List<UserActivityResponse> recentActivities,
 
         // 5. Audit Trail Timestamps
         LocalDateTime createdAt,
@@ -44,6 +45,18 @@ public record UserDetailResponse(
         LocalDateTime archivedAt,
         String archiveRemarks
 ) {
+    /**
+     * Nested record for User Audit Logs / Activity history.
+     */
+    public record UserActivityResponse(
+            Long id,
+            String actionTaken,
+            String module,
+            String severity,
+            String reason,
+            String ipAddress,
+            LocalDateTime timestamp
+    ) {}
     /**
      * Nested record for Person / Resident summary details.
      */

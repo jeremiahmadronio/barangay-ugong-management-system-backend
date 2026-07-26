@@ -49,8 +49,20 @@ public class UserService {
     private final RoleRepository roleRepository;
     private final DepartmentRepository departmentRepository;
     private final PermissionRepository permissionRepository;
+    private final com.barangay.zshared.audit.repository.AuditLogsRepository auditLogsRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+
+    /**
+     * Checks if a system email is already taken by a non-archived user account.
+     */
+    @Transactional(readOnly = true)
+    public boolean checkEmailExists(String email) {
+        if (email == null || email.isBlank()) {
+            return false;
+        }
+        return userRepository.existsBySystemEmailAndStatusNot(email.trim(), UserStatus.ARCHIVED);
+    }
 
     /**
      * Fetches detailed User Profile for viewing.
@@ -109,7 +121,22 @@ public class UserService {
                 : List.of();
 
         String roleName = user.getRole() != null ? user.getRole().getRoleName() : "N/A";
-        String accountType = roleName;
+        String accountType = roleName.toUpperCase().contains("ADMIN") ? "Admin" : "User";
+
+        List<UserDetailResponse.UserActivityResponse> recentActivities = auditLogsRepository
+                .findByUserIdOrderByCreatedAtDesc(user.getId())
+                .stream()
+                .limit(30)
+                .map(logItem -> new UserDetailResponse.UserActivityResponse(
+                        logItem.getId(),
+                        logItem.getActionTaken(),
+                        logItem.getModule() != null ? logItem.getModule().name() : "GENERAL",
+                        logItem.getSeverity() != null ? logItem.getSeverity().name() : "INFO",
+                        logItem.getReason(),
+                        logItem.getIpAddress(),
+                        logItem.getCreatedAt()
+                ))
+                .collect(Collectors.toList());
 
         return new UserDetailResponse(
                 user.getId(),
@@ -130,6 +157,7 @@ public class UserService {
                 user.getFailedAttempts(),
                 user.getLockUntil(),
                 user.getStatusRemarks(),
+                recentActivities,
                 user.getCreatedAt(),
                 user.getUpdatedAt(),
                 user.getArchivedAt(),
@@ -358,8 +386,9 @@ public class UserService {
                 ? user.getDepartments().stream().map(Department::getName).collect(Collectors.toList())
                 : List.of();
 
-        String roleName = user.getRole() != null ? user.getRole().getRoleName() : "N/A";
-        String accountType = roleName;
+        String rawRole = user.getRole() != null ? user.getRole().getRoleName() : "USER";
+        String roleName = rawRole.toUpperCase().contains("ADMIN") ? "Admin" : "User";
+        String accountType = rawRole.toUpperCase().contains("ADMIN") ? "Admin" : "User";
 
         return new UserTableResponse(
                 user.getId(),
@@ -458,12 +487,20 @@ public class UserService {
         validateUserUnicity(request.personId(), request.systemEmail());
 
         Role adminRole = roleRepository.findByRoleName("ADMIN")
-                .orElseThrow(() -> new ResourceNotFoundException("ADMIN role not found in the system."));
+                .orElseGet(() -> roleRepository.findByRoleName("SYSTEM_ADMIN")
+                        .orElseThrow(() -> new ResourceNotFoundException("Neither ADMIN nor SYSTEM_ADMIN role was found in the system.")));
 
         String generatedUsername = generateUniqueUsername(request.systemEmail());
         String tempPassword = generateTemporaryPassword();
 
         User adminUser = buildBaseUserEntity(person, request.systemEmail(), request.systemBackupEmail(), generatedUsername, tempPassword, adminRole, request.isActivated());
+
+        // Automatically assign all non-admin departments to Admin accounts
+        List<Department> allDepts = departmentRepository.findAll();
+        Set<Department> nonAdminDepts = allDepts.stream()
+                .filter(d -> !d.getName().trim().equalsIgnoreCase("ADMIN") && !d.getName().trim().equalsIgnoreCase("SYSTEM_ADMIN"))
+                .collect(Collectors.toSet());
+        adminUser.setDepartments(nonAdminDepts);
 
         User savedAdmin = userRepository.save(adminUser);
 

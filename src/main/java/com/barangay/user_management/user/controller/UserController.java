@@ -26,9 +26,17 @@ public class UserController {
     private final UserService userService;
 
     /**
+     * Endpoint to check if a system email address is taken by an active non-archived user.
+     */
+    @GetMapping("/check-email")
+    public ResponseEntity<Boolean> checkEmailExists(@RequestParam String email) {
+        return ResponseEntity.ok(userService.checkEmailExists(email));
+    }
+
+    /**
      * Endpoint to fetch detailed User Profile for viewing.
      */
-    @GetMapping("/{userId}")
+    @GetMapping("/{userId}/details")
     public ResponseEntity<UserDetailResponse> getUserDetail(@PathVariable Long userId) {
         return ResponseEntity.ok(userService.getUserDetail(userId));
     }

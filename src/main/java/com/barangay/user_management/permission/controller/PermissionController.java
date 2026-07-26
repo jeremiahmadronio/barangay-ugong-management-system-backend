@@ -19,10 +19,25 @@ public class PermissionController {
     private final PermissionService permissionService;
 
     /**
-     * Endpoint to fetch all system permissions for UI checkbox selection.
+     * Endpoint to fetch all system permissions or permissions filtered by department name.
      */
     @GetMapping
-    public ResponseEntity<List<PermissionResponse>> getAllPermissions() {
+    public ResponseEntity<List<PermissionResponse>> getPermissions(
+            @RequestParam(name = "department", required = false) String department) {
+
+        if (department != null && !department.isBlank()) {
+            return ResponseEntity.ok(permissionService.getPermissionsByDepartment(department));
+        }
+
         return ResponseEntity.ok(permissionService.getAllPermissions());
+    }
+
+    /**
+     * Endpoint to fetch permissions for a specific department.
+     */
+    @GetMapping("/by-department")
+    public ResponseEntity<List<PermissionResponse>> getPermissionsByDepartment(
+            @RequestParam(name = "departmentName") String departmentName) {
+        return ResponseEntity.ok(permissionService.getPermissionsByDepartment(departmentName));
     }
 }

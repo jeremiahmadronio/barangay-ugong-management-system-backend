@@ -34,7 +34,7 @@ public class Person extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Lob
+    @JdbcTypeCode(Types.VARBINARY)
     @Basic(fetch = FetchType.LAZY)
     @Column(name = "photo", columnDefinition = "bytea")
     private byte[] photo;
