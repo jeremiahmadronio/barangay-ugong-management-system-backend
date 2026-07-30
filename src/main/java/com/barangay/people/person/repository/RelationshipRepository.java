@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface RelationshipRepository extends JpaRepository<Relationship, Long> {
     List<Relationship> findByPersonId(Long personId);
+    boolean existsByPersonIdAndRelativeId(Long personId, Long relativeId);
 }
+

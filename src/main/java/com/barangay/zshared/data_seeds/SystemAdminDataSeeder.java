@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,7 @@ public class SystemAdminDataSeeder implements CommandLineRunner {
     private final DepartmentRepository departmentRepository;
     private final PermissionRepository permissionRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JdbcTemplate jdbcTemplate;
 
     @Value("${app.setup.admin-email}")
     private String adminEmail;
@@ -51,7 +53,18 @@ public class SystemAdminDataSeeder implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
+        updateResidentCheckConstraint();
         seedSystemAdmin();
+    }
+
+    private void updateResidentCheckConstraint() {
+        try {
+            jdbcTemplate.execute("ALTER TABLE resident DROP CONSTRAINT IF EXISTS resident_status_check;");
+            jdbcTemplate.execute("ALTER TABLE resident ADD CONSTRAINT resident_status_check CHECK (status IN ('ACTIVE', 'INACTIVE', 'DECEASED', 'MOVED_OUT', 'ARCHIVED'));");
+            log.info("Successfully updated resident_status_check constraint to include ARCHIVED status.");
+        } catch (Exception e) {
+            log.warn("Could not alter resident_status_check constraint: {}", e.getMessage());
+        }
     }
 
     private void seedSystemAdmin() {

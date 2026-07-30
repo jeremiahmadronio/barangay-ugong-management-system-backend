@@ -4,5 +4,6 @@ public enum ResidentStatus {
     ACTIVE,
     INACTIVE,
     DECEASED,
-    MOVED_OUT
+    MOVED_OUT,
+    ARCHIVED
 }

@@ -35,7 +35,6 @@ public class Person extends BaseEntity {
     private Long id;
 
     @JdbcTypeCode(Types.VARBINARY)
-    @Basic(fetch = FetchType.LAZY)
     @Column(name = "photo", columnDefinition = "bytea")
     private byte[] photo;
 

@@ -115,7 +115,7 @@ public class UserController {
      * Endpoint to archive a user account (Soft Delete).
      */
     @PatchMapping("/{userId}/archive")
-    @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "ARCHIVE_USER", severity = Severity.WARNING)
+    @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "ARCHIVE_USER", severity = Severity.INFO)
     public ResponseEntity<UserResponse> archiveUser(
             @PathVariable Long userId,
             @RequestBody(required = false) UserArchiveRequest request

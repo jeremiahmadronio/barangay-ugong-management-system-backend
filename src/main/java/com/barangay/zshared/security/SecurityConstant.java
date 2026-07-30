@@ -1,4 +1,5 @@
 package com.barangay.zshared.security;
+
 /**
  * Holds all the constant values used across the security layer.
  * Keeps role names, endpoint arrays, and CORS settings in one place
@@ -18,12 +19,16 @@ public class SecurityConstant {
             "/api/v1/departments/**",
             "/api/v1/permissions/**",
             "/api/v1/persons/**",
+            "/api/v1/archive/**",
+            "/api/v1/admin/**",
             "/error"
     };
+
     // Endpoints that only ROOT_ADMIN can access
     public static final String[] ROOT_ADMIN_ENDPOINTS = {
             "/api/v1/dashboard/**",
-            "/api/v1/audit/**"
+            "/api/v1/audit/**",
+            "/api/v1/audit-logs/**"
     };
 
     // Endpoints that ADMIN and ROOT_ADMIN (SYSTEM_ADMIN) can access

@@ -50,7 +50,7 @@ public class SecurityConfig {
      */
     private static AuthorizationManager<RequestAuthorizationContext> deptAccess(String dept) {
         return new WebExpressionAuthorizationManager(
-                "hasRole('ROOT_ADMIN') or " +
+                "hasAnyRole('ROOT_ADMIN', 'SYSTEM_ADMIN') or " +
                         "(hasAnyRole('ADMIN','STAFF') and hasAuthority('DEPT_" + dept + "'))"
         );
     }
@@ -75,7 +75,7 @@ public class SecurityConfig {
                         .requestMatchers(BCPC_ENDPOINTS).access(deptAccess("BCPC"))
                         .requestMatchers(CLEARANCE_ENDPOINTS).access(deptAccess("CLEARANCE"))
                         .requestMatchers(FTJS_ENDPOINTS).access(deptAccess("FTJS"))
-                        .requestMatchers(SHARED_CASE_ENDPOINTS).hasAnyRole(ROLE_ROOT_ADMIN, ROLE_ADMIN, ROLE_STAFF)
+                        .requestMatchers(SHARED_CASE_ENDPOINTS).hasAnyRole(ROLE_ROOT_ADMIN, ROLE_SYSTEM_ADMIN, ROLE_ADMIN, ROLE_STAFF)
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

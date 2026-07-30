@@ -23,4 +23,11 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
     boolean existsByUsername(String username);
 
     boolean existsByPersonId(Long personId);
+
+    long countByStatus(com.barangay.zshared.enumerated.UserStatus status);
+
+    java.util.List<User> findAllByStatus(com.barangay.zshared.enumerated.UserStatus status);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(u) FROM User u WHERE (u.isArchived = false OR u.isArchived IS NULL) AND u.createdAt <= :cutoff AND (u.role IS NULL OR UPPER(u.role.roleName) NOT IN ('SYSTEM_ADMIN', 'ROOTADMIN', 'ROOT_ADMIN', 'ROLE_SYSTEM_ADMIN', 'ROLE_ROOT_ADMIN'))")
+    long countNonAdminUsersCreatedOnOrBefore(@org.springframework.data.repository.query.Param("cutoff") java.time.LocalDateTime cutoff);
 }

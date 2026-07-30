@@ -9,4 +9,6 @@ import org.springframework.stereotype.Repository;
 public interface AuditLogsRepository extends JpaRepository<AuditLogs, Long>, JpaSpecificationExecutor<AuditLogs> {
 
     java.util.List<AuditLogs> findByUserIdOrderByCreatedAtDesc(Long userId);
+
+    java.util.List<AuditLogs> findByOrderByCreatedAtDesc(org.springframework.data.domain.Pageable pageable);
 }
