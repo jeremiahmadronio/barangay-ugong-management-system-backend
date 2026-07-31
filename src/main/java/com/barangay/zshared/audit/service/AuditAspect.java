@@ -1,6 +1,6 @@
 package com.barangay.zshared.audit.service;
 
-import com.barangay.user_management.user.model.User;
+import com.barangay.usermanagement.user.model.User;
 import com.barangay.zshared.audit.annotations.LogAudit;
 import com.barangay.zshared.security.CustomUserDetails;
 import com.barangay.zshared.util.NetworkUtil;

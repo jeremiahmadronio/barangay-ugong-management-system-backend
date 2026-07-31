@@ -28,4 +28,13 @@ public class Complainant extends BaseEntity {
     @Convert(converter = EncryptedFieldConverter.class)
     @Column(name = "relationship_to_child", columnDefinition = "TEXT")
     private String relationshipToChild;
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public Person getPerson() { return person; }
+    public void setPerson(Person person) { this.person = person; }
+
+    public String getRelationshipToChild() { return relationshipToChild; }
+    public void setRelationshipToChild(String relationshipToChild) { this.relationshipToChild = relationshipToChild; }
 }

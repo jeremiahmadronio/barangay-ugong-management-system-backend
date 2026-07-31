@@ -6,8 +6,8 @@ import com.barangay.people.resident.dto.*;
 import com.barangay.people.resident.model.Resident;
 import com.barangay.people.resident.repository.ResidentRepository;
 import com.barangay.people.resident.service.ResidentService;
-import com.barangay.user_management.user.dto.StatMetric;
-import com.barangay.user_management.user.dto.UserDetailResponse.PersonSummaryInfo;
+import com.barangay.usermanagement.user.dto.StatMetric;
+import com.barangay.usermanagement.user.dto.UserDetailResponse.PersonSummaryInfo;
 import com.barangay.zshared.enumerated.ResidentStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -321,9 +321,16 @@ public class ResidentServiceImpl implements ResidentService {
                             r.getResidentId(),
                             p != null ? p.getId() : null,
                             fullName,
+                            p != null ? p.getFirstName() : null,
+                            p != null ? p.getLastName() : null,
+                            p != null ? p.getMiddleName() : null,
                             r.getBarangayIdNumber(),
                             p != null ? p.getEmail() : null,
                             p != null ? p.getContactNumber() : null,
+                            p != null ? p.getCompleteAddress() : null,
+                            p != null ? p.getCalculatedAge() : null,
+                            p != null ? p.getGender() : null,
+                            p != null ? p.getCivilStatus() : null,
                             r.getStatus() != null ? r.getStatus().name() : "ACTIVE",
                             photoStr
                     );

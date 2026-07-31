@@ -1,7 +1,7 @@
 package com.barangay.auth.service;
 
-import com.barangay.user_management.user.model.User;
-import com.barangay.user_management.user.repository.UserRepository;
+import com.barangay.usermanagement.user.model.User;
+import com.barangay.usermanagement.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.security.authentication.event.AuthenticationFailureBadCredentialsEvent;

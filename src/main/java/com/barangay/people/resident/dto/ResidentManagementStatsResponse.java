@@ -1,6 +1,6 @@
 package com.barangay.people.resident.dto;
 
-import com.barangay.user_management.user.dto.StatMetric;
+import com.barangay.usermanagement.user.dto.StatMetric;
 
 /**
  * Response payload for Resident Management dashboard metrics.

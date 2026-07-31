@@ -1,6 +1,6 @@
 package com.barangay.zshared.audit.model;
 
-import com.barangay.user_management.user.model.User;
+import com.barangay.usermanagement.user.model.User;
 import com.barangay.zshared.entity.BaseEntity;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;

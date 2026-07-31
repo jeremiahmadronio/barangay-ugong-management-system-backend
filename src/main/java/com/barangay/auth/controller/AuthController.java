@@ -60,7 +60,7 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<Void>initiateForgotPassword(String email) {
+    public ResponseEntity<Void> initiateForgotPassword(@RequestParam("email") String email) {
         authService.initiateForgotPassword(email);
         return ResponseEntity.ok().build();
     }
@@ -73,8 +73,8 @@ public class AuthController {
 
 
     @PostMapping("/forgot-password/reset")
-    public ResponseEntity<Void>completePasswordReset(ResetPasswordRequest request){
-        authService.completePasswordReset(request,NetworkUtil.getClientIp());
+    public ResponseEntity<Void> completePasswordReset(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.completePasswordReset(request, NetworkUtil.getClientIp());
         return ResponseEntity.ok().build();
     }
 

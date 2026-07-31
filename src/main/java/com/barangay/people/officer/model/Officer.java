@@ -1,7 +1,7 @@
 package com.barangay.people.officer.model;
 
 import com.barangay.people.person.model.Person;
-import com.barangay.user_management.department.model.Department;
+import com.barangay.usermanagement.department.model.Department;
 import com.barangay.zshared.entity.BaseEntity;
 import com.barangay.zshared.enumerated.OfficerStatus;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;

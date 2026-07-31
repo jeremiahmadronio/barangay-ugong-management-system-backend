@@ -19,8 +19,11 @@ public class SecurityConstant {
             "/api/v1/departments/**",
             "/api/v1/permissions/**",
             "/api/v1/persons/**",
+            "/api/v1/residents/**",
+            "/api/v1/officers/**",
             "/api/v1/archive/**",
             "/api/v1/admin/**",
+            "/api/v1/blotter/**",
             "/error"
     };
 
@@ -64,7 +67,8 @@ public class SecurityConstant {
 
     // Endpoints restricted to ROOT_ADMIN or staff assigned to the CLEARANCE department
     public static final String[] CLEARANCE_ENDPOINTS = {
-            "/api/v1/clearance/**"
+            "/api/v1/clearance/**",
+            "/api/v1/permits/**"
     };
 
     // Endpoints restricted to ROOT_ADMIN or staff assigned to the FTJS department
@@ -72,38 +76,28 @@ public class SecurityConstant {
             "/api/v1/ftjs/**"
     };
 
-    // Endpoints that any authenticated user can access regardless of department
+    // Endpoints accessible by any logged in staff regardless of department
     public static final String[] SHARED_CASE_ENDPOINTS = {
             "/api/v1/cases/**",
-            "/api/v1/residents/**",
-            "/api/v1/persons/**",
-            "/api/v1/ftjs/**",
-            "/api/v1/certificates/**"
+            "/api/v1/cases/shared/**",
+            "/api/v1/hearings/**",
+            "/api/v1/notices/**"
     };
 
-    // Allowed frontend origins for cross-origin requests
+    // CORS configuration settings
     public static final String[] ALLOWED_ORIGINS = {
             "http://localhost:5173",
-            "http://localhost:5174",
-            "http://localhost:5175",
-            "http://localhost:5176",
             "http://localhost:3000",
-            "https://baranggay-management.vercel.app"
+            "http://localhost:8080",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:3000"
     };
 
-    // Allowed HTTP methods for cross-origin requests
-    public static final String[] ALLOWED_METHODS =
-            {"GET","POST","PUT","DELETE","PATCH","OPTIONS"};
+    public static final String[] ALLOWED_METHODS = {
+            "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
+    };
 
-    // Allowed request headers for cross-origin requests
-    public static final String[] ALLOWED_HEADERS = {"*"};
-
-    // The prefix expected before the JWT token in the Authorization header
-    public static final String TOKEN_PREFIX  = "Bearer ";
-
-    // The name of the HTTP header that carries the JWT token
-    public static final String HEADER_STRING = "Authorization";
-
-    // Prevent instantiation — this class is a constants holder only
-    private SecurityConstant() { throw new UnsupportedOperationException(); }
+    public static final String[] ALLOWED_HEADERS = {
+            "Authorization", "Content-Type", "X-Requested-With", "Accept"
+    };
 }

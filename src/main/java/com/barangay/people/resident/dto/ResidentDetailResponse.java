@@ -1,6 +1,6 @@
 package com.barangay.people.resident.dto;
 
-import com.barangay.user_management.user.dto.UserDetailResponse.PersonSummaryInfo;
+import com.barangay.usermanagement.user.dto.UserDetailResponse.PersonSummaryInfo;
 import com.barangay.zshared.enumerated.ResidentStatus;
 
 import java.time.LocalDate;

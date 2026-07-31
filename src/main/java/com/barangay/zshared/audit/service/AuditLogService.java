@@ -1,7 +1,7 @@
 package com.barangay.zshared.audit.service;
 
 import com.barangay.people.person.model.Person;
-import com.barangay.user_management.user.model.User;
+import com.barangay.usermanagement.user.model.User;
 import com.barangay.zshared.audit.dto.AuditLogResponse;
 import com.barangay.zshared.audit.dto.AuditLogStatsResponse;
 import com.barangay.zshared.audit.model.AuditLogs;

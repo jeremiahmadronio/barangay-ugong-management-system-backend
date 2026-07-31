@@ -1,5 +1,9 @@
 package com.barangay.zshared.enumerated;
 
 public enum SessionStatus {
-    SCHEDULED, ONGOING, COMPLETED, CANCELLED
+    SCHEDULED,
+    COMPLETED,
+    CANCELLED,
+    RESCHEDULED,
+    PENDING_MINUTES
 }

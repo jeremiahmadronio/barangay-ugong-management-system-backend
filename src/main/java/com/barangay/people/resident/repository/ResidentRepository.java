@@ -17,6 +17,7 @@ import java.util.Optional;
 public interface ResidentRepository extends JpaRepository<Resident, Long> {
     Optional<Resident> findByBarangayIdNumber(String barangayIdNumber);
     Optional<Resident> findByPersonId(Long personId);
+    Optional<Resident> findByPerson_Id(Long personId);
     boolean existsByBarangayIdNumber(String barangayIdNumber);
 
     long countByStatus(ResidentStatus status);
@@ -43,6 +44,21 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
             @Param("gender") String gender
     );
 
+    /** Returns the highest numeric sequence from barangay_id_number, for generating the next one. */
+    @Query("SELECT r.barangayIdNumber FROM Resident r WHERE r.barangayIdNumber IS NOT NULL ORDER BY r.residentId DESC LIMIT 1")
+    Optional<String> findLatestBarangayIdNumber();
+
+    /** Finds active residents matching search term for Blotter/Officer selection. */
+    @Query("SELECT r FROM Resident r JOIN r.person p WHERE r.status = com.barangay.zshared.enumerated.ResidentStatus.ACTIVE AND (" +
+           ":search IS NULL OR :search = '' OR " +
+           "LOWER(p.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(p.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(COALESCE(p.middleName, '')) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(CONCAT(p.firstName, ' ', p.lastName)) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(CONCAT(p.firstName, ' ', COALESCE(p.middleName, ''), ' ', p.lastName)) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(r.barangayIdNumber) LIKE LOWER(CONCAT('%', :search, '%')))")
+    List<Resident> searchActiveResidents(@Param("search") String search);
+
     /** Returns the most recently created resident to derive the next sequential ID. */
     @Query("SELECT r FROM Resident r ORDER BY r.residentId DESC LIMIT 1")
     Optional<Resident> findLatestResident();
@@ -50,11 +66,6 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
     /** Returns the latest household number used, for suggesting the next one. */
     @Query("SELECT r.householdNumber FROM Resident r WHERE r.householdNumber IS NOT NULL ORDER BY r.residentId DESC LIMIT 1")
     Optional<String> findLatestHouseholdNumber();
-
-    /** Finds active residents matching search term for Officer creation and other dropdown searches. */
-    @Query("SELECT r FROM Resident r JOIN r.person p WHERE r.status = com.barangay.zshared.enumerated.ResidentStatus.ACTIVE AND (" +
-           ":search IS NULL OR :search = '' OR LOWER(p.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(p.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(CONCAT(p.firstName, ' ', p.lastName)) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(r.barangayIdNumber) LIKE LOWER(CONCAT('%', :search, '%')))")
-    List<Resident> searchActiveResidents(@Param("search") String search);
 
     /** Finds all residents whose person last name matches (case-insensitive), used for relative suggestions. */
     @Query("SELECT r FROM Resident r JOIN r.person p WHERE LOWER(p.lastName) = LOWER(:lastName) AND r.status = 'ACTIVE'")

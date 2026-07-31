@@ -1,8 +1,8 @@
 package com.barangay.zshared.audit.repository;
 
 import com.barangay.people.person.model.Person;
-import com.barangay.user_management.role.model.Role;
-import com.barangay.user_management.user.model.User;
+import com.barangay.usermanagement.role.model.Role;
+import com.barangay.usermanagement.user.model.User;
 import com.barangay.zshared.audit.model.AuditLogs;
 import com.barangay.zshared.enumerated.Severity;
 import org.springframework.data.jpa.domain.Specification;

@@ -1,6 +1,6 @@
 package com.barangay.zshared.security;
 
-import com.barangay.user_management.user.repository.UserRepository;
+import com.barangay.usermanagement.user.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;

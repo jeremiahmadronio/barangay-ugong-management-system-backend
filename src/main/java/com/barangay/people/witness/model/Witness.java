@@ -1,6 +1,6 @@
 package com.barangay.people.witness.model;
 
-import com.barangay.cases.blotter.model.BlotterCase;
+import com.barangay.cases.sharedmodel.Case;
 import com.barangay.people.person.model.Person;
 import com.barangay.zshared.entity.BaseEntity;
 import com.barangay.zshared.security.EncryptedFieldConverter;
@@ -26,7 +26,7 @@ public class Witness extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "case_id", nullable = false)
-    private BlotterCase blotterCase;
+    private Case aCase;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "person_id")

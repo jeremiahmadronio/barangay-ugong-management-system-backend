@@ -1,8 +1,8 @@
 package com.barangay.auth.service;
 
 import com.barangay.auth.dto.*;
-import com.barangay.user_management.user.model.User;
-import com.barangay.user_management.user.repository.UserRepository;
+import com.barangay.usermanagement.user.model.User;
+import com.barangay.usermanagement.user.repository.UserRepository;
 import com.barangay.zshared.audit.service.AuditLogService;
 import com.barangay.zshared.enumerated.MfaType;
 import com.barangay.zshared.enumerated.UserStatus;
@@ -105,7 +105,7 @@ class AuthServiceTest {
         user.setFailedAttempts(0);
         user.setDepartments(Set.of());
 
-        var role = mock(com.barangay.user_management.role.model.Role.class);
+        var role = mock(com.barangay.usermanagement.role.model.Role.class);
         lenient().when(role.getRoleName()).thenReturn("ROLE_RESIDENT");
         user.setRole(role);
         return user;

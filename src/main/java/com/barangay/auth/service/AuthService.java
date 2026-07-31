@@ -1,8 +1,8 @@
 package com.barangay.auth.service;
 
 import com.barangay.auth.dto.*;
-import com.barangay.user_management.user.model.User;
-import com.barangay.user_management.user.repository.UserRepository;
+import com.barangay.usermanagement.user.model.User;
+import com.barangay.usermanagement.user.repository.UserRepository;
 import com.barangay.zshared.audit.service.AuditLogService;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;
@@ -49,9 +49,11 @@ public class AuthService {
     @Transactional
     public LoginResponse login(LoginRequest request, String ipAddress) {
 
+        String cleanEmail = request.email() != null ? request.email().trim() : "";
         // Find user by email
-        User user = userRepository.findBySystemEmail(request.email())
-                .orElseThrow(() -> new UsernameNotFoundException("No account found with this email."));
+        User user = userRepository.findBySystemEmail(cleanEmail)
+                .orElseGet(() -> userRepository.findByEmailWithRoleAndDepartments(cleanEmail)
+                        .orElseThrow(() -> new UsernameNotFoundException("No account found with this email.")));
 
         // Check if account is locked
         if (Boolean.TRUE.equals(user.getIsLocked())) {
@@ -90,7 +92,7 @@ public class AuthService {
         //  Verify credentials
         try {
             authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.email(), request.password())
+                    new UsernamePasswordAuthenticationToken(cleanEmail, request.password())
             );
         } catch (BadCredentialsException e) {
             handleFailedAttempt(user, ipAddress);
@@ -141,8 +143,10 @@ public class AuthService {
     @Transactional
     public LoginResponse verifyMfa(MfaRequest request,String ipAddress) {
 
-        User user = userRepository.findBySystemEmail(request.email())
-                .orElseThrow(() -> new UsernameNotFoundException("No account found with this email."));
+        String cleanEmail = request.email() != null ? request.email().trim() : "";
+        User user = userRepository.findBySystemEmail(cleanEmail)
+                .orElseGet(() -> userRepository.findByEmailWithRoleAndDepartments(cleanEmail)
+                        .orElseThrow(() -> new UsernameNotFoundException("No account found with this email.")));
 
         boolean isVerified = false;
 
@@ -284,8 +288,10 @@ public class AuthService {
     @Transactional
     public LoginResponse changePasswordNewAccount(ChangePasswordRequest request,String ipAddress) {
 
-        User user = userRepository.findBySystemEmail(request.email())
-                .orElseThrow(() -> new UsernameNotFoundException("No account found with this email: " + request.email()));
+        String cleanEmail = request.email() != null ? request.email().trim() : "";
+        User user = userRepository.findBySystemEmail(cleanEmail)
+                .orElseGet(() -> userRepository.findByEmailWithRoleAndDepartments(cleanEmail)
+                        .orElseThrow(() -> new UsernameNotFoundException("No account found with this email: " + request.email())));
 
         if(!Boolean.TRUE.equals(user.getIsNewAccount())){
             auditLogService.log(
@@ -308,7 +314,7 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         user.setIsNewAccount(false);
         user.setLastLoginAt(LocalDateTime.now());
-        userRepository.save(user);
+        userRepository.saveAndFlush(user);
 
         String token = generateToken(user);
 
@@ -412,13 +418,15 @@ public class AuthService {
      */
     @Transactional
     public void initiateForgotPassword(String email){
-        User user = userRepository.findBySystemEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("No account found with this email: " + email));
+        String cleanEmail = email != null ? email.trim() : "";
+        User user = userRepository.findBySystemEmail(cleanEmail)
+                .orElseGet(() -> userRepository.findByEmailWithRoleAndDepartments(cleanEmail)
+                        .orElseThrow(() -> new UsernameNotFoundException("No account found with this email: " + email)));
 
         String code = mfaService.generateCode();
         user.setMfaCode(code);
         user.setMfaExpiry(LocalDateTime.now().plusMinutes(5));
-        userRepository.save(user);
+        userRepository.saveAndFlush(user);
 
         mfaService.sendMfaEmail(user.getSystemEmail(), code);
     }
@@ -431,8 +439,10 @@ public class AuthService {
     @Transactional
     public void verifyResetCode(VerifyCodeRequest request) {
 
-        User user = userRepository.findBySystemEmail(request.email())
-                .orElseThrow(() -> new UsernameNotFoundException("No account found with this email"));
+        String cleanEmail = request.email() != null ? request.email().trim() : "";
+        User user = userRepository.findBySystemEmail(cleanEmail)
+                .orElseGet(() -> userRepository.findByEmailWithRoleAndDepartments(cleanEmail)
+                        .orElseThrow(() -> new UsernameNotFoundException("No account found with this email")));
 
         if (user.getMfaCode() == null || !user.getMfaCode().equals(request.code())) {
             throw new BadCredentialsException("The verification code is invalid. Please check and try again.");
@@ -452,8 +462,10 @@ public class AuthService {
     @Transactional
     public void completePasswordReset(ResetPasswordRequest request, String ipAddress) {
 
-        User user = userRepository.findBySystemEmail(request.email())
-                .orElseThrow(() -> new UsernameNotFoundException("No account found with this email"));
+        String cleanEmail = request.email() != null ? request.email().trim() : "";
+        User user = userRepository.findBySystemEmail(cleanEmail)
+                .orElseGet(() -> userRepository.findByEmailWithRoleAndDepartments(cleanEmail)
+                        .orElseThrow(() -> new UsernameNotFoundException("No account found with this email")));
 
         if (user.getMfaCode() == null || !user.getMfaCode().equals(request.code())) {
             throw new BadCredentialsException("Unauthorized reset attempt. Verification failed.");
@@ -471,7 +483,7 @@ public class AuthService {
         user.setMfaCode(null);
         user.setMfaExpiry(null);
         user.setIsNewAccount(false);
-        userRepository.save(user);
+        userRepository.saveAndFlush(user);
 
         auditLogService.log(
                 user, AuditModule.SECURITY, "PASSWORD_RESET_SUCCESS",
