@@ -41,31 +41,44 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
 
     @Override
     public UserCountRawStats getRawUserStats(LocalDateTime startOfCurrentMonth) {
-        String baseExcludeAdmin = " AND (u.role IS NULL OR UPPER(u.role.roleName) NOT IN ('SYSTEM_ADMIN', 'ROOTADMIN')) ";
+        LocalDateTime startOfPrevMonth = startOfCurrentMonth.minusMonths(1);
+        LocalDateTime endOfPrevMonth = startOfCurrentMonth.minusNanos(1);
 
-        String jpqlTotal = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false" + baseExcludeAdmin;
-        String jpqlTotalPrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false" + baseExcludeAdmin + "AND u.createdAt < :startOfMonth";
+        String jpqlTotal = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false";
+        String jpqlTotalPrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.createdAt >= :startOfPrevMonth AND u.createdAt <= :endOfPrevMonth";
 
-        String jpqlActive = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false" + baseExcludeAdmin + "AND u.status = com.barangay.zshared.enumerated.UserStatus.ACTIVE";
-        String jpqlActivePrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false" + baseExcludeAdmin + "AND u.status = com.barangay.zshared.enumerated.UserStatus.ACTIVE AND u.createdAt < :startOfMonth";
+        String jpqlActive = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.status = com.barangay.zshared.enumerated.UserStatus.ACTIVE";
+        String jpqlActivePrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.status = com.barangay.zshared.enumerated.UserStatus.ACTIVE AND u.createdAt >= :startOfPrevMonth AND u.createdAt <= :endOfPrevMonth";
 
-        String jpqlLocked = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false" + baseExcludeAdmin + "AND u.isLocked = true";
-        String jpqlLockedPrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false" + baseExcludeAdmin + "AND u.isLocked = true AND u.createdAt < :startOfMonth";
+        String jpqlLocked = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.isLocked = true";
+        String jpqlLockedPrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.isLocked = true AND u.createdAt >= :startOfPrevMonth AND u.createdAt <= :endOfPrevMonth";
 
-        String jpqlInactive = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false" + baseExcludeAdmin + "AND u.status = com.barangay.zshared.enumerated.UserStatus.INACTIVE";
-        String jpqlInactivePrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false" + baseExcludeAdmin + "AND u.status = com.barangay.zshared.enumerated.UserStatus.INACTIVE AND u.createdAt < :startOfMonth";
+        String jpqlInactive = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.status = com.barangay.zshared.enumerated.UserStatus.INACTIVE";
+        String jpqlInactivePrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.status = com.barangay.zshared.enumerated.UserStatus.INACTIVE AND u.createdAt >= :startOfPrevMonth AND u.createdAt <= :endOfPrevMonth";
 
         long currentTotal = entityManager.createQuery(jpqlTotal, Long.class).getSingleResult();
-        long previousTotal = entityManager.createQuery(jpqlTotalPrev, Long.class).setParameter("startOfMonth", startOfCurrentMonth).getSingleResult();
+        long previousTotal = entityManager.createQuery(jpqlTotalPrev, Long.class)
+                .setParameter("startOfPrevMonth", startOfPrevMonth)
+                .setParameter("endOfPrevMonth", endOfPrevMonth)
+                .getSingleResult();
 
         long currentActive = entityManager.createQuery(jpqlActive, Long.class).getSingleResult();
-        long previousActive = entityManager.createQuery(jpqlActivePrev, Long.class).setParameter("startOfMonth", startOfCurrentMonth).getSingleResult();
+        long previousActive = entityManager.createQuery(jpqlActivePrev, Long.class)
+                .setParameter("startOfPrevMonth", startOfPrevMonth)
+                .setParameter("endOfPrevMonth", endOfPrevMonth)
+                .getSingleResult();
 
         long currentLocked = entityManager.createQuery(jpqlLocked, Long.class).getSingleResult();
-        long previousLocked = entityManager.createQuery(jpqlLockedPrev, Long.class).setParameter("startOfMonth", startOfCurrentMonth).getSingleResult();
+        long previousLocked = entityManager.createQuery(jpqlLockedPrev, Long.class)
+                .setParameter("startOfPrevMonth", startOfPrevMonth)
+                .setParameter("endOfPrevMonth", endOfPrevMonth)
+                .getSingleResult();
 
         long currentInactive = entityManager.createQuery(jpqlInactive, Long.class).getSingleResult();
-        long previousInactive = entityManager.createQuery(jpqlInactivePrev, Long.class).setParameter("startOfMonth", startOfCurrentMonth).getSingleResult();
+        long previousInactive = entityManager.createQuery(jpqlInactivePrev, Long.class)
+                .setParameter("startOfPrevMonth", startOfPrevMonth)
+                .setParameter("endOfPrevMonth", endOfPrevMonth)
+                .getSingleResult();
 
         return new UserCountRawStats(
                 currentTotal, previousTotal,
@@ -83,7 +96,6 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
                 LEFT JOIN FETCH u.role r
                 LEFT JOIN FETCH u.departments d
                 WHERE u.isArchived = false
-                AND (r.roleName IS NULL OR UPPER(r.roleName) NOT IN ('SYSTEM_ADMIN', 'ROOTADMIN'))
                 """);
 
         Map<String, Object> params = new HashMap<>();

@@ -1,5 +1,18 @@
 package com.barangay.zshared.dataseeds;
 
+import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.barangay.people.person.model.Person;
 import com.barangay.people.person.repository.PersonRepository;
 import com.barangay.usermanagement.department.model.Department;
@@ -10,23 +23,11 @@ import com.barangay.usermanagement.role.model.Role;
 import com.barangay.usermanagement.role.repository.RoleRepository;
 import com.barangay.usermanagement.user.model.User;
 import com.barangay.usermanagement.user.repository.UserRepository;
-import com.barangay.zshared.enumerated.Gender;
 import com.barangay.zshared.enumerated.MfaType;
 import com.barangay.zshared.enumerated.UserStatus;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.core.annotation.Order;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDate;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
 
 /**
  * SystemAdminDataSeeder.java

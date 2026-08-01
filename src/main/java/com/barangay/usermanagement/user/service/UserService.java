@@ -423,10 +423,12 @@ public class UserService {
 
     private StatMetric calculateMetric(long currentCount, long previousCount) {
         double change;
-        if (previousCount == 0) {
-            change = currentCount > 0 ? 100.0 : 0.0;
+        if (currentCount == 0) {
+            change = 0.0;
+        } else if (previousCount == 0) {
+            change = 100.0;
         } else {
-            change = ((double) (currentCount - previousCount) / previousCount) * 100.0;
+            change = ((double) (currentCount - previousCount) / (double) currentCount) * 100.0;
         }
 
         String direction;

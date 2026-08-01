@@ -22,6 +22,8 @@ public interface OfficerRepository extends JpaRepository<Officer, Long> {
 
     long countByCreatedAtBeforeAndStatusIn(LocalDateTime timestamp, Collection<OfficerStatus> statuses);
 
+    long countByCreatedAtBetweenAndStatusIn(LocalDateTime start, LocalDateTime end, Collection<OfficerStatus> statuses);
+
     @Query("SELECT o FROM Officer o LEFT JOIN o.person p LEFT JOIN o.department d WHERE " +
            "(:search IS NULL OR :search = '' OR " +
            " LOWER(p.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +

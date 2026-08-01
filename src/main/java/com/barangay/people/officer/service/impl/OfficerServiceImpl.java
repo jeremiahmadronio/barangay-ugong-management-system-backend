@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
@@ -35,22 +36,22 @@ public class OfficerServiceImpl implements OfficerService {
         long inactiveStaff = officerRepository.countByStatus(OfficerStatus.INACTIVE);
         long departmentsCount = departmentRepository.count();
 
-        // Calculate Month-over-Month trend for Total Officers ONLY (ACTIVE + INACTIVE)
-        LocalDateTime lastMonthCutoff = LocalDateTime.now().minusMonths(1);
-        long previousMonthCount = officerRepository.countByCreatedAtBeforeAndStatusIn(lastMonthCutoff, activeAndInactive);
+        // Calculate Month-over-Month trend for Total Officers cumulative headcount
+        LocalDateTime startOfCurrentMonth = LocalDate.now().withDayOfMonth(1).atStartOfDay();
+        long officersBeforeCurrentMonth = officerRepository.countByCreatedAtBeforeAndStatusIn(startOfCurrentMonth, activeAndInactive);
 
         String trendText;
-        if (previousMonthCount == 0) {
-            trendText = totalOfficers > 0 ? "+100% vs last month" : "vs last month";
+        if (officersBeforeCurrentMonth == 0) {
+            trendText = totalOfficers > 0 ? "+100.0% vs last month" : "0.0% vs last month";
         } else {
-            long diff = totalOfficers - previousMonthCount;
-            double percentage = ((double) diff / previousMonthCount) * 100.0;
-            if (percentage > 0) {
-                trendText = String.format("+%.1f%% vs last month", percentage);
-            } else if (percentage < 0) {
-                trendText = String.format("%.1f%% vs last month", percentage);
+            double diff = ((double) (totalOfficers - officersBeforeCurrentMonth) / (double) officersBeforeCurrentMonth) * 100.0;
+            double rounded = Math.round(diff * 10.0) / 10.0;
+            if (rounded > 0) {
+                trendText = String.format("+%.1f%% vs last month", rounded);
+            } else if (rounded < 0) {
+                trendText = String.format("%.1f%% vs last month", rounded);
             } else {
-                trendText = "0% vs last month";
+                trendText = "0.0% vs last month";
             }
         }
 

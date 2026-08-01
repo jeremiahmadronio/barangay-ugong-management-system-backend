@@ -7,6 +7,10 @@ package com.barangay.zshared.security;
  */
 public class SecurityConstant {
 
+        // JWT header/token constants
+        public static final String AUTHORIZATION_HEADER = "Authorization";
+        public static final String BEARER_TOKEN_PREFIX = "Bearer ";
+
     // Role name constants used in security rules and authority checks
     public static final String ROLE_ROOT_ADMIN   = "ROOT_ADMIN";
     public static final String ROLE_SYSTEM_ADMIN = "SYSTEM_ADMIN";

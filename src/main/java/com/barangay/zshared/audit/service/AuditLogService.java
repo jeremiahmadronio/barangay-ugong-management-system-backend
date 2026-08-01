@@ -63,6 +63,9 @@ public class AuditLogService {
         Object newValue
         ){
         try{
+            String resolvedIpAddress = (ipAddress != null && !ipAddress.isBlank())
+                ? ipAddress
+                : getClientIp();
 
             AuditLogs auditLog = AuditLogs.builder()
                     .user(user)
@@ -70,7 +73,7 @@ public class AuditLogService {
                     .actionTaken(actionTaken)
                     .severity(severity)
                     .reason(reason)
-                    .ipAddress(ipAddress)
+                .ipAddress(resolvedIpAddress)
                     .oldValue(toJson(oldValue))
                     .newValue(toJson(newValue))
                     .build();
@@ -95,7 +98,7 @@ public class AuditLogService {
         Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         Specification<AuditLogs> specification = Specification
-                .where(search(searchTerm))
+                .allOf(search(searchTerm))
                 .and(hasSeverity(severity))
                 .and(createdOnOrAfter(fromDate != null ? fromDate.atStartOfDay() : null))
                 .and(createdOnOrBefore(toDate != null ? toDate.atTime(LocalTime.MAX) : null));

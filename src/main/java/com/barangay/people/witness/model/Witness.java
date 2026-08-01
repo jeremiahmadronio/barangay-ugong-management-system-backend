@@ -1,5 +1,6 @@
 package com.barangay.people.witness.model;
 
+
 import com.barangay.cases.sharedmodel.Case;
 import com.barangay.people.person.model.Person;
 import com.barangay.zshared.entity.BaseEntity;
@@ -28,7 +29,7 @@ public class Witness extends BaseEntity {
     @JoinColumn(name = "case_id", nullable = false)
     private Case aCase;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JoinColumn(name = "person_id")
     private Person person;
 

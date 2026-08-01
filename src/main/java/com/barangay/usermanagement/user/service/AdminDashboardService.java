@@ -9,6 +9,7 @@ import com.barangay.zshared.dto.AdminDashboardDTO;
 import com.barangay.zshared.enumerated.OfficerStatus;
 import com.barangay.zshared.enumerated.ResidentStatus;
 import com.barangay.zshared.enumerated.UserStatus;
+import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -25,6 +26,7 @@ import java.util.*;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Builder
 public class AdminDashboardService {
 
     private final UserRepository userRepository;

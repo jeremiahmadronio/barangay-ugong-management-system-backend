@@ -24,6 +24,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/v1/blotter")
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 @RequiredArgsConstructor
 public class BlotterController {
 
@@ -47,14 +48,22 @@ public class BlotterController {
     }
 
     /**
-     * Fetch list of all Blotter Cases with search & status filtering.
+     * Fetch list of all Blotter Cases with search, status filtering, and optional pagination.
      */
     @GetMapping
-    public ResponseEntity<List<BlotterCaseResponse>> getAllBlotterCases(
+    public ResponseEntity<?> getAllBlotterCases(
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) String status
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String natureOfComplaint,
+            @RequestParam(required = false) String filingType,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size
     ) {
-        return ResponseEntity.ok(blotterService.getAllBlotterCases(search, status));
+        if (page != null && size != null) {
+            org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+            return ResponseEntity.ok(blotterService.getBlotterCasesPage(search, status, natureOfComplaint, filingType, pageable));
+        }
+        return ResponseEntity.ok(blotterService.getAllBlotterCases(search, status, natureOfComplaint, filingType));
     }
 
     /**

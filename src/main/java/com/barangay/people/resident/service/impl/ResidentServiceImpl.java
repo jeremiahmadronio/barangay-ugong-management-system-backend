@@ -66,16 +66,17 @@ public class ResidentServiceImpl implements ResidentService {
     }
 
     private StatMetric calculateMetric(long current, long previous) {
-        if (previous == 0) {
-            double pct = current > 0 ? 100.0 : 0.0;
-            String direction = current > 0 ? "UP" : "NEUTRAL";
-            String text = String.format("%s%.1f%% vs last month", current > 0 ? "+" : "", pct);
-            return new StatMetric(current, pct, direction, text);
+        if (current == 0) {
+            return new StatMetric(0L, 0.0, "NEUTRAL", "0.0% vs last month");
         }
-        double diff = ((double) (current - previous) / previous) * 100.0;
-        String direction = diff > 0 ? "UP" : diff < 0 ? "DOWN" : "NEUTRAL";
-        String text = String.format("%s%.1f%% vs last month", diff > 0 ? "+" : "", diff);
-        return new StatMetric(current, Math.round(diff * 10.0) / 10.0, direction, text);
+        if (previous == 0) {
+            return new StatMetric(current, 100.0, "UP", "+100.0% vs last month");
+        }
+        double diff = ((double) (current - previous) / (double) current) * 100.0;
+        double rounded = Math.round(diff * 10.0) / 10.0;
+        String direction = rounded > 0 ? "UP" : rounded < 0 ? "DOWN" : "NEUTRAL";
+        String text = String.format("%s%.1f%% vs last month", rounded > 0 ? "+" : "", rounded);
+        return new StatMetric(current, rounded, direction, text);
     }
 
     @Override

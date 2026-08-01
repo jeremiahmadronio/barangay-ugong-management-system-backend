@@ -35,6 +35,7 @@ public record BlotterCaseResponse(
         Integer witnessCount,
 
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        String dateFiledFormatted
 ) {
 }

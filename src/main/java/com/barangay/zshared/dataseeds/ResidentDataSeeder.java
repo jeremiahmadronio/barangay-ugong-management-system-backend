@@ -1,5 +1,14 @@
 package com.barangay.zshared.dataseeds;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.barangay.people.person.model.Person;
 import com.barangay.people.person.model.Relationship;
 import com.barangay.people.person.repository.PersonRepository;
@@ -7,13 +16,8 @@ import com.barangay.people.person.repository.RelationshipRepository;
 import com.barangay.people.resident.model.Resident;
 import com.barangay.people.resident.repository.ResidentRepository;
 import com.barangay.zshared.enumerated.ResidentStatus;
-import lombok.RequiredArgsConstructor;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.util.*;
+import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
@@ -62,7 +66,6 @@ public class ResidentDataSeeder implements CommandLineRunner {
                 "Salazar", "Hidalgo", "Velasquez", "Ocampo", "Manalo", "Tolentino", "Magno", "Roxas"
         };
 
-        String[] civilStatuses = {"Single", "Married", "Widowed", "Separated"};
         String[] educationalAttainments = {
                 "Elementary Graduate", "High School Graduate", "Vocational/Technical",
                 "College Graduate", "Post Graduate"

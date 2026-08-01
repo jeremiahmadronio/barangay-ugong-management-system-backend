@@ -18,6 +18,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.barangay.people.person.repository.PersonRepository;
+
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -32,6 +34,7 @@ import java.util.stream.Collectors;
 public class BlotterService {
 
     private final CaseRepository caseRepository;
+    private final PersonRepository personRepository;
 
     /**
      * Creates and saves a new Blotter Case entry (Formal Complaint or For the Record).
@@ -76,6 +79,8 @@ public class BlotterService {
             );
             compPerson.setCompleteAddress(fullAddr);
 
+            compPerson = personRepository.save(compPerson);
+
             Complainant complainant = new Complainant();
             complainant.setPerson(compPerson);
             newCase.setComplainant(complainant);
@@ -99,6 +104,8 @@ public class BlotterService {
                     request.respondent().completeAddress()
             );
             respPerson.setCompleteAddress(fullAddr);
+
+            respPerson = personRepository.save(respPerson);
 
             Respondent respondent = new Respondent();
             respondent.setPerson(respPerson);
@@ -149,10 +156,12 @@ public class BlotterService {
                 if (wDto.firstName() == null && wDto.lastName() == null) continue;
 
                 Person wPerson = new Person();
-                wPerson.setFirstName(wDto.firstName());
-                wPerson.setLastName(wDto.lastName());
+                wPerson.setFirstName(wDto.firstName() != null ? wDto.firstName() : "Witness");
+                wPerson.setLastName(wDto.lastName() != null ? wDto.lastName() : "N/A");
                 wPerson.setContactNumber(wDto.contactNumber());
                 wPerson.setCompleteAddress(buildFullAddress(wDto.houseStreet(), wDto.barangay(), wDto.city(), wDto.province(), wDto.completeAddress()));
+
+                wPerson = personRepository.save(wPerson);
 
                 Witness witness = new Witness();
                 witness.setACase(newCase);
@@ -166,44 +175,17 @@ public class BlotterService {
         return mapToResponse(savedCase);
     }
 
-    /**
-     * Retrieves all active (non-archived) Blotter Cases with optional searching and status filtering.
-     */
+
     @Transactional(readOnly = true)
-    public List<BlotterCaseResponse> getAllBlotterCases(String search, String status) {
-        List<Case> cases = caseRepository.findAll();
+    public List<BlotterCaseResponse> getAllBlotterCases(String search, String status, String natureOfComplaint, String filingType) {
+        List<Case> cases = caseRepository.findFilteredCasesList(search, status, natureOfComplaint, filingType);
+        return cases.stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
 
-        return cases.stream()
-                .filter(c -> Boolean.FALSE.equals(c.getIsArchived()))
-                .filter(c -> {
-                    if (search == null || search.isBlank()) return true;
-                    String q = search.trim().toLowerCase();
-                    boolean matchCaseNo = c.getCaseNumber() != null && c.getCaseNumber().toLowerCase().contains(q);
-                    
-                    boolean matchCompLast = c.getComplainant() != null && c.getComplainant().getPerson() != null &&
-                            c.getComplainant().getPerson().getLastName() != null &&
-                            c.getComplainant().getPerson().getLastName().toLowerCase().contains(q);
-                    boolean matchCompFirst = c.getComplainant() != null && c.getComplainant().getPerson() != null &&
-                            c.getComplainant().getPerson().getFirstName() != null &&
-                            c.getComplainant().getPerson().getFirstName().toLowerCase().contains(q);
-
-                    boolean matchRespLast = c.getRespondent() != null && c.getRespondent().getPerson() != null &&
-                            c.getRespondent().getPerson().getLastName() != null &&
-                            c.getRespondent().getPerson().getLastName().toLowerCase().contains(q);
-                    boolean matchRespFirst = c.getRespondent() != null && c.getRespondent().getPerson() != null &&
-                            c.getRespondent().getPerson().getFirstName() != null &&
-                            c.getRespondent().getPerson().getFirstName().toLowerCase().contains(q);
-
-                    return matchCaseNo || matchCompLast || matchCompFirst || matchRespLast || matchRespFirst;
-                })
-                .filter(c -> {
-                    if (status == null || status.isBlank() || status.equalsIgnoreCase("all")) return true;
-                    if (c.getCaseStatus() == null) return false;
-                    String sName = c.getCaseStatus().name();
-                    return sName.equalsIgnoreCase(status) || sName.replace("_", " ").equalsIgnoreCase(status.replace("_", " "));
-                })
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<BlotterCaseResponse> getBlotterCasesPage(String search, String status, String natureOfComplaint, String filingType, org.springframework.data.domain.Pageable pageable) {
+        org.springframework.data.domain.Page<Case> casesPage = caseRepository.findFilteredCases(search, status, natureOfComplaint, filingType, pageable);
+        return casesPage.map(this::mapToResponse);
     }
 
     /**
@@ -254,21 +236,65 @@ public class BlotterService {
     }
 
     /**
-     * Calculates Blotter dashboard summary statistics.
+     * Calculates Blotter dashboard summary statistics separated for Formal Complaint vs For the Record.
      */
     @Transactional(readOnly = true)
     public BlotterStatsResponse getBlotterStats() {
         List<Case> cases = caseRepository.findAll();
 
+        java.time.LocalDateTime startOfCurrentMonth = java.time.LocalDate.now().withDayOfMonth(1).atStartOfDay();
+        java.time.LocalDateTime startOfPrevMonth = startOfCurrentMonth.minusMonths(1);
+
+        long currentMonthCases = cases.stream().filter(c -> Boolean.FALSE.equals(c.getIsArchived()) && c.getCreatedAt() != null && !c.getCreatedAt().isBefore(startOfCurrentMonth)).count();
+        long previousMonthCases = cases.stream().filter(c -> Boolean.FALSE.equals(c.getIsArchived()) && c.getCreatedAt() != null && !c.getCreatedAt().isBefore(startOfPrevMonth) && c.getCreatedAt().isBefore(startOfCurrentMonth)).count();
+
+        long currentMonthRecord = cases.stream().filter(c -> Boolean.FALSE.equals(c.getIsArchived()) && (c.getFilingType() == null || c.getFilingType() == FilingType.FOR_RECORD_ONLY) && c.getCreatedAt() != null && !c.getCreatedAt().isBefore(startOfCurrentMonth)).count();
+        long previousMonthRecord = cases.stream().filter(c -> Boolean.FALSE.equals(c.getIsArchived()) && (c.getFilingType() == null || c.getFilingType() == FilingType.FOR_RECORD_ONLY) && c.getCreatedAt() != null && !c.getCreatedAt().isBefore(startOfPrevMonth) && c.getCreatedAt().isBefore(startOfCurrentMonth)).count();
+
         long total = cases.stream().filter(c -> Boolean.FALSE.equals(c.getIsArchived())).count();
         long pending = cases.stream().filter(c -> Boolean.FALSE.equals(c.getIsArchived()) && c.getCaseStatus() == CaseStatus.PENDING).count();
+
         long underMediation = cases.stream().filter(c -> Boolean.FALSE.equals(c.getIsArchived()) && (c.getCaseStatus() == CaseStatus.UNDER_MEDIATION || c.getCaseStatus() == CaseStatus.UNDER_CONCILIATION)).count();
-        long settled = cases.stream().filter(c -> Boolean.FALSE.equals(c.getIsArchived()) && c.getCaseStatus() == CaseStatus.SETTLED).count();
+        long settled = cases.stream().filter(c -> Boolean.FALSE.equals(c.getIsArchived()) && (c.getCaseStatus() == CaseStatus.SETTLED)).count();
 
-        long forRecord = cases.stream().filter(c -> Boolean.FALSE.equals(c.getIsArchived()) && c.getFilingType() == FilingType.FOR_RECORD_ONLY).count();
-        long formal = cases.stream().filter(c -> Boolean.FALSE.equals(c.getIsArchived()) && c.getFilingType() == FilingType.FORMAL_COMPLAINT).count();
+        // Formal Complaint Stats
+        long totalFormal = cases.stream().filter(c -> Boolean.FALSE.equals(c.getIsArchived()) && c.getFilingType() == FilingType.FORMAL_COMPLAINT).count();
+        long pendingFormal = cases.stream().filter(c -> Boolean.FALSE.equals(c.getIsArchived()) && c.getFilingType() == FilingType.FORMAL_COMPLAINT && c.getCaseStatus() == CaseStatus.PENDING).count();
+        long mediationFormal = cases.stream().filter(c -> Boolean.FALSE.equals(c.getIsArchived()) && c.getFilingType() == FilingType.FORMAL_COMPLAINT && (c.getCaseStatus() == CaseStatus.UNDER_MEDIATION || c.getCaseStatus() == CaseStatus.UNDER_CONCILIATION)).count();
+        long settledFormal = cases.stream().filter(c -> Boolean.FALSE.equals(c.getIsArchived()) && c.getFilingType() == FilingType.FORMAL_COMPLAINT && (c.getCaseStatus() == CaseStatus.SETTLED)).count();
 
-        return new BlotterStatsResponse(total, pending, underMediation, settled, forRecord, formal);
+        // For the Record Stats
+        long totalRecord = cases.stream().filter(c -> Boolean.FALSE.equals(c.getIsArchived()) && (c.getFilingType() == null || c.getFilingType() == FilingType.FOR_RECORD_ONLY)).count();
+        long incidentOnlyRecord = cases.stream().filter(c -> Boolean.FALSE.equals(c.getIsArchived()) && (c.getFilingType() == null || c.getFilingType() == FilingType.FOR_RECORD_ONLY) && c.getIncidentDetail() != null && c.getIncidentDetail().getNatureOfComplaint() != null && c.getIncidentDetail().getNatureOfComplaint().toLowerCase().contains("incident")).count();
+        long consultationRecord = cases.stream().filter(c -> Boolean.FALSE.equals(c.getIsArchived()) && (c.getFilingType() == null || c.getFilingType() == FilingType.FOR_RECORD_ONLY) && c.getIncidentDetail() != null && c.getIncidentDetail().getNatureOfComplaint() != null && (c.getIncidentDetail().getNatureOfComplaint().toLowerCase().contains("consultation") || c.getIncidentDetail().getNatureOfComplaint().toLowerCase().contains("legal"))).count();
+        long recentRecord = totalRecord;
+
+        String totalCasesTrend = calculateTrend(currentMonthCases, previousMonthCases);
+        String totalForTheRecordTrend = calculateTrend(currentMonthRecord, previousMonthRecord);
+        String underMediationTrend = "0.0% vs last month";
+        String settledCasesTrend = "0.0% vs last month";
+
+        return new BlotterStatsResponse(
+                total, pending, underMediation, settled,
+                totalFormal, pendingFormal, mediationFormal, settledFormal,
+                totalRecord, incidentOnlyRecord > 0 ? incidentOnlyRecord : totalRecord, consultationRecord, recentRecord,
+                totalCasesTrend, totalForTheRecordTrend, underMediationTrend, settledCasesTrend
+        );
+    }
+
+    private String calculateTrend(long currentCount, long previousCount) {
+        if (previousCount == 0) {
+            return currentCount > 0 ? "+100.0% vs last month" : "0.0% vs last month";
+        }
+        double diff = ((double) (currentCount - previousCount) / (double) previousCount) * 100.0;
+        double rounded = Math.round(diff * 10.0) / 10.0;
+        if (rounded > 0) {
+            return String.format("+%.1f%% vs last month", rounded);
+        } else if (rounded < 0) {
+            return String.format("%.1f%% vs last month", rounded);
+        } else {
+            return "0.0% vs last month";
+        }
     }
 
     private String buildFullAddress(String hs, String brgy, String city, String prov, String fallback) {
@@ -328,6 +354,13 @@ public class BlotterService {
             }
         }
 
+        String dateFiledFormatted = "";
+        if (c.getCreatedAt() != null) {
+            dateFiledFormatted = c.getCreatedAt().format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy"));
+        } else if (c.getIncidentDetail() != null && c.getIncidentDetail().getDateOfIncident() != null) {
+            dateFiledFormatted = c.getIncidentDetail().getDateOfIncident().format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy"));
+        }
+
         return new BlotterCaseResponse(
                 c.getId(),
                 c.getCaseNumber(),
@@ -351,7 +384,8 @@ public class BlotterService {
                 c.getOfficer() != null && c.getOfficer().getPerson() != null ? c.getOfficer().getPerson().getFirstName() : null,
                 c.getWitnesses() != null ? c.getWitnesses().size() : 0,
                 c.getCreatedAt(),
-                c.getUpdatedAt()
+                c.getUpdatedAt(),
+                dateFiledFormatted
         );
     }
 }
