@@ -17,6 +17,11 @@ public class EvidenceType extends BaseEntity {
     @Column(name = "name", nullable = false, unique = true, length = 100)
     private String name;
 
+    @Lob
+    @Basic(fetch = FetchType.LAZY)
+    @Column(name = "file")
+    byte[] file;
+
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
