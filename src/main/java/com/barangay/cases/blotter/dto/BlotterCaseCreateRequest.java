@@ -2,7 +2,8 @@ package com.barangay.cases.blotter.dto;
 
 import com.barangay.zshared.dto.*;
 import com.barangay.zshared.enumerated.FilingType;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.Valid;
+
 import java.util.List;
 
 /**
@@ -11,16 +12,21 @@ import java.util.List;
 public record BlotterCaseCreateRequest(
         FilingType filingType,
         String caseNumber,
-        ComplainantDetailDto complainant,
-        RespondentDetailDto respondent,
+        @Valid ComplainantCreateDto complainant,
+        @Valid RespondentCreateDto respondent,
 
+        Long receivingOfficerId,
         String receivingOfficer,
+        Long assignedOfficerId,
         String assignedOfficer,
-        IncidentDetailDto incident,
-        NarrativeDetailDto narrative,
-        EvidenceDetailDto evidence,
-        List<WitnessDetailDto> witnesses,
+
+        @Valid IncidentCreateDto incident,
+        @Valid NarrativeCreateDto narrative,
+        @Valid EvidenceCreateDto evidence,
+        List<EvidenceCreateDto> evidences,
+        List<WitnessCreateDto> witnesses,
         Boolean isCertified
 ) {
 
 }
+

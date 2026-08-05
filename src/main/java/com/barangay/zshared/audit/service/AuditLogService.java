@@ -6,7 +6,7 @@ import com.barangay.zshared.audit.dto.AuditLogResponse;
 import com.barangay.zshared.audit.dto.AuditLogStatsResponse;
 import com.barangay.zshared.audit.model.AuditLogs;
 import com.barangay.zshared.audit.repository.AuditLogsRepository;
-import com.barangay.zshared.dto.PageResponse;
+import com.barangay.zshared.mapper.PageResponse;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;
 import com.fasterxml.jackson.databind.ObjectMapper;

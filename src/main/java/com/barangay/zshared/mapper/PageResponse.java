@@ -1,4 +1,4 @@
-package com.barangay.zshared.dto;
+package com.barangay.zshared.mapper;
 
 import lombok.*;
 import org.springframework.data.domain.Page;

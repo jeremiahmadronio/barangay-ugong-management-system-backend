@@ -3,7 +3,7 @@ package com.barangay.zshared.audit.controller;
 import com.barangay.zshared.audit.dto.AuditLogResponse;
 import com.barangay.zshared.audit.dto.AuditLogStatsResponse;
 import com.barangay.zshared.audit.service.AuditLogService;
-import com.barangay.zshared.dto.PageResponse;
+import com.barangay.zshared.mapper.PageResponse;
 import com.barangay.zshared.enumerated.Severity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
