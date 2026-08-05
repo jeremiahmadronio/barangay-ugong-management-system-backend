@@ -67,14 +67,20 @@ public class CaseEvidenceMapper {
     public CaseEvidence fromCreateDto(EvidenceCreateDto dto, Case aCase) {
         if (dto == null) return null;
 
-        EvidenceType type = evidenceTypeRepository.findByNameIgnoreCase(dto.evidenceTypeName())
-                .orElseThrow(() -> new BusinessRuleException("Unknown evidence type: " + dto.evidenceTypeName()));
+        String typeName = (dto.evidenceTypeName() != null && !dto.evidenceTypeName().isBlank()) ? dto.evidenceTypeName().trim() : "General Evidence";
+        EvidenceType type = evidenceTypeRepository.findByNameIgnoreCase(typeName)
+                .orElseGet(() -> {
+                    EvidenceType newType = new EvidenceType();
+                    newType.setName(typeName);
+                    newType.setIsActive(true);
+                    return evidenceTypeRepository.save(newType);
+                });
 
         CaseEvidence evidence = new CaseEvidence();
         evidence.setCases(aCase);
         evidence.setType(type);
-        evidence.setFileName(dto.evidenceTypeName());
+        evidence.setFileName(typeName);
         evidence.setFiles(dto.files());
         return evidence;
     }
-}
+}

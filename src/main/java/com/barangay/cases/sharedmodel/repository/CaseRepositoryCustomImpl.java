@@ -1,0 +1,122 @@
+package com.barangay.cases.sharedmodel.repository;
+
+import com.barangay.cases.blotter.dto.BlotterFilterRequest;
+import com.barangay.cases.sharedmodel.Case;
+import com.barangay.cases.sharedmodel.IncidentDetail;
+import com.barangay.people.complainant.model.Complainant;
+import com.barangay.people.person.model.Person;
+import com.barangay.people.respondent.model.Respondent;
+import com.barangay.zshared.enumerated.CaseStatus;
+import com.barangay.zshared.enumerated.FilingType;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.TypedQuery;
+import jakarta.persistence.criteria.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Repository;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Repository
+public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    @Override
+    public Page<Case> findBlotterCasesFiltered(BlotterFilterRequest filter, Pageable pageable) {
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+
+        // 1. Data Query
+        CriteriaQuery<Case> cq = cb.createQuery(Case.class);
+        Root<Case> root = cq.from(Case.class);
+
+        List<Predicate> predicates = buildPredicates(filter, cb, root);
+        cq.where(predicates.toArray(new Predicate[0]));
+        cq.orderBy(cb.desc(root.get("createdAt")));
+
+        TypedQuery<Case> query = entityManager.createQuery(cq);
+        query.setFirstResult((int) pageable.getOffset());
+        query.setMaxResults(pageable.getPageSize());
+
+        List<Case> resultList = query.getResultList();
+
+        // 2. Count Query
+        CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
+        Root<Case> countRoot = countCq.from(Case.class);
+
+        List<Predicate> countPredicates = buildPredicates(filter, cb, countRoot);
+        countCq.select(cb.count(countRoot));
+        countCq.where(countPredicates.toArray(new Predicate[0]));
+
+        Long totalCount = entityManager.createQuery(countCq).getSingleResult();
+
+        return new PageImpl<>(resultList, pageable, totalCount);
+    }
+
+    private List<Predicate> buildPredicates(BlotterFilterRequest filter, CriteriaBuilder cb, Root<Case> root) {
+        List<Predicate> predicates = new ArrayList<>();
+
+        // Base criteria: non-archived cases
+        predicates.add(cb.or(cb.isNull(root.get("isArchived")), cb.equal(root.get("isArchived"), false)));
+
+        if (filter == null) {
+            return predicates;
+        }
+
+        // Search text (Case Number, Complainant First/Last Name, Respondent First/Last Name)
+        if (filter.search() != null && !filter.search().isBlank()) {
+            String searchPattern = "%" + filter.search().trim().toLowerCase() + "%";
+
+            Join<Case, Complainant> compJoin = root.join("complainant", JoinType.LEFT);
+            Join<Complainant, Person> compPersonJoin = compJoin.join("person", JoinType.LEFT);
+
+            Join<Case, Respondent> respJoin = root.join("respondent", JoinType.LEFT);
+            Join<Respondent, Person> respPersonJoin = respJoin.join("person", JoinType.LEFT);
+
+            Predicate caseNumberLike = cb.like(cb.lower(root.get("caseNumber")), searchPattern);
+
+            Predicate compFirstNameLike = cb.like(cb.lower(compPersonJoin.get("firstName")), searchPattern);
+            Predicate compLastNameLike = cb.like(cb.lower(compPersonJoin.get("lastName")), searchPattern);
+
+            Predicate respFirstNameLike = cb.like(cb.lower(respPersonJoin.get("firstName")), searchPattern);
+            Predicate respLastNameLike = cb.like(cb.lower(respPersonJoin.get("lastName")), searchPattern);
+
+            predicates.add(cb.or(caseNumberLike, compFirstNameLike, compLastNameLike, respFirstNameLike, respLastNameLike));
+        }
+
+        // Status Filter
+        if (filter.status() != null && !filter.status().isBlank() && !"all".equalsIgnoreCase(filter.status())) {
+            try {
+                CaseStatus statusEnum = CaseStatus.valueOf(filter.status().toUpperCase());
+                predicates.add(cb.equal(root.get("caseStatus"), statusEnum));
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+
+        // Filing Type Filter (FORMAL_COMPLAINT or FOR_RECORD_ONLY)
+        if (filter.filingType() != null && !filter.filingType().isBlank() && !"all".equalsIgnoreCase(filter.filingType())) {
+            try {
+                String typeStr = filter.filingType().toUpperCase();
+                if (typeStr.contains("RECORD")) {
+                    typeStr = "FOR_RECORD_ONLY";
+                }
+                FilingType filingEnum = FilingType.valueOf(typeStr);
+                predicates.add(cb.equal(root.get("filingType"), filingEnum));
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+
+        // Nature of Complaint Filter
+        if (filter.natureOfComplaint() != null && !filter.natureOfComplaint().isBlank() && !"all".equalsIgnoreCase(filter.natureOfComplaint())) {
+            Join<Case, IncidentDetail> incidentJoin = root.join("incidentDetail", JoinType.LEFT);
+            String naturePattern = "%" + filter.natureOfComplaint().trim().toLowerCase() + "%";
+            predicates.add(cb.like(cb.lower(incidentJoin.get("natureOfComplaint")), naturePattern));
+        }
+
+        return predicates;
+    }
+}
