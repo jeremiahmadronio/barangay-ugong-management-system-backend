@@ -1,4 +1,14 @@
 package com.barangay.ftjs.repository;
 
-public class FirstTimeJobSeekerTimeLineRepository {
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import com.barangay.ftjs.model.FirstTimeJobSeekerTimeLine;
+
+@Repository
+public interface FirstTimeJobSeekerTimeLineRepository extends JpaRepository<FirstTimeJobSeekerTimeLine, Long> {
+
+    List<FirstTimeJobSeekerTimeLine> findByFtjsIdOrderByEventDateDesc(Long ftjsId);
 }

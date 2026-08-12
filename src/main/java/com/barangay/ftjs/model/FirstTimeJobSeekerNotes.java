@@ -4,10 +4,12 @@ import com.barangay.usermanagement.user.model.User;
 import com.barangay.zshared.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Entity
 @Table(name = "first_time_job_seeker_notes")
 @Data
+@EqualsAndHashCode(callSuper = false)
 public class FirstTimeJobSeekerNotes extends BaseEntity {
 
     @Id
@@ -24,6 +26,4 @@ public class FirstTimeJobSeekerNotes extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private User createdBy;
-
-
 }

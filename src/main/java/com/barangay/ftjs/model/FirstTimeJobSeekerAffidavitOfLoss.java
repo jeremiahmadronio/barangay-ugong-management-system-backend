@@ -1,11 +1,11 @@
 package com.barangay.ftjs.model;
 
-
 import com.barangay.usermanagement.user.model.User;
 import com.barangay.zshared.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
@@ -14,10 +14,10 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "first_time_job_seeker_affidavit_of_loss")
 @Data
+@EqualsAndHashCode(callSuper = false)
 @AllArgsConstructor
 @NoArgsConstructor
 public class FirstTimeJobSeekerAffidavitOfLoss extends BaseEntity {
-
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -46,6 +46,4 @@ public class FirstTimeJobSeekerAffidavitOfLoss extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private User createdBy;
-
-
 }

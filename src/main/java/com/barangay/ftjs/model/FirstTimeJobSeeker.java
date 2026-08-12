@@ -9,6 +9,7 @@ import com.barangay.zshared.enumerated.FtjsStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
@@ -17,8 +18,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "first_time_job_seeker")
+@Table(name = "first_time_job_seeker", indexes = {
+        @Index(name = "idx_ftjs_resident_id", columnList = "resident_id"),
+        @Index(name = "idx_ftjs_person_id", columnList = "person_id"),
+        @Index(name = "idx_ftjs_number", columnList = "ftjs_number"),
+        @Index(name = "idx_ftjs_status_deleted", columnList = "status, is_deleted, is_archived")
+})
 @Data
+@EqualsAndHashCode(callSuper = false)
 @AllArgsConstructor
 @NoArgsConstructor
 @SQLDelete(sql = "UPDATE first_time_job_seeker SET is_deleted = true, deleted_at = NOW() WHERE id = ?")
@@ -69,7 +76,6 @@ public class FirstTimeJobSeeker extends BaseEntity implements Archivable {
     @Column(name = "oath_files")
     private byte[] oathFiles;
 
-
     @Column(name = "issuance_count")
     private Integer issuanceCount;
 
@@ -79,11 +85,9 @@ public class FirstTimeJobSeeker extends BaseEntity implements Archivable {
     @JoinColumn(name = "verified_by")
     private User verifiedBy;
 
-
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private FtjsStatus status;
-
 
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted = false;
@@ -102,7 +106,4 @@ public class FirstTimeJobSeeker extends BaseEntity implements Archivable {
 
     @Column(name = "archive_remarks")
     private String archiveRemarks;
-
-
-
 }

@@ -48,15 +48,16 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
     @Query("SELECT r.barangayIdNumber FROM Resident r WHERE r.barangayIdNumber IS NOT NULL ORDER BY r.residentId DESC LIMIT 1")
     Optional<String> findLatestBarangayIdNumber();
 
-    /** Finds active residents matching search term for Blotter/Officer selection. */
-    @Query("SELECT r FROM Resident r JOIN r.person p WHERE r.status = com.barangay.zshared.enumerated.ResidentStatus.ACTIVE AND (" +
+    /** Finds residents matching search term for Blotter/Officer/FTJS selection, excluding archived records. */
+    @Query("SELECT r FROM Resident r LEFT JOIN r.person p WHERE (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED) AND (" +
            ":search IS NULL OR :search = '' OR " +
            "LOWER(p.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            "LOWER(p.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            "LOWER(COALESCE(p.middleName, '')) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            "LOWER(CONCAT(p.firstName, ' ', p.lastName)) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            "LOWER(CONCAT(p.firstName, ' ', COALESCE(p.middleName, ''), ' ', p.lastName)) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(r.barangayIdNumber) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "LOWER(r.barangayIdNumber) LIKE LOWER(CONCAT('%', :search, '%'))) " +
+           "ORDER BY p.firstName ASC, p.lastName ASC")
     List<Resident> searchActiveResidents(@Param("search") String search);
 
     /** Returns the most recently created resident to derive the next sequential ID. */
