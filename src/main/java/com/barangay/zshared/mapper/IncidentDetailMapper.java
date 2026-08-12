@@ -1,6 +1,6 @@
 package com.barangay.zshared.mapper;
 
-import com.barangay.cases.sharedmodel.IncidentDetail;
+import com.barangay.cases.shared.model.IncidentDetail;
 import com.barangay.zshared.dto.IncidentCreateDto;
 import com.barangay.zshared.dto.IncidentDetailDto;
 import org.springframework.stereotype.Component;

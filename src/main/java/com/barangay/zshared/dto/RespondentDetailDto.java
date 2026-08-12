@@ -1,8 +1,7 @@
 package com.barangay.zshared.dto;
 
 /**
- * Read-model for a {@code Respondent}, including the pre-built
- * {@code fullName} and relationship info relative to the complainant.
+ * Read-model for a {@code Respondent}, including full person metadata and relationship info relative to the complainant.
  */
 public record RespondentDetailDto(
         Long id,
@@ -13,6 +12,8 @@ public record RespondentDetailDto(
         String contactNumber,
         Short age,
         String gender,
+        String civilStatus,
+        String occupation,
         String completeAddress,
         String relationshipToComplainant,
         Boolean currentlyLivingWithComplainant

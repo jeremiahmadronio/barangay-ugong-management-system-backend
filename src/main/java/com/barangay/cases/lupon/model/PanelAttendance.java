@@ -1,6 +1,6 @@
 package com.barangay.cases.lupon.model;
 
-import com.barangay.cases.sharedmodel.CaseSession;
+import com.barangay.cases.shared.model.CaseSession;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;

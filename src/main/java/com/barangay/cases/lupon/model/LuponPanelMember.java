@@ -1,6 +1,6 @@
 package com.barangay.cases.lupon.model;
 
-import com.barangay.cases.sharedmodel.Case;
+import com.barangay.cases.shared.model.Case;
 import com.barangay.people.officer.model.Officer;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

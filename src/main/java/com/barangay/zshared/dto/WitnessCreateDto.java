@@ -1,4 +1,5 @@
 package com.barangay.zshared.dto;
+
 /**
  * Request payload for adding a witness to a case.
  */
@@ -8,5 +9,6 @@ public record WitnessCreateDto(
         String contactNumber,
         String completeAddress,
         String testimonyText,
+        String testimonyFileName,
         byte[] testimonyFile
 ) {}

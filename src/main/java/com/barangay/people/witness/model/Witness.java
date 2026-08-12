@@ -1,7 +1,7 @@
 package com.barangay.people.witness.model;
 
 
-import com.barangay.cases.sharedmodel.Case;
+import com.barangay.cases.shared.model.Case;
 import com.barangay.people.person.model.Person;
 import com.barangay.zshared.entity.BaseEntity;
 import com.barangay.zshared.security.EncryptedFieldConverter;
@@ -37,8 +37,12 @@ public class Witness extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String testimony;
 
+    @Column(name = "testimony_file_name")
+    private String testimonyFileName;
+
     @JdbcTypeCode(Types.VARBINARY)
     @Basic(fetch = FetchType.LAZY)
     @Column(name = "testimony_file", columnDefinition = "bytea")
     private byte[] testimonyFile;
 }
+

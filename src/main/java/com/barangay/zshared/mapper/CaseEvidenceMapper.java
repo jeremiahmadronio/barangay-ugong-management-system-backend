@@ -1,9 +1,9 @@
 package com.barangay.zshared.mapper;
 
-import com.barangay.cases.sharedmodel.Case;
-import com.barangay.cases.sharedmodel.CaseEvidence;
-import com.barangay.cases.sharedmodel.EvidenceType;
-import com.barangay.cases.sharedmodel.repository.EvidenceTypeRepository;
+import com.barangay.cases.shared.model.Case;
+import com.barangay.cases.shared.model.CaseEvidence;
+import com.barangay.cases.shared.model.EvidenceType;
+import com.barangay.cases.shared.repository.EvidenceTypeRepository;
 import com.barangay.zshared.dto.EvidenceCreateDto;
 import com.barangay.zshared.dto.EvidenceDetailDto;
 import com.barangay.zshared.exception.BusinessRuleException;
@@ -36,12 +36,19 @@ public class CaseEvidenceMapper {
     public EvidenceDetailDto toDetailDto(CaseEvidence evidence) {
         if (evidence == null) return null;
 
+        String typeName = (evidence.getType() != null && evidence.getType().getName() != null)
+                ? evidence.getType().getName()
+                : "General Evidence";
+
         return new EvidenceDetailDto(
                 evidence.getId(),
+                typeName,
                 evidence.getFileName(),
+                evidence.getDescription(),
                 evidence.getFiles()
         );
     }
+
 
     /**
      * Maps a list of {@link CaseEvidence} entities to detail DTOs.
@@ -79,8 +86,11 @@ public class CaseEvidenceMapper {
         CaseEvidence evidence = new CaseEvidence();
         evidence.setCases(aCase);
         evidence.setType(type);
-        evidence.setFileName(typeName);
+        String fileName = (dto.fileName() != null && !dto.fileName().isBlank()) ? dto.fileName().trim() : typeName;
+        evidence.setFileName(fileName);
+        evidence.setDescription(dto.description());
         evidence.setFiles(dto.files());
         return evidence;
     }
-}
+
+}

@@ -30,6 +30,8 @@ public class RespondentMapper {
                 p.getContactNumber(),
                 p.getAge(),
                 p.getGender(),
+                p.getCivilStatus(),
+                p.getOccupation(),
                 personMapper.getCompleteAddress(p),
                 respondent.getRelationshipToComplainant(),
                 respondent.getLivingWithComplainant()
@@ -52,9 +54,12 @@ public class RespondentMapper {
         person.setContactNumber(dto.contactNumber());
         person.setAge(dto.age());
         person.setGender(dto.gender());
+        person.setCivilStatus(dto.civilStatus());
+        person.setOccupation(dto.occupation());
         person.setCompleteAddress(dto.completeAddress());
         return person;
     }
+
 
     /**
      * Wraps an already-persisted {@link Person} in a new, unsaved {@link Respondent},

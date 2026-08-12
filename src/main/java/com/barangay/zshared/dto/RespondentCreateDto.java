@@ -1,4 +1,5 @@
 package com.barangay.zshared.dto;
+
 /**
  * Request payload for creating a new {@code Respondent} record in a case.
  */
@@ -9,6 +10,8 @@ public record RespondentCreateDto(
         String contactNumber,
         Short age,
         String gender,
+        String civilStatus,
+        String occupation,
         String completeAddress,
         String relationshipToComplainant,
         Boolean currentlyLivingWithComplainant

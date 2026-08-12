@@ -1,6 +1,6 @@
 package com.barangay.zshared.mapper;
 
-import com.barangay.cases.sharedmodel.NarrativeStatement;
+import com.barangay.cases.shared.model.NarrativeStatement;
 import com.barangay.zshared.dto.NarrativeCreateDto;
 import com.barangay.zshared.dto.NarrativeDetailDto;
 import org.springframework.stereotype.Component;

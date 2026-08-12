@@ -1,6 +1,6 @@
 package com.barangay.cases.vawc.model;
 
-import com.barangay.cases.sharedmodel.Case;
+import com.barangay.cases.shared.model.Case;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;

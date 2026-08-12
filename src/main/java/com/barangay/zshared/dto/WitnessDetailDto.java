@@ -12,5 +12,5 @@ public record WitnessDetailDto(
         String contactNumber,
         String completeAddress,
         String testimonyText,
-        byte[] testimonyFile
+        boolean hasTestimonyFile
 ) {}

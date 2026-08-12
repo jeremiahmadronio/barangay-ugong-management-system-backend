@@ -1,6 +1,6 @@
 package com.barangay.zshared.mapper;
 
-import com.barangay.cases.sharedmodel.Case;
+import com.barangay.cases.shared.model.Case;
 import com.barangay.people.person.model.Person;
 import com.barangay.people.witness.model.Witness;
 import com.barangay.zshared.dto.WitnessCreateDto;
@@ -30,7 +30,7 @@ public class WitnessMapper {
                 p != null ? p.getContactNumber() : null,
                 personMapper.getCompleteAddress(p),
                 witness.getTestimony(),
-                witness.getTestimonyFile()
+                witness.getTestimonyFile() != null && witness.getTestimonyFile().length > 0
         );
     }
 
@@ -45,15 +45,18 @@ public class WitnessMapper {
      */
     public Person toNewPerson(WitnessCreateDto dto) {
         if (dto == null) return null;
-        if (dto.firstName() == null && dto.lastName() == null) return null;
+
+        String fName = (dto.firstName() != null && !dto.firstName().isBlank()) ? dto.firstName().trim() : "Witness";
+        String lName = (dto.lastName() != null && !dto.lastName().isBlank()) ? dto.lastName().trim() : "Statement";
 
         Person person = new Person();
-        person.setFirstName(dto.firstName() != null ? dto.firstName() : "Witness");
-        person.setLastName(dto.lastName() != null ? dto.lastName() : "N/A");
+        person.setFirstName(fName);
+        person.setLastName(lName);
         person.setContactNumber(dto.contactNumber());
         person.setCompleteAddress(dto.completeAddress());
         return person;
     }
+
 
     /**
      * Wraps an already-persisted {@link Person} in a new, unsaved {@link Witness},
@@ -69,6 +72,10 @@ public class WitnessMapper {
         witness.setACase(aCase);
         witness.setPerson(person);
         witness.setTestimony(dto.testimonyText());
+        witness.setTestimonyFileName(dto.testimonyFileName());
+        witness.setTestimonyFile(dto.testimonyFile());
         return witness;
     }
+
+
 }
