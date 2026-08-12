@@ -6,19 +6,30 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.barangay.ftjs.dto.FtjsRequestEntry;
 import com.barangay.ftjs.dto.FtjsResidentSearchResponse;
 import com.barangay.ftjs.service.FtjsService;
+import com.barangay.usermanagement.user.model.User;
+import com.barangay.zshared.audit.annotations.LogAudit;
+import com.barangay.zshared.audit.service.AuditLogService;
+import com.barangay.zshared.enumerated.AuditModule;
+import com.barangay.zshared.enumerated.Severity;
+import com.barangay.zshared.security.SecurityUtils;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * REST Controller for FTJS Resident Search, returning unified Resident Information,
  * FTJS Issuance History, and Barangay Case History.
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/ftjs")
 @CrossOrigin(origins = "*", allowedHeaders = "*")
@@ -26,6 +37,7 @@ import lombok.RequiredArgsConstructor;
 public class FtjsController {
 
     private final FtjsService ftjsService;
+    private final AuditLogService auditLogService;
 
     /**
      * Search residents by name/query for FTJS verification.
@@ -45,5 +57,33 @@ public class FtjsController {
     @GetMapping("/resident/{residentId}")
     public ResponseEntity<FtjsResidentSearchResponse> getResidentFtjsProfile(@PathVariable Long residentId) {
         return ResponseEntity.ok(ftjsService.getResidentFtjsProfile(residentId));
+    }
+
+    /**
+     * Create and save a new FTJS entry into DB with byte[] files and write Audit Logs.
+     */
+    @PostMapping("/entry")
+    @LogAudit(module = AuditModule.FTJS, action = "CREATE_FTJS_ENTRY", severity = Severity.INFO)
+    public ResponseEntity<FtjsResidentSearchResponse> createFtjsEntry(@RequestBody FtjsRequestEntry request) {
+        log.info("Received FTJS application entry creation request for Resident ID: {}", request.residentId());
+        FtjsResidentSearchResponse response = ftjsService.createFtjsEntry(request);
+
+        try {
+            User currentUser = SecurityUtils.getCurrentUser();
+            auditLogService.log(
+                    currentUser,
+                    AuditModule.FTJS,
+                    "CREATE_FTJS_ENTRY",
+                    Severity.INFO,
+                    "Successfully created First-Time Jobseeker certification (FTJS No: " + request.ftjsNumber() + ")",
+                    null,
+                    null,
+                    response
+            );
+        } catch (Exception e) {
+            log.warn("Failed to create audit log for FTJS entry: {}", e.getMessage());
+        }
+
+        return ResponseEntity.ok(response);
     }
 }

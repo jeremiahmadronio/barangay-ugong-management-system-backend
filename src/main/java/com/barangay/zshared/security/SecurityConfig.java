@@ -74,8 +74,6 @@ public class SecurityConfig {
                         .requestMatchers(BLOTTER_ENDPOINTS).access(deptAccess("BLOTTER"))
                         .requestMatchers(BCPC_ENDPOINTS).access(deptAccess("BCPC"))
                         .requestMatchers(CLEARANCE_ENDPOINTS).access(deptAccess("CLEARANCE"))
-                        .requestMatchers("/api/v1/ftjs/search-resident", "/api/v1/ftjs/resident/**").hasAnyRole("ROOT_ADMIN", "SYSTEM_ADMIN", "ADMIN", "STAFF")
-                        .requestMatchers(FTJS_ENDPOINTS).access(deptAccess("FTJS"))
                         .requestMatchers(SHARED_CASE_ENDPOINTS).hasAnyRole(ROLE_ROOT_ADMIN, ROLE_SYSTEM_ADMIN, ROLE_ADMIN, ROLE_STAFF)
                         .anyRequest().authenticated()
                 )

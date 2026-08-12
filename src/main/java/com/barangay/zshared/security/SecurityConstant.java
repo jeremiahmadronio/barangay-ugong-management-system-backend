@@ -28,6 +28,7 @@ public class SecurityConstant {
             "/api/v1/archive/**",
             "/api/v1/admin/**",
             "/api/v1/blotter/**",
+            "/api/v1/ftjs/**",
             "/error"
     };
 

@@ -60,8 +60,6 @@ public class FirstTimeJobSeeker extends BaseEntity implements Archivable {
     @Column(name = "valid_id_type")
     private String validIdType;
 
-    @Column(name = "id_number")
-    private String idNumber;
 
     @Column(columnDefinition = "TEXT")
     private String purposeDocuments;

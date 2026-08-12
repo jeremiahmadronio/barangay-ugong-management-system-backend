@@ -1,5 +1,7 @@
 package com.barangay.ftjs.service;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -10,13 +12,21 @@ import com.barangay.cases.shared.model.Case;
 import com.barangay.cases.shared.repository.CaseRepository;
 import com.barangay.ftjs.dto.FtjsBarangayCaseHistoryResponse;
 import com.barangay.ftjs.dto.FtjsIssuanceHistoryResponse;
+import com.barangay.ftjs.dto.FtjsRequestEntry;
 import com.barangay.ftjs.dto.FtjsResidentSearchResponse;
 import com.barangay.ftjs.model.FirstTimeJobSeeker;
+import com.barangay.ftjs.model.FirstTimeJobSeekerTimeLine;
 import com.barangay.ftjs.repository.FirstTimeJobSeekerRepository;
+import com.barangay.ftjs.repository.FirstTimeJobSeekerTimeLineRepository;
 import com.barangay.people.person.model.Person;
 import com.barangay.people.resident.model.Resident;
 import com.barangay.people.resident.repository.ResidentRepository;
+import com.barangay.usermanagement.user.model.User;
+import com.barangay.usermanagement.user.repository.UserRepository;
+import com.barangay.zshared.enumerated.FtjsStatus;
+import com.barangay.zshared.enumerated.TimeLineType;
 import com.barangay.zshared.exception.ResourceNotFoundException;
+import com.barangay.zshared.security.SecurityUtils;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,8 +40,10 @@ import lombok.extern.slf4j.Slf4j;
 public class FtjsService {
 
     private final FirstTimeJobSeekerRepository ftjsRepository;
+    private final FirstTimeJobSeekerTimeLineRepository timeLineRepository;
     private final ResidentRepository residentRepository;
     private final CaseRepository caseRepository;
+    private final UserRepository userRepository;
 
     /**
      * Searches active residents by name/query and builds unified FtjsResidentSearchResponse data.
@@ -106,8 +118,8 @@ public class FtjsService {
         List<FirstTimeJobSeeker> ftjsList = ftjsRepository.findByResidentIdAndIsDeletedFalseOrderByCreatedAtDesc(resident.getResidentId());
         List<FtjsIssuanceHistoryResponse> issuanceHistories = ftjsList.stream().map(f -> new FtjsIssuanceHistoryResponse(
                 f.getFtjsNumber(),
-                f.getCreatedAt(),
-                f.getStatus() != null ? f.getStatus().name() : null
+                f.getCreatedAt() != null ? f.getCreatedAt() : (f.getDateSubmitted() != null ? f.getDateSubmitted().atStartOfDay() : LocalDateTime.now()),
+                f.getStatus() != null ? f.getStatus().name() : "ISSUED"
         )).toList();
 
         boolean hasAvailedFtjs = !ftjsList.isEmpty();
@@ -173,5 +185,100 @@ public class FtjsService {
         if (last != null && !last.isBlank()) sb.append(" ").append(last.trim());
         if (suffix != null && !suffix.isBlank()) sb.append(" ").append(suffix.trim());
         return sb.toString().trim();
+    }
+
+    /**
+     * Creates and saves a new FTJS entry into the database with attached binary files.
+     */
+    @Transactional
+    public FtjsResidentSearchResponse createFtjsEntry(FtjsRequestEntry request) {
+        if (request.residentId() == null) {
+            throw new IllegalArgumentException("Resident ID is required");
+        }
+
+        Resident resident = residentRepository.findById(request.residentId())
+                .orElseThrow(() -> new ResourceNotFoundException("Resident not found with id: " + request.residentId()));
+
+        Person person = resident.getPerson();
+
+        FirstTimeJobSeeker ftjs = new FirstTimeJobSeeker();
+        ftjs.setResident(resident);
+        ftjs.setPerson(person);
+        ftjs.setFtjsNumber(request.ftjsNumber());
+        ftjs.setPurposeDocuments(request.purpose());
+        ftjs.setEducationalAttainment(request.educationalAttainment());
+        ftjs.setCourse(request.gradeLevel());
+        ftjs.setSchoolInstitution(request.institution());
+        ftjs.setValidIdFiles(request.validId());
+        ftjs.setOathFiles(request.oathTaking());
+
+        if (request.dateFiled() != null) {
+            ftjs.setDateSubmitted(request.dateFiled().toLocalDate());
+        } else {
+            ftjs.setDateSubmitted(LocalDate.now());
+        }
+
+        // Determine verifiedBy User entity (check authenticated user first, then username/email/name lookup)
+        User verifiedUser = SecurityUtils.getCurrentUser();
+        if (verifiedUser == null && request.releasedBy() != null && !request.releasedBy().isBlank()) {
+            String releasedByStr = request.releasedBy().trim();
+            verifiedUser = userRepository.findByUsername(releasedByStr)
+                    .or(() -> userRepository.findBySystemEmail(releasedByStr))
+                    .orElseGet(() -> userRepository.findAll().stream()
+                            .filter(u -> (u.getPerson() != null && releasedByStr.equalsIgnoreCase(
+                                    buildFullName(u.getPerson().getFirstName(), u.getPerson().getMiddleName(),
+                                            u.getPerson().getLastName(), u.getPerson().getSuffix()))) ||
+                                    releasedByStr.equalsIgnoreCase(u.getUsername()) ||
+                                    releasedByStr.equalsIgnoreCase(u.getSystemEmail()))
+                            .findFirst()
+                            .orElse(null));
+        }
+        if (verifiedUser != null) {
+            ftjs.setVerifiedBy(verifiedUser);
+        }
+
+        // Count existing non-deleted FTJS records for issuance count & status determination
+        List<FirstTimeJobSeeker> existingRecords = ftjsRepository.findByResidentIdAndIsDeletedFalseOrderByCreatedAtDesc(resident.getResidentId());
+        boolean isFirstIssuance = existingRecords.isEmpty();
+        if (isFirstIssuance) {
+            ftjs.setIssuanceCount(1);
+            ftjs.setStatus(FtjsStatus.ISSUED);
+        } else {
+            ftjs.setIssuanceCount(existingRecords.size() + 1);
+            ftjs.setStatus(FtjsStatus.RE_ISSUANCE);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (ftjs.getCreatedAt() == null) {
+            ftjs.setCreatedAt(now);
+        }
+
+        // Persist FTJS record and flush so it gets a DB-assigned ID
+        FirstTimeJobSeeker savedFtjs = ftjsRepository.saveAndFlush(ftjs);
+
+        // ─── Save FTJS Timeline entry ──────────────────────────────────────────
+        // This records the creation event in first_time_job_seeker_timeline table
+        FirstTimeJobSeekerTimeLine timeline = new FirstTimeJobSeekerTimeLine();
+        timeline.setFtjs(savedFtjs);
+        timeline.setTimelineType(isFirstIssuance ? TimeLineType.SUBMITTED : TimeLineType.RE_ISSUANCE);
+        timeline.setTitle(isFirstIssuance ? "FTJS Certificate Issued" : "FTJS Re-Issuance");
+        timeline.setDescription(String.format(
+                "%s processed for %s. Application No: %s. Educational Attainment: %s.",
+                isFirstIssuance ? "First-time FTJS certificate" : "FTJS re-issuance",
+                person != null ? buildFullName(person.getFirstName(), person.getMiddleName(),
+                        person.getLastName(), person.getSuffix()) : "Resident",
+                savedFtjs.getFtjsNumber(),
+                request.educationalAttainment() != null ? request.educationalAttainment() : "N/A"
+        ));
+        timeline.setEventDate(now);
+        timeline.setCreatedBy(verifiedUser);
+        timeLineRepository.save(timeline);
+        // ──────────────────────────────────────────────────────────────────────
+
+        log.info("[FTJS] Entry saved — Resident ID: {}, FTJS No: {}, Timeline: {}",
+                resident.getResidentId(), savedFtjs.getFtjsNumber(),
+                isFirstIssuance ? "SUBMITTED" : "RE_ISSUANCE");
+
+        return buildFtjsResponse(resident);
     }
 }
