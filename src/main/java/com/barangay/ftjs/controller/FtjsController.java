@@ -3,6 +3,8 @@ package com.barangay.ftjs.controller;
 import java.util.List;
 
 import com.barangay.ftjs.dto.*;
+import com.barangay.ftjs.service.FtjsReIssuanceService;
+import org.apache.coyote.BadRequestException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
@@ -43,6 +45,7 @@ public class FtjsController {
 
     private final FtjsService ftjsService;
     private final AuditLogService auditLogService;
+    private final FtjsReIssuanceService  ftjsReIssuanceService;
 
     /**
      * Search residents by name/query for FTJS verification.
@@ -107,5 +110,12 @@ public class FtjsController {
         FtjsDetailResponse ftjs = ftjsService.getFtjsApplicantDetail(id);
         return ResponseEntity.ok(ftjs);
 
+    }
+
+    @PostMapping("re-issuance-request/{ftjsId}")
+    @LogAudit(module = AuditModule.FTJS, action = "CREATE_RE-ISSUANCE_REQUEST", severity = Severity.INFO)
+    public ResponseEntity<ReIssuanceRequestDto> createReIssuanceRequest(Long ftjsId,ReIssuanceRequestDto request) throws BadRequestException {
+        ReIssuanceRequestDto reIssuanceReq = ftjsReIssuanceService.createReIssuanceRequest(ftjsId,request);
+        return ResponseEntity.ok(reIssuanceReq);
     }
 }
