@@ -2,6 +2,10 @@ package com.barangay.ftjs.controller;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,7 +18,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.barangay.ftjs.dto.FtjsRequestEntry;
 import com.barangay.ftjs.dto.FtjsResidentSearchResponse;
+import com.barangay.ftjs.dto.FtjsStatsResponse;
+import com.barangay.ftjs.dto.FtjsSummaryResponse;
 import com.barangay.ftjs.service.FtjsService;
+import com.barangay.zshared.enumerated.FtjsStatus;
 import com.barangay.usermanagement.user.model.User;
 import com.barangay.zshared.audit.annotations.LogAudit;
 import com.barangay.zshared.audit.service.AuditLogService;
@@ -49,6 +56,32 @@ public class FtjsController {
             @RequestParam(required = false) String search) {
         String searchTerm = (query != null && !query.isBlank()) ? query : search;
         return ResponseEntity.ok(ftjsService.searchResidents(searchTerm));
+    }
+
+    /**
+     * Aggregate statistics for the FTJS dashboard cards.
+     */
+    @GetMapping("/stats")
+    public ResponseEntity<FtjsStatsResponse> getStats() {
+        return ResponseEntity.ok(ftjsService.getStats());
+    }
+
+    /**
+     * Paginated, filterable FTJS records for the management table.
+     *
+     * @param search       optional text filter (FTJS number or applicant name)
+     * @param status       optional FtjsStatus filter
+     * @param purpose      optional purpose/document type filter
+     * @param issuanceCount optional issuance count filter
+     */
+    @GetMapping("/summary")
+    public ResponseEntity<Page<FtjsSummaryResponse>> getSummaryTable(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) FtjsStatus status,
+            @RequestParam(required = false) String purpose,
+            @RequestParam(required = false) Integer issuanceCount,
+            @PageableDefault(size = 10, sort = "createdAt") Pageable pageable) {
+        return ResponseEntity.ok(ftjsService.getSummaryTable(search, status, purpose, issuanceCount, pageable));
     }
 
     /**

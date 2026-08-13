@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +16,8 @@ import com.barangay.ftjs.dto.FtjsBarangayCaseHistoryResponse;
 import com.barangay.ftjs.dto.FtjsIssuanceHistoryResponse;
 import com.barangay.ftjs.dto.FtjsRequestEntry;
 import com.barangay.ftjs.dto.FtjsResidentSearchResponse;
+import com.barangay.ftjs.dto.FtjsStatsResponse;
+import com.barangay.ftjs.dto.FtjsSummaryResponse;
 import com.barangay.ftjs.model.FirstTimeJobSeeker;
 import com.barangay.ftjs.model.FirstTimeJobSeekerTimeLine;
 import com.barangay.ftjs.repository.FirstTimeJobSeekerRepository;
@@ -44,6 +48,50 @@ public class FtjsService {
     private final ResidentRepository residentRepository;
     private final CaseRepository caseRepository;
     private final UserRepository userRepository;
+
+    /**
+     * Calculates FTJS stats: total issued, issued this month (with trend vs last month), originals, re-issuances.
+     */
+    @Transactional(readOnly = true)
+    public FtjsStatsResponse getStats() {
+        LocalDate now = LocalDate.now();
+        LocalDate firstOfThisMonth = now.withDayOfMonth(1);
+        LocalDate lastOfThisMonth = now.withDayOfMonth(now.lengthOfMonth());
+
+        LocalDate lastMonthDate = now.minusMonths(1);
+        LocalDate firstOfLastMonth = lastMonthDate.withDayOfMonth(1);
+        LocalDate lastOfLastMonth = lastMonthDate.withDayOfMonth(lastMonthDate.lengthOfMonth());
+
+        long totalIssued = ftjsRepository.countTotalIssued();
+        long thisMonth = ftjsRepository.countIssuedBetween(firstOfThisMonth, lastOfThisMonth);
+        long lastMonth = ftjsRepository.countIssuedBetween(firstOfLastMonth, lastOfLastMonth);
+
+        double trendPct = 0.0;
+        if (lastMonth == 0) {
+            trendPct = thisMonth > 0 ? 100.0 : 0.0;
+        } else {
+            trendPct = ((double) (thisMonth - lastMonth) / lastMonth) * 100.0;
+        }
+        String trendHint = String.format("%s%.1f%% vs last month", trendPct >= 0 ? "+" : "", trendPct);
+
+        return new FtjsStatsResponse(
+                totalIssued,
+                thisMonth,
+                trendPct,
+                trendHint,
+                ftjsRepository.countOriginalIssuances(),
+                ftjsRepository.countReIssuances()
+        );
+    }
+
+    /**
+     * Paginated + filtered FTJS summary table.
+     */
+    @Transactional(readOnly = true)
+    public Page<FtjsSummaryResponse> getSummaryTable(
+            String search, FtjsStatus status, String purpose, Integer issuanceCount, Pageable pageable) {
+        return ftjsRepository.findSummaryFiltered(search, status, purpose, issuanceCount, pageable);
+    }
 
     /**
      * Searches active residents by name/query and builds unified FtjsResidentSearchResponse data.
