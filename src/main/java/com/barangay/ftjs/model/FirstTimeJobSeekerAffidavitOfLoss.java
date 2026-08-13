@@ -38,7 +38,7 @@ public class FirstTimeJobSeekerAffidavitOfLoss extends BaseEntity {
     @Basic(fetch = FetchType.LAZY)
     private byte[] affidavitFiles;
 
-    private BigDecimal amountPaid;
+
 
     @Column(name = "or_number")
     private String orNumber;

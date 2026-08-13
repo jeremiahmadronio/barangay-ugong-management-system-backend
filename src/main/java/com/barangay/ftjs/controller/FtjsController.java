@@ -2,8 +2,10 @@ package com.barangay.ftjs.controller;
 
 import java.util.List;
 
+import com.barangay.ftjs.dto.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.repository.query.Param;
 import org.springframework.data.web.PageableDefault;
 
 import org.springframework.http.ResponseEntity;
@@ -16,10 +18,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.barangay.ftjs.dto.FtjsRequestEntry;
-import com.barangay.ftjs.dto.FtjsResidentSearchResponse;
-import com.barangay.ftjs.dto.FtjsStatsResponse;
-import com.barangay.ftjs.dto.FtjsSummaryResponse;
 import com.barangay.ftjs.service.FtjsService;
 import com.barangay.zshared.enumerated.FtjsStatus;
 import com.barangay.usermanagement.user.model.User;
@@ -101,22 +99,13 @@ public class FtjsController {
         log.info("Received FTJS application entry creation request for Resident ID: {}", request.residentId());
         FtjsResidentSearchResponse response = ftjsService.createFtjsEntry(request);
 
-        try {
-            User currentUser = SecurityUtils.getCurrentUser();
-            auditLogService.log(
-                    currentUser,
-                    AuditModule.FTJS,
-                    "CREATE_FTJS_ENTRY",
-                    Severity.INFO,
-                    "Successfully created First-Time Jobseeker certification (FTJS No: " + request.ftjsNumber() + ")",
-                    null,
-                    null,
-                    response
-            );
-        } catch (Exception e) {
-            log.warn("Failed to create audit log for FTJS entry: {}", e.getMessage());
-        }
-
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/detail/{id}")
+    public ResponseEntity<FtjsDetailResponse> getFtjsDetail( @PathVariable Long id) {
+        FtjsDetailResponse ftjs = ftjsService.getFtjsApplicantDetail(id);
+        return ResponseEntity.ok(ftjs);
+
     }
 }

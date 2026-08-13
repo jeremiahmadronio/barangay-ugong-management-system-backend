@@ -5,6 +5,10 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+import com.barangay.ftjs.dto.*;
+import com.barangay.zshared.dto.ResidentDetailDto;
+import com.barangay.zshared.mapper.PersonMapper;
+import com.barangay.zshared.mapper.ResidentMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -12,12 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.barangay.cases.shared.model.Case;
 import com.barangay.cases.shared.repository.CaseRepository;
-import com.barangay.ftjs.dto.FtjsBarangayCaseHistoryResponse;
-import com.barangay.ftjs.dto.FtjsIssuanceHistoryResponse;
-import com.barangay.ftjs.dto.FtjsRequestEntry;
-import com.barangay.ftjs.dto.FtjsResidentSearchResponse;
-import com.barangay.ftjs.dto.FtjsStatsResponse;
-import com.barangay.ftjs.dto.FtjsSummaryResponse;
 import com.barangay.ftjs.model.FirstTimeJobSeeker;
 import com.barangay.ftjs.model.FirstTimeJobSeekerTimeLine;
 import com.barangay.ftjs.repository.FirstTimeJobSeekerRepository;
@@ -48,6 +46,8 @@ public class FtjsService {
     private final ResidentRepository residentRepository;
     private final CaseRepository caseRepository;
     private final UserRepository userRepository;
+    private final ResidentMapper residentMapper;
+    private final PersonMapper personMapper;
 
     /**
      * Calculates FTJS stats: total issued, issued this month (with trend vs last month), originals, re-issuances.
@@ -329,4 +329,54 @@ public class FtjsService {
 
         return buildFtjsResponse(resident);
     }
+
+
+    /**
+     * Retrieves FTJS Application detail by ID.
+     */
+    @Transactional
+    public FtjsDetailResponse getFtjsApplicantDetail(Long id){
+        FirstTimeJobSeeker ftjs = ftjsRepository.findById(id).orElseThrow(() ->
+                new RuntimeException("Ftjs not found!"));
+
+        return mapToFtjsResponse(ftjs);
+    }
+
+
+    private FtjsDetailResponse mapToFtjsResponse(FirstTimeJobSeeker ftjs){
+        if(ftjs == null) return null;
+
+        ResidentDetailDto residentDetail = residentMapper.toDetailDto(ftjs.getResident());
+
+        String applicantFullName = null;
+        if (ftjs.getPerson() != null) {
+            applicantFullName = personMapper.buildFullName(ftjs.getPerson());
+        } else if (ftjs.getResident() != null && ftjs.getResident().getPerson() != null) {
+            applicantFullName = personMapper.buildFullName(ftjs.getResident().getPerson());
+        }
+
+        String verifiedByName = (ftjs.getVerifiedBy() != null) ? ftjs.getVerifiedBy().getUsername() : null;
+        Integer issuanceCountLong = Math.toIntExact((ftjs.getIssuanceCount() != null) ? ftjs.getIssuanceCount() : 1L);
+
+        return new FtjsDetailResponse(
+                ftjs.getFtjsNumber(),
+                applicantFullName,
+                ftjs.getPurposeDocuments(),
+                residentDetail,
+                ftjs.getStatus(),
+                issuanceCountLong,
+                ftjs.getEducationalAttainment(),
+                ftjs.getCourse(),
+                ftjs.getSchoolInstitution(),
+                verifiedByName,
+                ftjs.getCreatedAt(),
+                ftjs.getValidIdFiles(),
+                ftjs.getOathFiles()
+        );
+    }
+
+
+
+
+
 }
