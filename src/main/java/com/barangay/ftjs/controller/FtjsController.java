@@ -3,13 +3,16 @@ package com.barangay.ftjs.controller;
 import java.util.List;
 
 import com.barangay.ftjs.dto.*;
+import com.barangay.ftjs.service.FtjsNoteService;
 import com.barangay.ftjs.service.FtjsReIssuanceService;
+import jakarta.validation.Valid;
 import org.apache.coyote.BadRequestException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.web.PageableDefault;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -46,6 +49,7 @@ public class FtjsController {
     private final FtjsService ftjsService;
     private final AuditLogService auditLogService;
     private final FtjsReIssuanceService  ftjsReIssuanceService;
+    private final FtjsNoteService ftjsNoteService;
 
     /**
      * Search residents by name/query for FTJS verification.
@@ -125,8 +129,22 @@ public class FtjsController {
         return ResponseEntity.ok(ftjsReIssuanceService.getReIssuanceHistory(ftjsId));
     }
 
-    @GetMapping("/{ftjsId}/timeline")
+    @GetMapping("/{ftjsId}/timeline/")
     public ResponseEntity<List<FtjsTimelineDto>> getTimeline(@PathVariable Long ftjsId) {
         return ResponseEntity.ok(ftjsReIssuanceService.getFtjsTimeline(ftjsId));
+    }
+
+
+    @PostMapping("/notes-entry/{ftjsId}")
+    public ResponseEntity<FtjsNoteResponse> addNote(@PathVariable Long ftjsId, @Valid @RequestBody FtjsNoteRequest request) {
+        FtjsNoteResponse response = ftjsNoteService.addNote(ftjsId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+
+    @GetMapping("/notes-history/{ftjsId}")
+    public ResponseEntity<List<FtjsNoteResponse>> getNotes(@PathVariable Long ftjsId) {
+        List<FtjsNoteResponse> notes = ftjsNoteService.getNotesByFtjsId(ftjsId);
+        return ResponseEntity.ok(notes);
     }
 }

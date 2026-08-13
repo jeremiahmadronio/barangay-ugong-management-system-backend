@@ -11,4 +11,6 @@ import com.barangay.ftjs.model.FirstTimeJobSeekerNotes;
 public interface FirstTimeJobSeekerNotesRepository extends JpaRepository<FirstTimeJobSeekerNotes, Long> {
 
     List<FirstTimeJobSeekerNotes> findByFtjsIdOrderByCreatedAtDesc(Long ftjsId);
+
+
 }
