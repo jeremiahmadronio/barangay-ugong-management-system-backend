@@ -11,4 +11,6 @@ import com.barangay.ftjs.model.FirstTimeJobSeekerAffidavitOfLoss;
 public interface FirstTimeJobSeekerAffidavitOfLossRepository extends JpaRepository<FirstTimeJobSeekerAffidavitOfLoss, Long> {
 
     List<FirstTimeJobSeekerAffidavitOfLoss> findByFtjsIdOrderByCreatedAtDesc(Long ftjsId);
+
+    List<FirstTimeJobSeekerAffidavitOfLoss> findByFtjsIdOrderByIssuanceNumberDesc(Long ftjsId);
 }

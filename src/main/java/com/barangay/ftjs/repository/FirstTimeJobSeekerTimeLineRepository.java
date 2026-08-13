@@ -11,4 +11,5 @@ import com.barangay.ftjs.model.FirstTimeJobSeekerTimeLine;
 public interface FirstTimeJobSeekerTimeLineRepository extends JpaRepository<FirstTimeJobSeekerTimeLine, Long> {
 
     List<FirstTimeJobSeekerTimeLine> findByFtjsIdOrderByEventDateDesc(Long ftjsId);
+
 }

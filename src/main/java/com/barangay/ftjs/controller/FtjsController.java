@@ -118,4 +118,15 @@ public class FtjsController {
         ReIssuanceRequestDto reIssuanceReq = ftjsReIssuanceService.createReIssuanceRequest(ftjsId,request);
         return ResponseEntity.ok(reIssuanceReq);
     }
+
+
+    @GetMapping("/{ftjsId}/re-issuances/history")
+    public ResponseEntity<List<ReIssuanceHistoryDto>> getReIssuanceHistory(@PathVariable Long ftjsId) {
+        return ResponseEntity.ok(ftjsReIssuanceService.getReIssuanceHistory(ftjsId));
+    }
+
+    @GetMapping("/{ftjsId}/timeline")
+    public ResponseEntity<List<FtjsTimelineDto>> getTimeline(@PathVariable Long ftjsId) {
+        return ResponseEntity.ok(ftjsReIssuanceService.getFtjsTimeline(ftjsId));
+    }
 }

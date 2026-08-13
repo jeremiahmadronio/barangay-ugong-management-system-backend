@@ -35,6 +35,9 @@ public interface FirstTimeJobSeekerRepository extends JpaRepository<FirstTimeJob
     boolean existsByResidentIdAndIsDeletedFalse(@Param("residentId") Long residentId);
 
 
+
+
+
     // ── Stats queries ─────────────────────────────────────────────────────────
 
     @Query("SELECT COUNT(f) FROM FirstTimeJobSeeker f WHERE f.isDeleted = false AND f.isArchived = false AND f.status IN (com.barangay.zshared.enumerated.FtjsStatus.ISSUED, com.barangay.zshared.enumerated.FtjsStatus.RE_ISSUANCE)")

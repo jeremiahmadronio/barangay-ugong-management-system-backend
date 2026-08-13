@@ -1,5 +1,7 @@
 package com.barangay.ftjs.service;
 
+import com.barangay.ftjs.dto.FtjsTimelineDto;
+import com.barangay.ftjs.dto.ReIssuanceHistoryDto;
 import com.barangay.ftjs.dto.ReIssuanceRequestDto;
 import com.barangay.ftjs.model.FirstTimeJobSeeker;
 import com.barangay.ftjs.model.FirstTimeJobSeekerAffidavitOfLoss;
@@ -19,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -82,6 +85,75 @@ public class FtjsReIssuanceService {
                 affidavit.getOrNumber(),
                 affidavit.getAffidavitFiles()
         );
+    }
+
+
+
+    @Transactional(readOnly = true)
+    public List<ReIssuanceHistoryDto> getReIssuanceHistory(Long ftjsId) {
+        if (!firstTimeJobSeekerRepository.existsById(ftjsId)) {
+            throw new ResourceNotFoundException("FTJS record not found with id: " + ftjsId);
+        }
+
+        return firstTimeJobSeekerAffidavitOfLossRepository.findByFtjsIdOrderByIssuanceNumberDesc(ftjsId)
+                .stream()
+                .map(affidavit -> new ReIssuanceHistoryDto(
+                        affidavit.getId(),
+                        affidavit.getIssuanceNumber(),
+                        affidavit.getDateOfLoss(),
+                        affidavit.getReason(),
+                        affidavit.getOrNumber(),
+                        affidavit.getAffidavitFiles(),
+                        affidavit.getCreatedAt(),
+                        formatUserFullName(affidavit.getCreatedBy())
+                ))
+                .toList();
+    }
+
+
+    private String formatUserFullName(User user) {
+        if (user == null) {
+            return "System";
+        }
+        StringBuilder sb = new StringBuilder();
+
+        if (user.getPerson().getFirstName() != null && !user.getPerson().getFirstName().isBlank()) {
+            sb.append(user.getPerson().getFirstName().trim());
+        }
+        if (user.getPerson().getMiddleName() != null && !user.getPerson().getMiddleName().isBlank()) {
+            if (!sb.isEmpty()) sb.append(" ");
+            sb.append(user.getPerson().getMiddleName().trim());
+        }
+        if (user.getPerson().getLastName() != null && !user.getPerson().getLastName().isBlank()) {
+            if (!sb.isEmpty()) sb.append(" ");
+            sb.append(user.getPerson().getLastName().trim());
+        }
+        if (user.getPerson().getSuffix() != null && !user.getPerson().getSuffix().isBlank()) {
+            if (!sb.isEmpty()) sb.append(" ");
+            sb.append(user.getPerson().getSuffix().trim());
+        }
+
+        return sb.isEmpty() ? "System" : sb.toString();
+    }
+
+
+    @Transactional(readOnly = true)
+    public List<FtjsTimelineDto> getFtjsTimeline(Long ftjsId) {
+        if (!firstTimeJobSeekerRepository.existsById(ftjsId)) {
+            throw new ResourceNotFoundException("FTJS record not found with id: " + ftjsId);
+        }
+
+        return firstTimeJobSeekerTimeLineRepository.findByFtjsIdOrderByEventDateDesc(ftjsId)
+                .stream()
+                .map(timeline -> new FtjsTimelineDto(
+                        timeline.getId(),
+                        timeline.getTitle(),
+                        timeline.getDescription(),
+                        timeline.getTimelineType(),
+                        timeline.getEventDate(),
+                        formatUserFullName(timeline.getCreatedBy())
+                ))
+                .toList();
     }
 
 }
