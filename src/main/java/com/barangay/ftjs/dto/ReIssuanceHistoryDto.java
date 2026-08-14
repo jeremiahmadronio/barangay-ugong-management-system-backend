@@ -11,5 +11,6 @@ public record ReIssuanceHistoryDto(
         String orNumber,
         byte[] affidavitFiles,
         LocalDateTime requestedAt, // e.g., "Aug 13, 2026"
-        String requestedBy
+        String requestedBy,
+        String providedBy
 ) {}

@@ -301,27 +301,23 @@ public class FtjsService {
             ftjs.setCreatedAt(now);
         }
 
-        // Persist FTJS record and flush so it gets a DB-assigned ID
         FirstTimeJobSeeker savedFtjs = ftjsRepository.saveAndFlush(ftjs);
 
-        // ─── Save FTJS Timeline entry ──────────────────────────────────────────
-        // This records the creation event in first_time_job_seeker_timeline table
+
         FirstTimeJobSeekerTimeLine timeline = new FirstTimeJobSeekerTimeLine();
         timeline.setFtjs(savedFtjs);
         timeline.setTimelineType(isFirstIssuance ? TimeLineType.SUBMITTED : TimeLineType.RE_ISSUANCE);
         timeline.setTitle(isFirstIssuance ? "FTJS Certificate Issued" : "FTJS Re-Issuance");
         timeline.setDescription(String.format(
-                "%s processed for %s. Application No: %s. Educational Attainment: %s.",
-                isFirstIssuance ? "First-time FTJS certificate" : "FTJS re-issuance",
+                "%s processed for %s (App #: %s)",
+                isFirstIssuance ? "First-time certificate" : "Re-issuance",
                 person != null ? buildFullName(person.getFirstName(), person.getMiddleName(),
                         person.getLastName(), person.getSuffix()) : "Resident",
-                savedFtjs.getFtjsNumber(),
-                request.educationalAttainment() != null ? request.educationalAttainment() : "N/A"
+                savedFtjs.getFtjsNumber()
         ));
         timeline.setEventDate(now);
         timeline.setCreatedBy(verifiedUser);
         timeLineRepository.save(timeline);
-        // ──────────────────────────────────────────────────────────────────────
 
         log.info("[FTJS] Entry saved — Resident ID: {}, FTJS No: {}, Timeline: {}",
                 resident.getResidentId(), savedFtjs.getFtjsNumber(),
@@ -355,7 +351,15 @@ public class FtjsService {
             applicantFullName = personMapper.buildFullName(ftjs.getResident().getPerson());
         }
 
-        String verifiedByName = (ftjs.getVerifiedBy() != null) ? ftjs.getVerifiedBy().getUsername() : null;
+        String verifiedByName = null;
+        if (ftjs.getVerifiedBy() != null) {
+            if (ftjs.getVerifiedBy().getPerson() != null) {
+                verifiedByName = personMapper.buildFullName(ftjs.getVerifiedBy().getPerson());
+            }
+            if (verifiedByName == null || verifiedByName.isBlank()) {
+                verifiedByName = ftjs.getVerifiedBy().getUsername();
+            }
+        }
         Integer issuanceCountLong = Math.toIntExact((ftjs.getIssuanceCount() != null) ? ftjs.getIssuanceCount() : 1L);
 
         return new FtjsDetailResponse(

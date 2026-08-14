@@ -6,5 +6,5 @@ public enum TimeLineType {
     ARCHIVED,
     RESTORED,
     SOFT_DELETED,
-    PERMANENTLY_DELETED
+     PERMANENTLY_DELETED
 }

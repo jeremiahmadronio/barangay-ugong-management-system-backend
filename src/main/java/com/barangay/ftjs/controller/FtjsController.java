@@ -3,12 +3,14 @@ package com.barangay.ftjs.controller;
 import java.util.List;
 
 import com.barangay.ftjs.dto.*;
+import com.barangay.ftjs.service.FtjsArchiveAndDeleteService;
 import com.barangay.ftjs.service.FtjsNoteService;
 import com.barangay.ftjs.service.FtjsReIssuanceService;
 import jakarta.validation.Valid;
 import org.apache.coyote.BadRequestException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.web.PageableDefault;
 
@@ -47,9 +49,10 @@ import lombok.extern.slf4j.Slf4j;
 public class FtjsController {
 
     private final FtjsService ftjsService;
-    private final AuditLogService auditLogService;
     private final FtjsReIssuanceService  ftjsReIssuanceService;
     private final FtjsNoteService ftjsNoteService;
+    private final FtjsArchiveAndDeleteService archiveAndDeleteService;
+
 
     /**
      * Search residents by name/query for FTJS verification.
@@ -85,7 +88,7 @@ public class FtjsController {
             @RequestParam(required = false) FtjsStatus status,
             @RequestParam(required = false) String purpose,
             @RequestParam(required = false) Integer issuanceCount,
-            @PageableDefault(size = 10, sort = "createdAt") Pageable pageable) {
+            @PageableDefault(size = 10, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(ftjsService.getSummaryTable(search, status, purpose, issuanceCount, pageable));
     }
 
@@ -118,8 +121,8 @@ public class FtjsController {
 
     @PostMapping("re-issuance-request/{ftjsId}")
     @LogAudit(module = AuditModule.FTJS, action = "CREATE_RE-ISSUANCE_REQUEST", severity = Severity.INFO)
-    public ResponseEntity<ReIssuanceRequestDto> createReIssuanceRequest(Long ftjsId,ReIssuanceRequestDto request) throws BadRequestException {
-        ReIssuanceRequestDto reIssuanceReq = ftjsReIssuanceService.createReIssuanceRequest(ftjsId,request);
+    public ResponseEntity<ReIssuanceRequestDto> createReIssuanceRequest(@PathVariable Long ftjsId, @RequestBody ReIssuanceRequestDto request) throws BadRequestException {
+        ReIssuanceRequestDto reIssuanceReq = ftjsReIssuanceService.createReIssuanceRequest(ftjsId, request);
         return ResponseEntity.ok(reIssuanceReq);
     }
 
@@ -147,4 +150,23 @@ public class FtjsController {
         List<FtjsNoteResponse> notes = ftjsNoteService.getNotesByFtjsId(ftjsId);
         return ResponseEntity.ok(notes);
     }
+
+    @PostMapping("/archive/{id}")
+    public ResponseEntity<Void> archiveFtjs(@PathVariable Long id){
+        archiveAndDeleteService.archiveFtjs(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/restore/{id}")
+    public ResponseEntity<Void> restoreFtjs(@PathVariable Long id){
+        archiveAndDeleteService.restoreFtjs(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/archive/stats")
+    public ResponseEntity<FtjsArchiveStatsResponse> getArchiveAndDeleteStats(){
+        FtjsArchiveStatsResponse stats = archiveAndDeleteService.getArchiveStats();
+        return ResponseEntity.ok(stats);
+    }
+
 }

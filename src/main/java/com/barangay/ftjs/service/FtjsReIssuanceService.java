@@ -105,15 +105,32 @@ public class FtjsReIssuanceService {
                         affidavit.getOrNumber(),
                         affidavit.getAffidavitFiles(),
                         affidavit.getCreatedAt(),
-                        formatUserFullName(affidavit.getCreatedBy())
+                        formatUserFullName(affidavit.getCreatedBy()),
+                        formatResidentFullName(affidavit.getFtjs())
                 ))
                 .toList();
+    }
+
+    private String formatResidentFullName(FirstTimeJobSeeker ftjs) {
+        if (ftjs == null || ftjs.getResident() == null || ftjs.getResident().getPerson() == null) {
+            return "N/A";
+        }
+        var person = ftjs.getResident().getPerson();
+        StringBuilder sb = new StringBuilder();
+        if (person.getFirstName() != null && !person.getFirstName().isBlank()) sb.append(person.getFirstName().trim());
+        if (person.getMiddleName() != null && !person.getMiddleName().isBlank()) sb.append(" ").append(person.getMiddleName().trim());
+        if (person.getLastName() != null && !person.getLastName().isBlank()) sb.append(" ").append(person.getLastName().trim());
+        if (person.getSuffix() != null && !person.getSuffix().isBlank()) sb.append(" ").append(person.getSuffix().trim());
+        return sb.toString().trim();
     }
 
 
     private String formatUserFullName(User user) {
         if (user == null) {
             return "System";
+        }
+        if (user.getPerson() == null) {
+            return user.getUsername() != null && !user.getUsername().isBlank() ? user.getUsername() : "System";
         }
         StringBuilder sb = new StringBuilder();
 
@@ -133,7 +150,7 @@ public class FtjsReIssuanceService {
             sb.append(user.getPerson().getSuffix().trim());
         }
 
-        return sb.isEmpty() ? "System" : sb.toString();
+        return sb.isEmpty() ? (user.getUsername() != null ? user.getUsername() : "System") : sb.toString();
     }
 
 

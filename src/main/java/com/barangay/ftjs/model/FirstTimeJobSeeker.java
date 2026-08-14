@@ -93,9 +93,6 @@ public class FirstTimeJobSeeker extends BaseEntity implements Archivable {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    @Column(name = "pre_delete_status", length = 50)
-    private String preDeleteStatus;
-
     @Column(name = "is_archived")
     private Boolean isArchived = false;
 
