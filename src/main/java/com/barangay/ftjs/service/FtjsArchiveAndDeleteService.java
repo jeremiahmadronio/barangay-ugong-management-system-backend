@@ -1,6 +1,7 @@
 package com.barangay.ftjs.service;
 
 import com.barangay.ftjs.dto.FtjsArchiveStatsResponse;
+import com.barangay.ftjs.dto.FtjsSummaryResponse;
 import com.barangay.ftjs.model.FirstTimeJobSeeker;
 import com.barangay.ftjs.model.FirstTimeJobSeekerTimeLine;
 import com.barangay.ftjs.repository.FirstTimeJobSeekerRepository;
@@ -8,17 +9,23 @@ import com.barangay.ftjs.repository.FirstTimeJobSeekerTimeLineRepository;
 import com.barangay.ftjs.repository.FtjsSystemSettingRepository;
 import com.barangay.usermanagement.user.model.User;
 import com.barangay.zshared.audit.service.AuditLogService;
+import com.barangay.zshared.enumerated.FtjsStatus;
 import com.barangay.zshared.enumerated.TimeLineType;
 import com.barangay.zshared.exception.ResourceNotFoundException;
+import com.barangay.zshared.mapper.PageResponse;
 import com.barangay.zshared.security.SecurityUtils;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.annotations.SecondaryRow;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -34,22 +41,17 @@ public class FtjsArchiveAndDeleteService {
     @Transactional
     public void archiveFtjs(Long id){
 
-        FirstTimeJobSeeker firstTimeJobSeeker = ftjsRepository.findById(id).orElseThrow((
-        ) -> new ResourceNotFoundException("Ftjs not found"));
-
-        if(Boolean.TRUE.equals(firstTimeJobSeeker.getIsArchived())){
-            throw new RuntimeException("Ftjs is already archived");
+        int affectedRows = ftjsRepository.archiveRecordNative(id);
+        if (affectedRows == 0) {
+            throw new ResourceNotFoundException("Ftjs not found with ID: " + id);
         }
+
         User currentUser = SecurityUtils.getCurrentUser();
-
-        firstTimeJobSeeker.setIsArchived(true);
-        firstTimeJobSeeker.setArchivedAt(LocalDateTime.now());
-        firstTimeJobSeeker.setArchiveRemarks("Archive Ftjs Application");
-        ftjsRepository.save(firstTimeJobSeeker);
-
         FirstTimeJobSeekerTimeLine timeline = new FirstTimeJobSeekerTimeLine();
+        FirstTimeJobSeeker ref = new FirstTimeJobSeeker();
+        ref.setId(id);
 
-        timeline.setFtjs(firstTimeJobSeeker);
+        timeline.setFtjs(ref);
         timeline.setTimelineType(TimeLineType.ARCHIVED);
         timeline.setTitle("Application Archived");
         timeline.setDescription("Application moved to Archive Vault.");
@@ -64,19 +66,17 @@ public class FtjsArchiveAndDeleteService {
     @Transactional
     public void restoreFtjs(Long id){
 
-        FirstTimeJobSeeker firstTimeJobSeeker = ftjsRepository.findById(id).orElseThrow((
-        ) -> new ResourceNotFoundException("Ftjs not found"));
-
-        if(Boolean.FALSE.equals(firstTimeJobSeeker.getIsArchived())){
-            throw new RuntimeException("Ftjs is already Active");
+        int affectedRows = ftjsRepository.restoreRecordNative(id);
+        if (affectedRows == 0) {
+            throw new ResourceNotFoundException("Ftjs not found with ID: " + id);
         }
+
         User currentUser = SecurityUtils.getCurrentUser();
-        firstTimeJobSeeker.setIsArchived(false);
-        ftjsRepository.save(firstTimeJobSeeker);
-
         FirstTimeJobSeekerTimeLine timeline = new FirstTimeJobSeekerTimeLine();
+        FirstTimeJobSeeker ref = new FirstTimeJobSeeker();
+        ref.setId(id);
 
-        timeline.setFtjs(firstTimeJobSeeker);
+        timeline.setFtjs(ref);
         timeline.setTimelineType(TimeLineType.RESTORED);
         timeline.setTitle("Application Restored");
         timeline.setDescription("Application moved to Ftjs Management.");
@@ -128,5 +128,87 @@ public class FtjsArchiveAndDeleteService {
 
         return String.format("%s%.1f%% vs last month", sign, percentage);
     }
+
+
+
+    @Transactional(readOnly = true)
+    public Page<FtjsSummaryResponse> getArchivedSummaryTable(
+            String search, FtjsStatus status, String purpose, Integer issuanceCount, Pageable pageable) {
+        return ftjsRepository.findArchiveSummaryFiltered(search, status, purpose, issuanceCount, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<FtjsSummaryResponse> getDeletedSummaryTable(
+            String search, FtjsStatus status, String purpose, Integer issuanceCount, Pageable pageable) {
+
+        String sanitizedSearch = (search != null && !search.isBlank()) ? search.trim() : null;
+        String statusStr = status != null ? status.name() : null;
+
+        Page<FirstTimeJobSeeker> deletedPage = ftjsRepository.findDeletedFilteredNative(
+                sanitizedSearch, statusStr, purpose, issuanceCount, pageable);
+
+        Page<FtjsSummaryResponse> dtoPage = deletedPage.map(f -> new FtjsSummaryResponse(
+                f.getId(),
+                f.getFtjsNumber(),
+                f.getPerson() != null
+                        ? (f.getPerson().getFirstName() + " " + (f.getPerson().getMiddleName() != null ? f.getPerson().getMiddleName() + " " : "") + f.getPerson().getLastName()).trim()
+                        : "Resident",
+                f.getIssuanceCount() != null ? f.getIssuanceCount().longValue() : 1L,
+                f.getStatus(),
+                f.getPurposeDocuments(),
+                f.getDeletedAt() != null ? f.getDeletedAt() : f.getCreatedAt()
+        ));
+
+        return PageResponse.of(dtoPage);
+    }
+
+
+
+    @Transactional
+    public void permanentlyDelete(Long id) {
+        ftjsRepository.deleteChildAffidavits(id);
+        ftjsRepository.deleteChildTimelines(id);
+        ftjsRepository.deleteChildNotes(id);
+
+        int affectedRows = ftjsRepository.hardDeleteById(id);
+        if (affectedRows == 0) {
+            throw new EntityNotFoundException("Deleted FTJS application with ID " + id + " not found in trash.");
+        }
+    }
+
+
+    @Transactional
+    public void permanentlyDeleteBatch(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        ftjsRepository.deleteChildAffidavitsBatch(ids);
+        ftjsRepository.deleteChildTimelinesBatch(ids);
+        ftjsRepository.deleteChildNotesBatch(ids);
+        ftjsRepository.hardDeleteByIds(ids);
+    }
+
+
+    @Transactional
+    public void softDelete(Long id) {
+        FirstTimeJobSeeker ftjs = ftjsRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Active FTJS record with ID " + id + " not found."));
+
+        ftjs.setDeleted(true);
+        ftjs.setDeletedAt(LocalDateTime.now());
+        ftjsRepository.save(ftjs);
+
+        User actor = SecurityUtils.getCurrentUser();
+
+        FirstTimeJobSeekerTimeLine timeline = new FirstTimeJobSeekerTimeLine();
+        timeline.setFtjs(ftjs);
+        timeline.setTimelineType(TimeLineType.SOFT_DELETED);
+        timeline.setTitle("Application Moved to Trash");
+        timeline.setDescription(String.format("Application record (%s) was soft-deleted and moved to Recently Deleted.", ftjs.getFtjsNumber()));
+        timeline.setEventDate(LocalDateTime.now());
+        timeline.setCreatedBy(actor);
+        ftjsTimeLineRepository.save(timeline);
+    }
+
 
 }

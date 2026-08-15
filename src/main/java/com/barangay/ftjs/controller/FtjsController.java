@@ -3,9 +3,8 @@ package com.barangay.ftjs.controller;
 import java.util.List;
 
 import com.barangay.ftjs.dto.*;
-import com.barangay.ftjs.service.FtjsArchiveAndDeleteService;
-import com.barangay.ftjs.service.FtjsNoteService;
-import com.barangay.ftjs.service.FtjsReIssuanceService;
+import com.barangay.ftjs.service.*;
+import com.barangay.zshared.mapper.PageResponse;
 import jakarta.validation.Valid;
 import org.apache.coyote.BadRequestException;
 import org.springframework.data.domain.Page;
@@ -16,16 +15,8 @@ import org.springframework.data.web.PageableDefault;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import com.barangay.ftjs.service.FtjsService;
 import com.barangay.zshared.enumerated.FtjsStatus;
 import com.barangay.usermanagement.user.model.User;
 import com.barangay.zshared.audit.annotations.LogAudit;
@@ -52,6 +43,7 @@ public class FtjsController {
     private final FtjsReIssuanceService  ftjsReIssuanceService;
     private final FtjsNoteService ftjsNoteService;
     private final FtjsArchiveAndDeleteService archiveAndDeleteService;
+    private final FtjsRetentionService retentionService;
 
 
     /**
@@ -167,6 +159,69 @@ public class FtjsController {
     public ResponseEntity<FtjsArchiveStatsResponse> getArchiveAndDeleteStats(){
         FtjsArchiveStatsResponse stats = archiveAndDeleteService.getArchiveStats();
         return ResponseEntity.ok(stats);
+    }
+
+
+    @GetMapping("/archives/summary")
+    public ResponseEntity<Page<FtjsSummaryResponse>> getArchivedSummaryTable(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) FtjsStatus status,
+            @RequestParam(required = false) String purpose,
+            @RequestParam(required = false) Integer issuanceCount,
+            @PageableDefault(size = 10, sort = "archivedAt", direction = Sort.Direction.DESC) Pageable pageable) {
+
+        Page<FtjsSummaryResponse> response = archiveAndDeleteService.getArchivedSummaryTable(
+                search, status, purpose, issuanceCount, pageable);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/trash/summary")
+    public ResponseEntity<PageResponse<FtjsSummaryResponse>> getDeletedSummaryTable(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) FtjsStatus status,
+            @RequestParam(required = false) String purpose,
+            @RequestParam(required = false) Integer issuanceCount,
+            @PageableDefault(size = 10, sort = "deleted_at", direction = Sort.Direction.DESC) Pageable pageable) {
+        PageResponse<FtjsSummaryResponse> response = archiveAndDeleteService.getDeletedSummaryTable(
+                search, status, purpose, issuanceCount, pageable);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/display-retention")
+    public ResponseEntity<RetentionSettingDto.Response> getRetentionSetting() {
+        return ResponseEntity.ok(retentionService.getCurrentRetentionSetting());
+    }
+
+    @PutMapping("/update-retention")
+    public ResponseEntity<Void> updateRetentionSetting(@Valid @RequestBody RetentionSettingDto.Request request) {
+        retentionService.updateRetentionSetting(request);
+        return ResponseEntity.noContent().build();
+    }
+
+
+
+
+    @DeleteMapping("/{id}")
+    @LogAudit(module = AuditModule.FTJS, action = "SOFT_DELETE_FTJS_RECORD", severity = Severity.LOW)
+    public ResponseEntity<Void> softDelete(@PathVariable Long id) {
+        archiveAndDeleteService.softDelete(id);
+        return ResponseEntity.noContent().build();
+    }
+
+
+    @DeleteMapping("/trash/{id}/permanent")
+    @LogAudit(module = AuditModule.FTJS, action = "PERMANENT_DELETE_FTJS_RECORD", severity = Severity.WARNING)
+    public ResponseEntity<Void> permanentlyDelete(@PathVariable Long id) {
+        archiveAndDeleteService.permanentlyDelete(id);
+        return ResponseEntity.noContent().build();
+    }
+
+
+    @DeleteMapping("/trash/permanent/batch")
+    @LogAudit(module = AuditModule.FTJS, action = "BATCH_PERMANENT_DELETE_FTJS_RECORDS", severity = Severity.CRITICAL)
+    public ResponseEntity<Void> permanentlyDeleteBatch(@RequestBody List<Long> ids) {
+        archiveAndDeleteService.permanentlyDeleteBatch(ids);
+        return ResponseEntity.noContent().build();
     }
 
 }
