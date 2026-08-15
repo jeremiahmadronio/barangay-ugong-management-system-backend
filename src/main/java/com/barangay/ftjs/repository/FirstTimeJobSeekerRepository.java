@@ -3,7 +3,13 @@ package com.barangay.ftjs.repository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import com.barangay.ftjs.dto.FtjsReportTableResponse;
 import com.barangay.ftjs.dto.FtjsSummaryResponse;
+import com.barangay.ftjs.projection.AgeRangeDistributionProjection;
+import com.barangay.ftjs.projection.EducationDistributionProjection;
+import com.barangay.ftjs.projection.FtjsReportTableProjection;
+import com.barangay.ftjs.projection.IssuanceTypeProjection;
+import com.barangay.ftjs.projection.PurposeDistributionProjection;
 import com.barangay.ftjs.projection.TrendPointProjection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -273,10 +279,19 @@ public interface FirstTimeJobSeekerRepository extends JpaRepository<FirstTimeJob
                             'Employment Application',
                             'Local Employment',
                             'Government Requirement'
-                        ) OR f.purpose_documents IS NULL
+                        ) OR f.purpose_documents IS NULL OR TRIM(f.purpose_documents) = ''
                 ))
           )
-          AND (:education IS NULL OR f.educational_attainment = :education)
+          AND (
+            :education IS NULL 
+            OR f.educational_attainment = :education 
+            OR f.educational_attainment LIKE CONCAT(:education, '%')
+            OR (:education = 'Elementary' AND f.educational_attainment LIKE 'Elementary%')
+            OR (:education = 'High School' AND (f.educational_attainment LIKE '%High School%' OR f.educational_attainment LIKE '%Junior High%'))
+            OR (:education = 'Senior High School' AND f.educational_attainment LIKE '%Senior High%')
+            OR (:education = 'Vocational / TESDA' AND (f.educational_attainment LIKE '%Vocational%' OR f.educational_attainment LIKE '%TESDA%'))
+            OR (:education = 'College Graduate' AND (f.educational_attainment LIKE '%College Graduate%' OR f.educational_attainment LIKE '%Bachelor%'))
+      )
           AND (:sex IS NULL OR p.gender = :sex)
     )
     SELECT 
@@ -294,6 +309,322 @@ public interface FirstTimeJobSeekerRepository extends JpaRepository<FirstTimeJob
             @Param("intervalStep") String intervalStep,
             @Param("truncType") String truncType,
             @Param("dateFormat") String dateFormat,
+            @Param("purpose") String purpose,
+            @Param("sex") String sex,
+            @Param("status") String status,
+            @Param("education") String education
+    );
+
+
+    @Query(value = """
+    SELECT 
+        COALESCE(NULLIF(TRIM(f.educational_attainment), ''), 'Not Specified') AS educationalAttainment,
+        COUNT(f.id) AS applicantCount
+    FROM first_time_job_seeker f
+    LEFT JOIN person p ON f.person_id = p.id
+    WHERE f.is_deleted = false
+      AND (:status IS NULL OR f.status = :status)
+      AND f.created_at >= CAST(:dateFrom AS timestamp)
+      AND f.created_at < (CAST(:dateTo AS timestamp) + interval '1 day')
+      AND (
+            :purpose IS NULL
+            OR (:purpose <> 'Other' AND f.purpose_documents = :purpose)
+            OR (:purpose = 'Other' AND (
+                    f.purpose_documents NOT IN (
+                        'First Time Jobseeker Requirement',
+                        'Employment Application',
+                        'Local Employment',
+                        'Government Requirement'
+                    ) OR f.purpose_documents IS NULL OR TRIM(f.purpose_documents) = ''
+            ))
+      )
+      AND (:sex IS NULL OR p.gender = :sex)
+      AND (
+            :education IS NULL 
+            OR f.educational_attainment = :education 
+            OR f.educational_attainment LIKE CONCAT(:education, '%')
+            OR (:education = 'Elementary' AND f.educational_attainment LIKE 'Elementary%')
+            OR (:education = 'High School' AND (f.educational_attainment LIKE '%High School%' OR f.educational_attainment LIKE '%Junior High%'))
+            OR (:education = 'Senior High School' AND f.educational_attainment LIKE '%Senior High%')
+            OR (:education = 'Vocational / TESDA' AND (f.educational_attainment LIKE '%Vocational%' OR f.educational_attainment LIKE '%TESDA%'))
+            OR (:education = 'College Graduate' AND (f.educational_attainment LIKE '%College Graduate%' OR f.educational_attainment LIKE '%Bachelor%'))
+      )
+    GROUP BY COALESCE(NULLIF(TRIM(f.educational_attainment), ''), 'Not Specified')
+    ORDER BY applicantCount DESC
+""", nativeQuery = true)
+    List<EducationDistributionProjection> getEducationDistribution(
+            @Param("dateFrom") LocalDate dateFrom,
+            @Param("dateTo") LocalDate dateTo,
+            @Param("purpose") String purpose,
+            @Param("sex") String sex,
+            @Param("status") String status,
+            @Param("education") String education
+    );
+
+
+    @Query(value = """
+    SELECT 
+        CASE 
+            WHEN f.purpose_documents IN (
+                'First Time Jobseeker Requirement',
+                'Employment Application',
+                'Local Employment',
+                'Government Requirement'
+            ) THEN f.purpose_documents
+            ELSE 'Other'
+        END AS purpose,
+        COUNT(f.id) AS applicantCount
+    FROM first_time_job_seeker f
+    LEFT JOIN person p ON f.person_id = p.id
+    WHERE f.is_deleted = false
+      AND (:status IS NULL OR f.status = :status)
+      AND f.created_at >= CAST(:dateFrom AS timestamp)
+      AND f.created_at < (CAST(:dateTo AS timestamp) + interval '1 day')
+      AND (
+            :purpose IS NULL
+            OR (:purpose <> 'Other' AND f.purpose_documents = :purpose)
+            OR (:purpose = 'Other' AND (
+                    f.purpose_documents NOT IN (
+                        'First Time Jobseeker Requirement',
+                        'Employment Application',
+                        'Local Employment',
+                        'Government Requirement'
+                    ) OR f.purpose_documents IS NULL OR TRIM(f.purpose_documents) = ''
+            ))
+      )
+      AND (:sex IS NULL OR p.gender = :sex)
+      AND (
+            :education IS NULL 
+            OR f.educational_attainment = :education 
+            OR f.educational_attainment LIKE CONCAT(:education, '%')
+            OR (:education = 'Elementary' AND f.educational_attainment LIKE 'Elementary%')
+            OR (:education = 'High School' AND (f.educational_attainment LIKE '%High School%' OR f.educational_attainment LIKE '%Junior High%'))
+            OR (:education = 'Senior High School' AND f.educational_attainment LIKE '%Senior High%')
+            OR (:education = 'Vocational / TESDA' AND (f.educational_attainment LIKE '%Vocational%' OR f.educational_attainment LIKE '%TESDA%'))
+            OR (:education = 'College Graduate' AND (f.educational_attainment LIKE '%College Graduate%' OR f.educational_attainment LIKE '%Bachelor%'))
+      )
+    GROUP BY 
+        CASE 
+            WHEN f.purpose_documents IN (
+                'First Time Jobseeker Requirement',
+                'Employment Application',
+                'Local Employment',
+                'Government Requirement'
+            ) THEN f.purpose_documents
+            ELSE 'Other'
+        END
+    ORDER BY applicantCount DESC
+""", nativeQuery = true)
+    List<PurposeDistributionProjection> getPurposeDistribution(
+            @Param("dateFrom") LocalDate dateFrom,
+            @Param("dateTo") LocalDate dateTo,
+            @Param("purpose") String purpose,
+            @Param("sex") String sex,
+            @Param("status") String status,
+            @Param("education") String education
+    );
+
+
+    @Query(value = """
+    SELECT 
+        CASE 
+            WHEN COALESCE(f.issuance_count, 1) <= 1 THEN 'Original issuance'
+            ELSE 'Re-issuance'
+        END AS issuanceType,
+        COUNT(f.id) AS applicantCount
+    FROM first_time_job_seeker f
+    LEFT JOIN person p ON f.person_id = p.id
+    WHERE f.is_deleted = false
+      AND (:status IS NULL OR f.status = :status)
+      AND f.created_at >= CAST(:dateFrom AS timestamp)
+      AND f.created_at < (CAST(:dateTo AS timestamp) + interval '1 day')
+      AND (
+            :purpose IS NULL
+            OR (:purpose <> 'Other' AND f.purpose_documents = :purpose)
+            OR (:purpose = 'Other' AND (
+                    f.purpose_documents NOT IN (
+                        'First Time Jobseeker Requirement',
+                        'Employment Application',
+                        'Local Employment',
+                        'Government Requirement'
+                    ) OR f.purpose_documents IS NULL OR TRIM(f.purpose_documents) = ''
+            ))
+      )
+      AND (:sex IS NULL OR p.gender = :sex)
+      AND (
+            :education IS NULL 
+            OR f.educational_attainment = :education 
+            OR f.educational_attainment LIKE CONCAT(:education, '%')
+            OR (:education = 'Elementary' AND f.educational_attainment LIKE 'Elementary%')
+            OR (:education = 'High School' AND (f.educational_attainment LIKE '%High School%' OR f.educational_attainment LIKE '%Junior High%'))
+            OR (:education = 'Senior High School' AND f.educational_attainment LIKE '%Senior High%')
+            OR (:education = 'Vocational / TESDA' AND (f.educational_attainment LIKE '%Vocational%' OR f.educational_attainment LIKE '%TESDA%'))
+            OR (:education = 'College Graduate' AND (f.educational_attainment LIKE '%College Graduate%' OR f.educational_attainment LIKE '%Bachelor%'))
+      )
+    GROUP BY 
+        CASE 
+            WHEN COALESCE(f.issuance_count, 1) <= 1 THEN 'Original issuance'
+            ELSE 'Re-issuance'
+        END
+    ORDER BY applicantCount DESC
+""", nativeQuery = true)
+    List<IssuanceTypeProjection> getIssuanceTypeDistribution(
+            @Param("dateFrom") LocalDate dateFrom,
+            @Param("dateTo") LocalDate dateTo,
+            @Param("purpose") String purpose,
+            @Param("sex") String sex,
+            @Param("status") String status,
+            @Param("education") String education
+    );
+
+
+    @Query(value = """
+    SELECT 
+        f.id AS id,
+        f.ftjs_number AS applicationNo,
+        CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(CONCAT(p.middle_name, ' '), ''), COALESCE(p.last_name, '')) AS applicantName,
+        COALESCE(f.issuance_count, 1) AS issuanceCount,
+        f.purpose_documents AS purpose,
+        f.status AS status,
+        f.created_at AS dateSubmitted
+    FROM first_time_job_seeker f
+    LEFT JOIN person p ON f.person_id = p.id
+    WHERE f.is_deleted = false
+      AND (:status IS NULL OR f.status = :status)
+      AND f.created_at >= CAST(:dateFrom AS timestamp)
+      AND f.created_at < (CAST(:dateTo AS timestamp) + interval '1 day')
+      AND (
+            :purpose IS NULL
+            OR (:purpose <> 'Other' AND f.purpose_documents = :purpose)
+            OR (:purpose = 'Other' AND (
+                    f.purpose_documents NOT IN (
+                        'First Time Jobseeker Requirement',
+                        'Employment Application',
+                        'Local Employment',
+                        'Government Requirement'
+                    ) OR f.purpose_documents IS NULL OR TRIM(f.purpose_documents) = ''
+            ))
+      )
+      AND (:sex IS NULL OR p.gender = :sex)
+      AND (
+            :education IS NULL 
+            OR f.educational_attainment = :education 
+            OR f.educational_attainment LIKE CONCAT(:education, '%')
+            OR (:education = 'Elementary' AND f.educational_attainment LIKE 'Elementary%')
+            OR (:education = 'High School' AND (f.educational_attainment LIKE '%High School%' OR f.educational_attainment LIKE '%Junior High%'))
+            OR (:education = 'Senior High School' AND f.educational_attainment LIKE '%Senior High%')
+            OR (:education = 'Vocational / TESDA' AND (f.educational_attainment LIKE '%Vocational%' OR f.educational_attainment LIKE '%TESDA%'))
+            OR (:education = 'College Graduate' AND (f.educational_attainment LIKE '%College Graduate%' OR f.educational_attainment LIKE '%Bachelor%'))
+      )
+      AND (:search IS NULL OR :search = ''
+            OR LOWER(f.ftjs_number) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(p.first_name) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(p.last_name) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(CONCAT(p.first_name, ' ', p.last_name)) LIKE LOWER(CONCAT('%', :search, '%')))
+    ORDER BY f.id DESC
+""", 
+countQuery = """
+    SELECT COUNT(f.id)
+    FROM first_time_job_seeker f
+    LEFT JOIN person p ON f.person_id = p.id
+    WHERE f.is_deleted = false
+      AND (:status IS NULL OR f.status = :status)
+      AND f.created_at >= CAST(:dateFrom AS timestamp)
+      AND f.created_at < (CAST(:dateTo AS timestamp) + interval '1 day')
+      AND (
+            :purpose IS NULL
+            OR (:purpose <> 'Other' AND f.purpose_documents = :purpose)
+            OR (:purpose = 'Other' AND (
+                    f.purpose_documents NOT IN (
+                        'First Time Jobseeker Requirement',
+                        'Employment Application',
+                        'Local Employment',
+                        'Government Requirement'
+                    ) OR f.purpose_documents IS NULL OR TRIM(f.purpose_documents) = ''
+            ))
+      )
+      AND (:sex IS NULL OR p.gender = :sex)
+      AND (
+            :education IS NULL 
+            OR f.educational_attainment = :education 
+            OR f.educational_attainment LIKE CONCAT(:education, '%')
+            OR (:education = 'Elementary' AND f.educational_attainment LIKE 'Elementary%')
+            OR (:education = 'High School' AND (f.educational_attainment LIKE '%High School%' OR f.educational_attainment LIKE '%Junior High%'))
+            OR (:education = 'Senior High School' AND f.educational_attainment LIKE '%Senior High%')
+            OR (:education = 'Vocational / TESDA' AND (f.educational_attainment LIKE '%Vocational%' OR f.educational_attainment LIKE '%TESDA%'))
+            OR (:education = 'College Graduate' AND (f.educational_attainment LIKE '%College Graduate%' OR f.educational_attainment LIKE '%Bachelor%'))
+      )
+      AND (:search IS NULL OR :search = ''
+            OR LOWER(f.ftjs_number) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(p.first_name) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(p.last_name) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(CONCAT(p.first_name, ' ', p.last_name)) LIKE LOWER(CONCAT('%', :search, '%')))
+""", nativeQuery = true)
+    Page<FtjsReportTableProjection> findReportTableFiltered(
+            @Param("dateFrom") LocalDate dateFrom,
+            @Param("dateTo") LocalDate dateTo,
+            @Param("status") String status,
+            @Param("purpose") String purpose,
+            @Param("sex") String sex,
+            @Param("education") String education,
+            @Param("search") String search,
+            Pageable pageable);
+
+
+    @Query(value = """
+    SELECT 
+        CASE 
+            WHEN COALESCE(p.age, EXTRACT(YEAR FROM AGE(p.birth_date))) < 18 THEN 'Under 18'
+            WHEN COALESCE(p.age, EXTRACT(YEAR FROM AGE(p.birth_date))) BETWEEN 18 AND 24 THEN '18-24'
+            WHEN COALESCE(p.age, EXTRACT(YEAR FROM AGE(p.birth_date))) BETWEEN 25 AND 30 THEN '25-30'
+            WHEN COALESCE(p.age, EXTRACT(YEAR FROM AGE(p.birth_date))) BETWEEN 31 AND 40 THEN '31-40'
+            WHEN COALESCE(p.age, EXTRACT(YEAR FROM AGE(p.birth_date))) > 40 THEN 'Over 40'
+            ELSE 'Unknown'
+        END AS ageRange,
+        COUNT(f.id) AS applicantCount
+    FROM first_time_job_seeker f
+    LEFT JOIN person p ON f.person_id = p.id
+    WHERE f.is_deleted = false
+      AND (:status IS NULL OR f.status = :status)
+      AND f.created_at >= CAST(:dateFrom AS timestamp)
+      AND f.created_at < (CAST(:dateTo AS timestamp) + interval '1 day')
+      AND (
+            :purpose IS NULL
+            OR (:purpose <> 'Other' AND f.purpose_documents = :purpose)
+            OR (:purpose = 'Other' AND (
+                    f.purpose_documents NOT IN (
+                        'First Time Jobseeker Requirement',
+                        'Employment Application',
+                        'Local Employment',
+                        'Government Requirement'
+                    ) OR f.purpose_documents IS NULL OR TRIM(f.purpose_documents) = ''
+            ))
+      )
+      AND (:sex IS NULL OR p.gender = :sex)
+      AND (
+            :education IS NULL 
+            OR f.educational_attainment = :education 
+            OR f.educational_attainment LIKE CONCAT(:education, '%')
+            OR (:education = 'Elementary' AND f.educational_attainment LIKE 'Elementary%')
+            OR (:education = 'High School' AND (f.educational_attainment LIKE '%High School%' OR f.educational_attainment LIKE '%Junior High%'))
+            OR (:education = 'Senior High School' AND f.educational_attainment LIKE '%Senior High%')
+            OR (:education = 'Vocational / TESDA' AND (f.educational_attainment LIKE '%Vocational%' OR f.educational_attainment LIKE '%TESDA%'))
+            OR (:education = 'College Graduate' AND (f.educational_attainment LIKE '%College Graduate%' OR f.educational_attainment LIKE '%Bachelor%'))
+      )
+    GROUP BY 
+        CASE 
+            WHEN COALESCE(p.age, EXTRACT(YEAR FROM AGE(p.birth_date))) < 18 THEN 'Under 18'
+            WHEN COALESCE(p.age, EXTRACT(YEAR FROM AGE(p.birth_date))) BETWEEN 18 AND 24 THEN '18-24'
+            WHEN COALESCE(p.age, EXTRACT(YEAR FROM AGE(p.birth_date))) BETWEEN 25 AND 30 THEN '25-30'
+            WHEN COALESCE(p.age, EXTRACT(YEAR FROM AGE(p.birth_date))) BETWEEN 31 AND 40 THEN '31-40'
+            WHEN COALESCE(p.age, EXTRACT(YEAR FROM AGE(p.birth_date))) > 40 THEN 'Over 40'
+            ELSE 'Unknown'
+        END
+    ORDER BY applicantCount DESC
+""", nativeQuery = true)
+    List<AgeRangeDistributionProjection> getAgeRangeDistribution(
+            @Param("dateFrom") LocalDate dateFrom,
+            @Param("dateTo") LocalDate dateTo,
             @Param("purpose") String purpose,
             @Param("sex") String sex,
             @Param("status") String status,

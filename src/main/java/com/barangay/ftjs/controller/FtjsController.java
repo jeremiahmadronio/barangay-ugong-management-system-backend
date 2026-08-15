@@ -233,4 +233,37 @@ public class FtjsController {
         TrendReportResponse response = ftjsReportsService.generateAdaptiveTrendReport(filter);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/education-distribution")
+    public ResponseEntity<EducationDistributionResponse> getEducationDistribution(FtjsReportFilterDto filter) {
+        EducationDistributionResponse response = ftjsReportsService.generateEducationDistribution(filter);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/purpose-distribution")
+    public ResponseEntity<PurposeDistributionResponse> getPurposeDistribution(FtjsReportFilterDto filter) {
+        PurposeDistributionResponse response = ftjsReportsService.generatePurposeDistribution(filter);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/issuance-distribution")
+    public ResponseEntity<IssuanceTypeDistributionResponse> getIssuanceTypeDistribution(FtjsReportFilterDto filter) {
+        IssuanceTypeDistributionResponse response = ftjsReportsService.generateIssuanceTypeDistribution(filter);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/reports/table")
+    public ResponseEntity<Page<FtjsReportTableResponse>> getReportTable(
+            FtjsReportFilterDto filter,
+            @RequestParam(required = false) String search,
+            @PageableDefault(size = 10, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        Page<FtjsReportTableResponse> response = ftjsReportsService.generateReportTable(filter, search, pageable);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/reports/kpi")
+    public ResponseEntity<FtjsReportKpiResponse> getReportKpi(FtjsReportFilterDto filter) {
+        FtjsReportKpiResponse response = ftjsReportsService.generateReportKpi(filter);
+        return ResponseEntity.ok(response);
+    }
 }
