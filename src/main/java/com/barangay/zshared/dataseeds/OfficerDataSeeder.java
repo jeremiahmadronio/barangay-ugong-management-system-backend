@@ -63,7 +63,7 @@ public class OfficerDataSeeder implements CommandLineRunner {
         person.setFirstName(firstName);
         person.setLastName(lastName);
         person.setContactNumber("09171234567");
-        person.setCompleteAddress("Barangay Hall Compound, Brgy. Ugong, Valenzuela City");
+        person.setCompleteAddress("Barangay Hall Compound, Ugong, Valenzuela City, Metro Manila");
         person = personRepository.save(person);
 
         Officer officer = new Officer();

@@ -1,5 +1,6 @@
 package com.barangay.ftjs.controller;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import com.barangay.ftjs.dto.*;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.web.PageableDefault;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -44,6 +46,7 @@ public class FtjsController {
     private final FtjsNoteService ftjsNoteService;
     private final FtjsArchiveAndDeleteService archiveAndDeleteService;
     private final FtjsRetentionService retentionService;
+    private final FtjsReportsService ftjsReportsService;
 
 
     /**
@@ -224,4 +227,10 @@ public class FtjsController {
         return ResponseEntity.noContent().build();
     }
 
+
+    @GetMapping("/trend")
+    public ResponseEntity<TrendReportResponse> getTrendReport(FtjsReportFilterDto filter) {
+        TrendReportResponse response = ftjsReportsService.generateAdaptiveTrendReport(filter);
+        return ResponseEntity.ok(response);
+    }
 }

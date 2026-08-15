@@ -22,7 +22,8 @@ import java.time.LocalDateTime;
         @Index(name = "idx_ftjs_resident_id", columnList = "resident_id"),
         @Index(name = "idx_ftjs_person_id", columnList = "person_id"),
         @Index(name = "idx_ftjs_number", columnList = "ftjs_number"),
-        @Index(name = "idx_ftjs_status_deleted", columnList = "status, is_deleted, is_archived")
+        @Index(name = "idx_ftjs_status_deleted", columnList = "status, is_deleted, is_archived"),
+        @Index(name = "idx_ftjs_trend_lookup", columnList = "is_deleted, created_at, status, educational_attainment")
 })
 @Data
 @EqualsAndHashCode(callSuper = false)

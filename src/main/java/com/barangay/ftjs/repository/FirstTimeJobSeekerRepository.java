@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.barangay.ftjs.dto.FtjsSummaryResponse;
+import com.barangay.ftjs.projection.TrendPointProjection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import java.util.List;
@@ -229,4 +230,73 @@ public interface FirstTimeJobSeekerRepository extends JpaRepository<FirstTimeJob
             @Param("purpose") String purpose,
             @Param("issuanceCount") Integer issuanceCount,
             Pageable pageable);
+
+
+
+
+
+
+
+
+
+
+    @Query(value = """
+    WITH date_buckets AS (
+        SELECT generate_series(
+            CASE 
+                WHEN :truncType = 'month' THEN DATE_TRUNC('month', CAST(:dateFrom AS timestamp))
+                ELSE CAST(:dateFrom AS timestamp)
+            END,
+            CASE 
+                WHEN :truncType = 'month' THEN DATE_TRUNC('month', CAST(:dateTo AS timestamp))
+                ELSE CAST(:dateTo AS timestamp)
+            END,
+            CAST(:intervalStep AS interval)
+        ) AS bucket_start
+    ),
+    filtered_records AS (
+        SELECT 
+            f.id,
+            f.created_at
+        FROM first_time_job_seeker f
+        LEFT JOIN person p ON f.person_id = p.id
+        WHERE f.is_deleted = false
+          AND (:status IS NULL OR f.status = :status)
+          AND f.created_at >= CAST(:dateFrom AS timestamp)
+          AND f.created_at < (CAST(:dateTo AS timestamp) + interval '1 day')
+          AND (
+                :purpose IS NULL
+                OR (:purpose <> 'Other' AND f.purpose_documents = :purpose)
+                OR (:purpose = 'Other' AND (
+                        f.purpose_documents NOT IN (
+                            'First Time Jobseeker Requirement',
+                            'Employment Application',
+                            'Local Employment',
+                            'Government Requirement'
+                        ) OR f.purpose_documents IS NULL
+                ))
+          )
+          AND (:education IS NULL OR f.educational_attainment = :education)
+          AND (:sex IS NULL OR p.gender = :sex)
+    )
+    SELECT 
+        TO_CHAR(b.bucket_start, :dateFormat) AS label,
+        b.bucket_start::date AS pointDate,
+        COUNT(r.id) AS issuedCount
+    FROM date_buckets b
+    LEFT JOIN filtered_records r ON DATE_TRUNC(CAST(:truncType AS text), r.created_at) = b.bucket_start
+    GROUP BY b.bucket_start
+    ORDER BY b.bucket_start ASC
+""", nativeQuery = true)
+    List<TrendPointProjection> getTimelineTrendData(
+            @Param("dateFrom") LocalDate dateFrom,
+            @Param("dateTo") LocalDate dateTo,
+            @Param("intervalStep") String intervalStep,
+            @Param("truncType") String truncType,
+            @Param("dateFormat") String dateFormat,
+            @Param("purpose") String purpose,
+            @Param("sex") String sex,
+            @Param("status") String status,
+            @Param("education") String education
+    );
 }

@@ -76,10 +76,19 @@ public class ResidentDataSeeder implements CommandLineRunner {
                 "Government Employee", "Electrician", "Plumber", "Cook", "Salesperson",
                 "Tricycle Driver", "Construction Worker", "Technician", "Accountant"
         };
-        String[] streets = {
+        String[] houseNumbers = {
+                "12A", "55 S", "102", "8B", "24-A", "143", "77", "9", "305", "18",
+                "42", "88", "15-C", "230", "64", "99", "120", "33", "5B", "71"
+        };
+        String[] streetNames = {
+                "Francisco st", "F. Legaspi Street", "M. De Leon St.", "Mabini St.",
+                "Rizal St.", "P. Valenzuela St.", "San Diego St.", "Del Pilar St.",
+                "Servando St.", "Kagitingan St.", "Katipunan St.", "Bonifacio St."
+        };
+        String[] puroks = {
                 "Purok 1", "Purok 2", "Purok 3", "Purok 4", "Purok 5", "Purok 6",
-                "Purok 7", "Purok 8", "Sitio Malinis", "Sitio Bagong Buhay",
-                "Sitio Maliwanag", "Sitio Kaunlaran"
+                "Purok 7", "Purok 8", "Purok 3 / Phase 2", "Sitio Malinis",
+                "Sitio Bagong Buhay", "Sitio Maliwanag", "Sitio Kaunlaran"
         };
 
         Random random = new Random();
@@ -92,8 +101,10 @@ public class ResidentDataSeeder implements CommandLineRunner {
         while (residentCounter < count) {
             String familyLastName = lastNames[random.nextInt(lastNames.length)];
             String householdNum = "2026-HH-" + String.format("%04d", familyIndex++);
-            String street = streets[random.nextInt(streets.length)];
-            String completeAddress = street + ", Brgy. Ugong, Valenzuela City, Metro Manila";
+            String houseNo = houseNumbers[random.nextInt(houseNumbers.length)];
+            String street = streetNames[random.nextInt(streetNames.length)];
+            String purok = puroks[random.nextInt(puroks.length)];
+            String completeAddress = String.format("%s, %s, %s, Ugong, Valenzuela City, Metro Manila", houseNo, street, purok);
 
             // Family size between 2 and 4 members
             int familySize = Math.min(2 + random.nextInt(3), count - residentCounter);
