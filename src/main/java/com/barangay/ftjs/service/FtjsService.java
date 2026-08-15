@@ -6,6 +6,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import com.barangay.ftjs.dto.*;
+import com.barangay.ftjs.projection.FtjsDashboardStatsProjection;
 import com.barangay.zshared.dto.ResidentDetailDto;
 import com.barangay.zshared.mapper.PersonMapper;
 import com.barangay.zshared.mapper.ResidentMapper;
@@ -381,6 +382,35 @@ public class FtjsService {
 
 
 
+
+
+    @Transactional(readOnly = true)
+    public FtjsDashboardSummaryDto getDashboardSummary() {
+        FtjsDashboardStatsProjection stats = ftjsRepository.getDashboardSummaryMetrics();
+
+        if (stats == null) {
+            return new FtjsDashboardSummaryDto(0, 0, 0, 0.0, 0, 0.0, 0);
+        }
+
+        long total = stats.getTotalCount() != null ? stats.getTotalCount() : 0L;
+        long today = stats.getIssuedToday() != null ? stats.getIssuedToday() : 0L;
+        long thisWeek = stats.getIssuedThisWeek() != null ? stats.getIssuedThisWeek() : 0L;
+        long female = stats.getFemaleCount() != null ? stats.getFemaleCount() : 0L;
+        long youth = stats.getYouthCount() != null ? stats.getYouthCount() : 0L;
+
+        double femalePct = total > 0 ? Math.round(((double) female / total) * 1000.0) / 10.0 : 0.0;
+        double youthPct  = total > 0 ? Math.round(((double) youth / total) * 1000.0) / 10.0 : 0.0;
+
+        return new FtjsDashboardSummaryDto(
+                today,
+                thisWeek,
+                female,
+                femalePct,
+                youth,
+                youthPct,
+                total
+        );
+    }
 
 
 }

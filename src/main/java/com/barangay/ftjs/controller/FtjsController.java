@@ -266,4 +266,10 @@ public class FtjsController {
         FtjsReportKpiResponse response = ftjsReportsService.generateReportKpi(filter);
         return ResponseEntity.ok(response);
     }
+
+
+    @GetMapping("/dashboard-stats")
+    public ResponseEntity<FtjsDashboardSummaryDto> getSummaryStats() {
+        return ResponseEntity.ok(ftjsService.getDashboardSummary());
+    }
 }

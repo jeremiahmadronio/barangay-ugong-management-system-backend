@@ -5,12 +5,7 @@ import java.time.LocalDateTime;
 
 import com.barangay.ftjs.dto.FtjsReportTableResponse;
 import com.barangay.ftjs.dto.FtjsSummaryResponse;
-import com.barangay.ftjs.projection.AgeRangeDistributionProjection;
-import com.barangay.ftjs.projection.EducationDistributionProjection;
-import com.barangay.ftjs.projection.FtjsReportTableProjection;
-import com.barangay.ftjs.projection.IssuanceTypeProjection;
-import com.barangay.ftjs.projection.PurposeDistributionProjection;
-import com.barangay.ftjs.projection.TrendPointProjection;
+import com.barangay.ftjs.projection.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import java.util.List;
@@ -630,4 +625,40 @@ countQuery = """
             @Param("status") String status,
             @Param("education") String education
     );
+
+
+
+
+    @Query(value = """
+    SELECT 
+        COUNT(f.id) FILTER (
+            WHERE f.created_at >= DATE_TRUNC('day', CURRENT_TIMESTAMP)
+        ) AS issuedToday,
+        
+        COUNT(f.id) FILTER (
+            WHERE f.created_at >= DATE_TRUNC('week', CURRENT_TIMESTAMP)
+        ) AS issuedThisWeek,
+        
+        COUNT(f.id) FILTER (
+            WHERE UPPER(p.gender) = 'FEMALE'
+        ) AS femaleCount,
+        
+        COUNT(f.id) FILTER (
+            WHERE (
+                p.birth_date IS NOT NULL 
+                AND EXTRACT(YEAR FROM AGE(CURRENT_DATE, p.birth_date)) BETWEEN 18 AND 24
+            ) OR (
+                p.birth_date IS NULL 
+                AND p.age BETWEEN 18 AND 24
+            )
+        ) AS youthCount,
+        
+        COUNT(f.id) AS totalCount
+
+    FROM first_time_job_seeker f
+    LEFT JOIN person p ON f.person_id = p.id
+    WHERE f.is_deleted = false
+      AND f.status IN ('ISSUED', 'RE_ISSUANCE')
+""", nativeQuery = true)
+    FtjsDashboardStatsProjection getDashboardSummaryMetrics();
 }
