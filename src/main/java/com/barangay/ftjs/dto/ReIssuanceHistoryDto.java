@@ -3,6 +3,9 @@ package com.barangay.ftjs.dto;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * DTO response containing FTJS certificate re-issuance history details.
+ */
 public record ReIssuanceHistoryDto(
         Long id,
         Integer issuanceNumber,   // e.g., 2 -> "Re-issuance #2"

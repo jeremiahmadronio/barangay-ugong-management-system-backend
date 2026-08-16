@@ -54,6 +54,9 @@ public class FtjsService {
      * Calculates FTJS stats: total issued, issued this month (with trend vs last month), originals, re-issuances.
      */
     @Transactional(readOnly = true)
+    /**
+     * Calculates total certificate issuances, monthly counts, and percentage trends.
+     */
     public FtjsStatsResponse getStats() {
         LocalDate now = LocalDate.now();
         LocalDate firstOfThisMonth = now.withDayOfMonth(1);
@@ -89,6 +92,9 @@ public class FtjsService {
      * Paginated + filtered FTJS summary table.
      */
     @Transactional(readOnly = true)
+    /**
+     * Retrieves paginated FTJS summary records with optional search and filter parameters.
+     */
     public Page<FtjsSummaryResponse> getSummaryTable(
             String search, FtjsStatus status, String purpose, Integer issuanceCount, Pageable pageable) {
         return ftjsRepository.findSummaryFiltered(search, status, purpose, issuanceCount, pageable);
@@ -131,6 +137,9 @@ public class FtjsService {
      * Retrieves unified FtjsResidentSearchResponse data for a specific resident by ID.
      */
     @Transactional(readOnly = true)
+    /**
+     * Fetches resident FTJS profile, previous issuances, and barangay case history.
+     */
     public FtjsResidentSearchResponse getResidentFtjsProfile(Long residentId) {
         Resident resident = residentRepository.findById(residentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Resident not found with id: " + residentId));
@@ -332,6 +341,9 @@ public class FtjsService {
      * Retrieves FTJS Application detail by ID.
      */
     @Transactional
+    /**
+     * Fetches detailed information for a specific FTJS applicant record.
+     */
     public FtjsDetailResponse getFtjsApplicantDetail(Long id){
         FirstTimeJobSeeker ftjs = ftjsRepository.findById(id).orElseThrow(() ->
                 new RuntimeException("Ftjs not found!"));

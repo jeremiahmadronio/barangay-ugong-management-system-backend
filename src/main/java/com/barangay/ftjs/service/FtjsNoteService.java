@@ -21,6 +21,9 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+/**
+ * Service class managing administrative notes attached to FTJS records.
+ */
 public class FtjsNoteService {
 
     private final FirstTimeJobSeekerNotesRepository ftjsNotesRepository;
@@ -58,6 +61,9 @@ public class FtjsNoteService {
 
 
     @Transactional(readOnly = true)
+    /**
+     * Retrieves all administrative notes attached to an FTJS application.
+     */
     public List<FtjsNoteResponse> getNotesByFtjsId(Long ftjsId) {
         if (!ftjsRepository.existsById(ftjsId)) {
             throw new ResourceNotFoundException("FTJS record not found with id: " + ftjsId);

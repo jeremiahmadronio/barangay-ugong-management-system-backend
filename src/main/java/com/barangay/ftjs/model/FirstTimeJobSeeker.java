@@ -31,6 +31,9 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @SQLDelete(sql = "UPDATE first_time_job_seeker SET is_deleted = true, deleted_at = NOW() WHERE id = ?")
 @SQLRestriction("is_deleted = false")
+/**
+ * JPA Entity representing a First-Time Jobseeker (FTJS) application record under RA 11261.
+ */
 public class FirstTimeJobSeeker extends BaseEntity implements Archivable {
 
     @Id

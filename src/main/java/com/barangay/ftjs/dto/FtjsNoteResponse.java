@@ -11,6 +11,9 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+/**
+ * DTO response representing an administrative note associated with an FTJS record.
+ */
 public class FtjsNoteResponse {
     private Long id;
     private Long ftjsId;

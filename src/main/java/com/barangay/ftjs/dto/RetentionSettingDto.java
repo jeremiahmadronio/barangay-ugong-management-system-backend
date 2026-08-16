@@ -3,6 +3,9 @@ package com.barangay.ftjs.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
+/**
+ * DTO encapsulating FTJS retention period configuration requests and responses.
+ */
 public class RetentionSettingDto {
 
     public record Request(

@@ -11,6 +11,9 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
+/**
+ * JPA Entity storing global FTJS retention settings and system configurations.
+ */
 public class FtjsSystemSetting {
 
     @Id

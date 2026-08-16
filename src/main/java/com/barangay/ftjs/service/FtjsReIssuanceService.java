@@ -26,6 +26,9 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+/**
+ * Service class managing FTJS certificate re-issuance requests, loss affidavits, and event timelines.
+ */
 public class FtjsReIssuanceService {
 
     private final FirstTimeJobSeekerRepository firstTimeJobSeekerRepository;
@@ -35,6 +38,9 @@ public class FtjsReIssuanceService {
 
 
     @Transactional
+    /**
+     * Creates a re-issuance request for an FTJS certificate subject to 1-year validity rules.
+     */
     public ReIssuanceRequestDto createReIssuanceRequest(Long ftjsId,ReIssuanceRequestDto request) throws BadRequestException {
 
         FirstTimeJobSeeker ftjs = firstTimeJobSeekerRepository.findById(ftjsId).orElseThrow(()
@@ -101,6 +107,9 @@ public class FtjsReIssuanceService {
 
 
     @Transactional(readOnly = true)
+    /**
+     * Retrieves complete re-issuance history records for a given FTJS application.
+     */
     public List<ReIssuanceHistoryDto> getReIssuanceHistory(Long ftjsId) {
         if (!firstTimeJobSeekerRepository.existsById(ftjsId)) {
             throw new ResourceNotFoundException("FTJS record not found with id: " + ftjsId);
@@ -166,6 +175,9 @@ public class FtjsReIssuanceService {
 
 
     @Transactional(readOnly = true)
+    /**
+     * Retrieves historical timeline audit events for a given FTJS application.
+     */
     public List<FtjsTimelineDto> getFtjsTimeline(Long ftjsId) {
         if (!firstTimeJobSeekerRepository.existsById(ftjsId)) {
             throw new ResourceNotFoundException("FTJS record not found with id: " + ftjsId);

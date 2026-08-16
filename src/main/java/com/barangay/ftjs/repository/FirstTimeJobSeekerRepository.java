@@ -21,6 +21,9 @@ import com.barangay.ftjs.model.FirstTimeJobSeeker;
 import com.barangay.zshared.enumerated.FtjsStatus;
 
 @Repository
+/**
+ * Spring Data JPA Repository for managing FirstTimeJobSeeker entities and analytical queries.
+ */
 public interface FirstTimeJobSeekerRepository extends JpaRepository<FirstTimeJobSeeker, Long> {
 
     @Modifying

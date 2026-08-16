@@ -17,6 +17,9 @@ import java.time.LocalDate;
 @EqualsAndHashCode(callSuper = false)
 @AllArgsConstructor
 @NoArgsConstructor
+/**
+ * JPA Entity representing an Affidavit of Loss submitted for FTJS certificate re-issuance.
+ */
 public class FirstTimeJobSeekerAffidavitOfLoss extends BaseEntity {
 
     @Id

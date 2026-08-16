@@ -5,6 +5,9 @@ import com.barangay.zshared.enumerated.FtjsStatus;
 
 import java.time.LocalDateTime;
 
+/**
+ * DTO detailed response containing full applicant and issuance information.
+ */
 public record FtjsDetailResponse(
 
         String ftjsApplicationNumber,

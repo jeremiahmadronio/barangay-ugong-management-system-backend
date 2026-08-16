@@ -29,6 +29,9 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+/**
+ * Service class executing soft delete, archive, restore, and permanent deletion operations for FTJS records.
+ */
 public class FtjsArchiveAndDeleteService {
 
     private final FirstTimeJobSeekerRepository ftjsRepository;
@@ -39,6 +42,9 @@ public class FtjsArchiveAndDeleteService {
 
 
     @Transactional
+    /**
+     * Archives an active FTJS record.
+     */
     public void archiveFtjs(Long id){
 
         int affectedRows = ftjsRepository.archiveRecordNative(id);
@@ -64,6 +70,9 @@ public class FtjsArchiveAndDeleteService {
 
 
     @Transactional
+    /**
+     * Restores an archived or soft-deleted FTJS record back to active state.
+     */
     public void restoreFtjs(Long id){
 
         int affectedRows = ftjsRepository.restoreRecordNative(id);
@@ -88,6 +97,9 @@ public class FtjsArchiveAndDeleteService {
 
 
     @Transactional(readOnly = true)
+    /**
+     * Computes metrics and statistics for archived and soft-deleted FTJS records.
+     */
     public FtjsArchiveStatsResponse getArchiveStats() {
         YearMonth currentYearMonth = YearMonth.now();
         LocalDateTime startOfCurrentMonth = currentYearMonth.atDay(1).atStartOfDay();
@@ -165,6 +177,9 @@ public class FtjsArchiveAndDeleteService {
 
 
     @Transactional
+    /**
+     * Permanently deletes an FTJS record and all associated child entities.
+     */
     public void permanentlyDelete(Long id) {
         ftjsRepository.deleteChildAffidavits(id);
         ftjsRepository.deleteChildTimelines(id);
@@ -190,6 +205,9 @@ public class FtjsArchiveAndDeleteService {
 
 
     @Transactional
+    /**
+     * Performs a soft delete on an FTJS record.
+     */
     public void softDelete(Long id) {
         FirstTimeJobSeeker ftjs = ftjsRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Active FTJS record with ID " + id + " not found."));

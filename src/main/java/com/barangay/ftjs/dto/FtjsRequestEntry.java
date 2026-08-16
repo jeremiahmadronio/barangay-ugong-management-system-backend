@@ -5,6 +5,9 @@ import java.time.LocalDateTime;
 /**
  * Request payload for creating a new First Time Job Seeker (FTJS) application entry.
  */
+/**
+ * DTO request payload for submitting a new FTJS certificate application.
+ */
 public record FtjsRequestEntry(
         Long residentId,
         String ftjsNumber,

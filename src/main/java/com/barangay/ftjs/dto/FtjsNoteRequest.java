@@ -10,6 +10,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+/**
+ * DTO request for adding administrative notes to an FTJS record.
+ */
 public class FtjsNoteRequest {
 
     @NotBlank(message = "Note content cannot be blank")

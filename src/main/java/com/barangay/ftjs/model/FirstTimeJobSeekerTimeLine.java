@@ -11,6 +11,9 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "first_time_job_seeker_timeline")
 @Data
+/**
+ * JPA Entity representing an event timeline entry for tracking FTJS application history.
+ */
 public class FirstTimeJobSeekerTimeLine {
 
     @Id

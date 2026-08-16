@@ -10,6 +10,9 @@ import lombok.EqualsAndHashCode;
 @Table(name = "first_time_job_seeker_notes")
 @Data
 @EqualsAndHashCode(callSuper = false)
+/**
+ * JPA Entity representing administrative notes attached to an FTJS record.
+ */
 public class FirstTimeJobSeekerNotes extends BaseEntity {
 
     @Id

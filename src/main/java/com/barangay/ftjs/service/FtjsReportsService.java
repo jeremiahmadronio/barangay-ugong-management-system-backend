@@ -24,10 +24,16 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+/**
+ * Service class generating adaptive analytics, trend reports, and demographic distributions for FTJS.
+ */
 public class FtjsReportsService {
 
     private final FirstTimeJobSeekerRepository ftjsRepository;
 
+    /**
+     * Generates adaptive monthly or granular trend reports based on date filter.
+     */
     public TrendReportResponse generateAdaptiveTrendReport(FtjsReportFilterDto filter) {
         LocalDate rawEnd = filter.dateTo() != null ? filter.dateTo() : LocalDate.now();
         LocalDate rawStart = filter.dateFrom() != null ? filter.dateFrom() : rawEnd.minusMonths(6);
@@ -75,6 +81,9 @@ public class FtjsReportsService {
         return new TrendReportResponse(granularity, rangeLabel, points, busiest, slowest);
     }
 
+    /**
+     * Computes education attainment breakdown among FTJS applicants.
+     */
     public EducationDistributionResponse generateEducationDistribution(FtjsReportFilterDto filter) {
         LocalDate rawEnd = filter.dateTo() != null ? filter.dateTo() : LocalDate.now();
         LocalDate rawStart = filter.dateFrom() != null ? filter.dateFrom() : rawEnd.minusMonths(6);
@@ -110,6 +119,9 @@ public class FtjsReportsService {
         return new EducationDistributionResponse(points, highestLabel, highestCount, totalVolume);
     }
 
+    /**
+     * Computes purpose breakdown for FTJS certificate applications.
+     */
     public PurposeDistributionResponse generatePurposeDistribution(FtjsReportFilterDto filter) {
         LocalDate rawEnd = filter.dateTo() != null ? filter.dateTo() : LocalDate.now();
         LocalDate rawStart = filter.dateFrom() != null ? filter.dateFrom() : rawEnd.minusMonths(6);
@@ -211,6 +223,9 @@ public class FtjsReportsService {
         });
     }
 
+    /**
+     * Calculates key performance indicators for FTJS reporting dashboards.
+     */
     public FtjsReportKpiResponse generateReportKpi(FtjsReportFilterDto filter) {
         LocalDate rawEnd = filter.dateTo() != null ? filter.dateTo() : LocalDate.now();
         LocalDate rawStart = filter.dateFrom() != null ? filter.dateFrom() : rawEnd.minusMonths(6);

@@ -13,6 +13,9 @@ import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
+/**
+ * Service class managing data retention period settings and automated cleanup scheduled tasks.
+ */
 public class FtjsRetentionService {
 
     private final FtjsSystemSettingRepository ftjsSettingRepository;
@@ -23,6 +26,9 @@ public class FtjsRetentionService {
 
 
     @Transactional(readOnly = true)
+    /**
+     * Fetches current system-wide retention period setting.
+     */
     public RetentionSettingDto.Response getCurrentRetentionSetting() {
         String value = ftjsSettingRepository.findById(RETENTION_KEY)
                 .map(FtjsSystemSetting::getSettingValue)
@@ -31,6 +37,9 @@ public class FtjsRetentionService {
     }
 
     @Transactional
+    /**
+     * Updates system-wide retention period setting.
+     */
     public void updateRetentionSetting(RetentionSettingDto.Request request) {
         FtjsSystemSetting setting = ftjsSettingRepository.findById(RETENTION_KEY)
                 .orElseGet(() -> new FtjsSystemSetting(RETENTION_KEY, request.retentionPeriod()));
@@ -41,6 +50,9 @@ public class FtjsRetentionService {
 
     @Scheduled(cron = "0 0 0 * * ?")
     @Transactional
+    /**
+     * Scheduled task executing periodic cleanup of soft-deleted records past retention threshold.
+     */
     public void cleanupExpiredDeletedRecords() {
         String currentSetting = getCurrentRetentionSetting().retentionPeriod();
 

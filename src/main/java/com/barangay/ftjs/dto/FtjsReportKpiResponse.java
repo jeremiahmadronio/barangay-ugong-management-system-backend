@@ -1,5 +1,8 @@
 package com.barangay.ftjs.dto;
 
+/**
+ * DTO response for FTJS analytics report Key Performance Indicators (KPIs).
+ */
 public record FtjsReportKpiResponse(
         long totalRecords,
         String totalRecordsSubtitle,

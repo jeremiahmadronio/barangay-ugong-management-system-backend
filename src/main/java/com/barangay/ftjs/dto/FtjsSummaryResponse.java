@@ -4,6 +4,9 @@ import com.barangay.zshared.enumerated.FtjsStatus;
 
 import java.time.LocalDateTime;
 
+/**
+ * DTO summary response for FTJS management data table display.
+ */
 public record FtjsSummaryResponse (
         Long id,
         String trackingNumber,
