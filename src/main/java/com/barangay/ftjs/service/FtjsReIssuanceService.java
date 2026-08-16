@@ -10,6 +10,7 @@ import com.barangay.ftjs.repository.FirstTimeJobSeekerAffidavitOfLossRepository;
 import com.barangay.ftjs.repository.FirstTimeJobSeekerRepository;
 import com.barangay.ftjs.repository.FirstTimeJobSeekerTimeLineRepository;
 import com.barangay.usermanagement.user.model.User;
+import com.barangay.usermanagement.user.repository.UserRepository;
 import com.barangay.zshared.enumerated.FtjsStatus;
 import com.barangay.zshared.enumerated.TimeLineType;
 import com.barangay.zshared.exception.ResourceNotFoundException;
@@ -30,6 +31,7 @@ public class FtjsReIssuanceService {
     private final FirstTimeJobSeekerRepository firstTimeJobSeekerRepository;
     private final FirstTimeJobSeekerAffidavitOfLossRepository firstTimeJobSeekerAffidavitOfLossRepository;
     private final FirstTimeJobSeekerTimeLineRepository  firstTimeJobSeekerTimeLineRepository;
+    private final UserRepository userRepository;
 
 
     @Transactional
@@ -44,6 +46,15 @@ public class FtjsReIssuanceService {
         }
 
         User currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser == null && ftjs.getVerifiedBy() != null) {
+            currentUser = ftjs.getVerifiedBy();
+        }
+        if (currentUser == null) {
+            currentUser = userRepository.findAll().stream()
+                    .filter(u -> u.getPerson() != null)
+                    .findFirst()
+                    .orElse(null);
+        }
 
         int currentCount = (ftjs.getIssuanceCount() != null) ? ftjs.getIssuanceCount() : 1;
         int nextIssuanceCount = currentCount + 1;
@@ -105,8 +116,8 @@ public class FtjsReIssuanceService {
                         affidavit.getOrNumber(),
                         affidavit.getAffidavitFiles(),
                         affidavit.getCreatedAt(),
-                        formatUserFullName(affidavit.getCreatedBy()),
-                        formatResidentFullName(affidavit.getFtjs())
+                        formatResidentFullName(affidavit.getFtjs()),
+                        resolveIssuingOfficerName(affidavit)
                 ))
                 .toList();
     }
@@ -173,4 +184,40 @@ public class FtjsReIssuanceService {
                 .toList();
     }
 
+    private String resolveIssuingOfficerName(FirstTimeJobSeekerAffidavitOfLoss affidavit) {
+        if (affidavit == null) return "Barangay Official";
+        
+        String residentName = formatResidentFullName(affidavit.getFtjs());
+
+        // 1. Check affidavit createdBy user
+        if (affidavit.getCreatedBy() != null) {
+            String name = formatUserFullName(affidavit.getCreatedBy());
+            if (name != null && !name.isBlank() && !"System".equalsIgnoreCase(name)) {
+                if (!name.equalsIgnoreCase(residentName)) {
+                    return name;
+                }
+            }
+        }
+
+        // 2. Check FTJS record verifiedBy user
+        if (affidavit.getFtjs() != null && affidavit.getFtjs().getVerifiedBy() != null) {
+            String name = formatUserFullName(affidavit.getFtjs().getVerifiedBy());
+            if (name != null && !name.isBlank()) {
+                if (!name.equalsIgnoreCase(residentName)) {
+                    return name;
+                }
+            }
+        }
+
+        // 3. Fallback to currently authenticated logged-in user if available
+        User currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser != null) {
+            String name = formatUserFullName(currentUser);
+            if (name != null && !name.isBlank() && !"System".equalsIgnoreCase(name) && !name.equalsIgnoreCase(residentName)) {
+                return name;
+            }
+        }
+
+        return "Barangay Official";
+    }
 }

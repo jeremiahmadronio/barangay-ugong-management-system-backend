@@ -83,7 +83,7 @@ public class FtjsController {
             @RequestParam(required = false) FtjsStatus status,
             @RequestParam(required = false) String purpose,
             @RequestParam(required = false) Integer issuanceCount,
-            @PageableDefault(size = 10, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+            @PageableDefault(size = 5, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(ftjsService.getSummaryTable(search, status, purpose, issuanceCount, pageable));
     }
 
