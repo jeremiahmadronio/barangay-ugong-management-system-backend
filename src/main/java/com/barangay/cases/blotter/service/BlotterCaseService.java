@@ -86,15 +86,88 @@ public class BlotterCaseService {
      * @return {@link PageResponse} of {@link BlotterCaseDetailResponse}
      */
     @Transactional(readOnly = true)
-    public PageResponse<BlotterCaseDetailResponse> getBlotterCases(BlotterFilterRequest filter) {
+    public PageResponse<BlotterTableRowResponse> getBlotterCases(BlotterFilterRequest filter) {
         int page = filter != null ? filter.getPageNumber() : 0;
         int size = filter != null ? filter.getPageSize() : 10;
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Case> casePage = caseRepository.findBlotterCasesFiltered(filter, pageable);
 
-        Page<BlotterCaseDetailResponse> dtoPage = casePage.map(c -> toDetailResponse(c, null, null));
+        Page<BlotterTableRowResponse> dtoPage = casePage.map(this::toTableRowResponse);
         return PageResponse.of(dtoPage);
+    }
+
+    /**
+     * Maps a root {@link Case} entity to {@link BlotterTableRowResponse} for the Blotter Records Table.
+     * Traverses the reOpenedCaseNumber chain to find the latest active child case, effective status, and cycle count.
+     */
+    private BlotterTableRowResponse toTableRowResponse(Case rootCase) {
+        if (rootCase == null) return null;
+
+        Case trueRoot = rootCase;
+        while (trueRoot.getPreviousCaseNumber() != null && !trueRoot.getPreviousCaseNumber().trim().isEmpty()) {
+            java.util.Optional<Case> prevOpt = caseRepository.findByCaseNumber(trueRoot.getPreviousCaseNumber().trim());
+            if (prevOpt.isPresent()) {
+                trueRoot = prevOpt.get();
+            } else {
+                break;
+            }
+        }
+
+        List<Case> lineage = new ArrayList<>();
+        Case curr = trueRoot;
+        lineage.add(curr);
+        while (curr.getReOpenedCaseNumber() != null && !curr.getReOpenedCaseNumber().trim().isEmpty()) {
+            java.util.Optional<Case> nextOpt = caseRepository.findByCaseNumber(curr.getReOpenedCaseNumber().trim());
+            if (nextOpt.isPresent()) {
+                curr = nextOpt.get();
+                lineage.add(curr);
+            } else {
+                break;
+            }
+        }
+
+        Case latestCase = lineage.get(lineage.size() - 1);
+        int cycleCount = lineage.size();
+        boolean isReopened = cycleCount > 1;
+
+        String filingTypeLabel = trueRoot.getFilingType() != null ?
+                (trueRoot.getFilingType() == FilingType.FORMAL_COMPLAINT ? "Formal Complaint" : "For the Record") :
+                "Blotter Entry";
+
+        String compName = "—";
+        Complainant comp = latestCase.getComplainant() != null ? latestCase.getComplainant() : trueRoot.getComplainant();
+        if (comp != null && comp.getPerson() != null) {
+            String f = comp.getPerson().getFirstName() != null ? comp.getPerson().getFirstName() : "";
+            String l = comp.getPerson().getLastName() != null ? comp.getPerson().getLastName() : "";
+            String m = comp.getPerson().getMiddleName() != null ? comp.getPerson().getMiddleName() : "";
+            compName = (l + (l.isBlank() || f.isBlank() ? "" : ", ") + f + (m.isBlank() ? "" : " " + m.charAt(0) + ".")).trim();
+        }
+
+        String respName = "—";
+        Respondent resp = latestCase.getRespondent() != null ? latestCase.getRespondent() : trueRoot.getRespondent();
+        if (resp != null && resp.getPerson() != null) {
+            String f = resp.getPerson().getFirstName() != null ? resp.getPerson().getFirstName() : "";
+            String l = resp.getPerson().getLastName() != null ? resp.getPerson().getLastName() : "";
+            String m = resp.getPerson().getMiddleName() != null ? resp.getPerson().getMiddleName() : "";
+            respName = (l + (l.isBlank() || f.isBlank() ? "" : ", ") + f + (m.isBlank() ? "" : " " + m.charAt(0) + ".")).trim();
+        }
+
+        LocalDateTime dateFiled = trueRoot.getCreatedAt() != null ? trueRoot.getCreatedAt() : LocalDateTime.now();
+
+        return new BlotterTableRowResponse(
+                trueRoot.getId(),
+                trueRoot.getCaseNumber(),
+                latestCase.getId(),
+                latestCase.getCaseNumber(),
+                filingTypeLabel,
+                cycleCount,
+                isReopened,
+                latestCase.getCaseStatus(),
+                compName,
+                respName,
+                dateFiled
+        );
     }
 
     /**
@@ -460,19 +533,10 @@ public class BlotterCaseService {
         } else {
             assignedName = assignedOfficerName;
         }
-        CaseStatus effectiveStatus = aCase.getCaseStatus();
-        if (caseHistory != null && !caseHistory.isEmpty()) {
-            CaseHistoryItemResponse latest = caseHistory.stream()
-                    .filter(CaseHistoryItemResponse::isLatestActive)
-                    .findFirst()
-                    .orElse(caseHistory.get(caseHistory.size() - 1));
-            effectiveStatus = latest.status();
-        }
-
         return new BlotterCaseDetailResponse(
                 aCase.getId(),
                 aCase.getFilingType(),
-                effectiveStatus,
+                aCase.getCaseStatus(),
                 aCase.getCaseStatusRemarks(),
                 reopenRemarks,
                 aCase.getCaseNumber(),
@@ -527,24 +591,6 @@ public class BlotterCaseService {
         }
 
         Case updated = caseRepository.save(aCase);
-
-        // Also sync rootCase in database so the main Blotter table reflects the updated status
-        Case rootCase = updated;
-        while (rootCase.getPreviousCaseNumber() != null && !rootCase.getPreviousCaseNumber().trim().isEmpty()) {
-            java.util.Optional<Case> prevOpt = caseRepository.findByCaseNumber(rootCase.getPreviousCaseNumber().trim());
-            if (prevOpt.isPresent()) {
-                rootCase = prevOpt.get();
-            } else {
-                break;
-            }
-        }
-        if (!rootCase.getId().equals(updated.getId())) {
-            rootCase.setCaseStatus(updated.getCaseStatus());
-            if (updated.getCaseStatusRemarks() != null) {
-                rootCase.setCaseStatusRemarks(updated.getCaseStatusRemarks());
-            }
-            caseRepository.save(rootCase);
-        }
 
         try {
             caseTimelineService.logEvent(
@@ -703,41 +749,11 @@ public class BlotterCaseService {
             }
         }
 
-        // 4. Update Old Case and ALL ancestor cases in the lineage up to rootCase with REOPENED status
+        // 4. Update Old Case with reOpenedCaseNumber and reopenRemarks (retaining its original DISMISSED/SETTLED status)
         oldCase.setReopenRemarks(remarksText);
         oldCase.setReOpenedCaseNumber(newCaseNumber);
-
-        Case ancestor = oldCase;
-        while (ancestor != null) {
-            ancestor.setCaseStatus(CaseStatus.REOPENED);
-            if (ancestor.getReopenRemarks() == null || ancestor.getReopenRemarks().isBlank()) {
-                ancestor.setReopenRemarks(remarksText);
-            }
-            ancestor.setCaseUpdatedBy(currentUser);
-            caseRepository.save(ancestor);
-
-            if (ancestor.getPreviousCaseNumber() != null && !ancestor.getPreviousCaseNumber().trim().isEmpty()) {
-                ancestor = caseRepository.findByCaseNumber(ancestor.getPreviousCaseNumber().trim()).orElse(null);
-            } else {
-                ancestor = null;
-            }
-        }
-
-        // Sync rootCase status in DB to match the new active case status (PENDING)
-        Case rootCase = savedNewCase;
-        while (rootCase.getPreviousCaseNumber() != null && !rootCase.getPreviousCaseNumber().trim().isEmpty()) {
-            java.util.Optional<Case> prevOpt = caseRepository.findByCaseNumber(rootCase.getPreviousCaseNumber().trim());
-            if (prevOpt.isPresent()) {
-                rootCase = prevOpt.get();
-            } else {
-                break;
-            }
-        }
-        if (!rootCase.getId().equals(savedNewCase.getId())) {
-            rootCase.setCaseStatus(savedNewCase.getCaseStatus());
-            rootCase.setCaseStatusRemarks(remarksText);
-            caseRepository.save(rootCase);
-        }
+        oldCase.setCaseUpdatedBy(currentUser);
+        caseRepository.save(oldCase);
 
         // 5. Timeline Events
         try {

@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.barangay.cases.blotter.dto.BlotterCaseCreateRequest;
 import com.barangay.cases.blotter.dto.BlotterCaseDetailResponse;
+import com.barangay.cases.blotter.dto.BlotterTableRowResponse;
 import com.barangay.cases.blotter.dto.BlotterFilterRequest;
 import com.barangay.cases.blotter.dto.BlotterStatsResponse;
 import com.barangay.cases.blotter.dto.CaseNoteRequest;
@@ -67,9 +68,9 @@ public class BlotterController {
      * @return {@link PageResponse} containing the paginated list of blotter cases
      */
     @GetMapping
-    public ResponseEntity<PageResponse<BlotterCaseDetailResponse>> getBlotterCases(
+    public ResponseEntity<PageResponse<BlotterTableRowResponse>> getBlotterCases(
             @ModelAttribute BlotterFilterRequest filter) {
-        PageResponse<BlotterCaseDetailResponse> response = blotterCaseService.getBlotterCases(filter);
+        PageResponse<BlotterTableRowResponse> response = blotterCaseService.getBlotterCases(filter);
         return ResponseEntity.ok(response);
     }
 
