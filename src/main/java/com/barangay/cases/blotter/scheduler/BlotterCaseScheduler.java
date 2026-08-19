@@ -30,11 +30,11 @@ public class BlotterCaseScheduler {
     private final CaseTimelineService caseTimelineService;
 
     /**
-     * Scheduled job that runs every hour to check active non-terminal cases for expiration.
+     * Scheduled job that runs every midnight at 12:00 AM to check active non-terminal cases for expiration.
      * If the elapsed days from the ROOT filing date exceeds 15 days, the case status
      * is automatically updated to EXPIRED_UNACTIONED and a timeline audit event is logged.
      */
-    @Scheduled(cron = "0 0 * * * ?")
+    @Scheduled(cron = "0 0 0 * * ?")
     @Transactional
     public void autoExpireOverdueCases() {
         log.info("Starting automated check for expired blotter cases (15-day root deadline rule)...");
