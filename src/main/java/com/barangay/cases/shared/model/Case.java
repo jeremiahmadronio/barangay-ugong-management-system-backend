@@ -72,6 +72,9 @@ public class Case extends BaseEntity {
     @Column(columnDefinition = "TEXT", name = "case_status_remarks")
     private String caseStatusRemarks;
 
+    @Column(columnDefinition = "TEXT", name = "reopen_remarks")
+    private String reopenRemarks;
+
     @Column(name = "is_archived", nullable = false)
     private Boolean isArchived = false;
 

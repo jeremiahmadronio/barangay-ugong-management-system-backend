@@ -28,7 +28,9 @@ import com.barangay.cases.blotter.dto.SessionFollowUpRequest;
 import com.barangay.cases.blotter.dto.SessionFollowUpResponse;
 import com.barangay.cases.blotter.dto.SessionMinutesRequest;
 import com.barangay.cases.blotter.dto.SessionMinutesResponse;
+import com.barangay.cases.blotter.dto.ReopenCaseRequest;
 import com.barangay.cases.blotter.dto.TimelineEventResponse;
+import com.barangay.cases.blotter.dto.UpdateCaseStatusRequest;
 import com.barangay.cases.blotter.service.BlotterCaseService;
 import com.barangay.cases.blotter.service.CaseFileService;
 import com.barangay.cases.shared.service.CaseNoteService;
@@ -122,9 +124,6 @@ public class BlotterController {
         return caseFileService.getWitnessFile(witnessId);
     }
 
-    // -------------------------------------------------------------------------
-    // Mediation Session Endpoints
-    // -------------------------------------------------------------------------
 
     /**
      * Lists all scheduled mediation sessions for a given blotter case.
@@ -231,5 +230,36 @@ public class BlotterController {
     public ResponseEntity<List<TimelineEventResponse>> getCaseTimeline(
             @PathVariable Long caseId) {
         return ResponseEntity.ok(blotterCaseService.getCaseTimeline(caseId));
+    }
+
+    /**
+     * Updates the status of a blotter case (e.g. DISMISSED, SETTLED) with optional status remarks.
+     *
+     * @param id the blotter case ID
+     * @param request the status update request payload containing status and remarks
+     * @return updated {@link BlotterCaseDetailResponse}
+     */
+    @PatchMapping("/{id}/status")
+    @LogAudit(module = AuditModule.BLOTTER, action = "UPDATE_CASE_STATUS", severity = Severity.INFO)
+    public ResponseEntity<BlotterCaseDetailResponse> updateCaseStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateCaseStatusRequest request) {
+        return ResponseEntity.ok(blotterCaseService.updateCaseStatus(id, request));
+    }
+
+    /**
+     * Reopens a closed, settled, or dismissed blotter case by creating a new case cycle.
+     *
+     * @param id      the ID of the closed or dismissed case
+     * @param request the reopen request payload containing remarks
+     * @return newly created reopened {@link BlotterCaseDetailResponse}
+     */
+    @PostMapping("/{id}/reopen")
+    @LogAudit(module = AuditModule.BLOTTER, action = "REOPEN_CASE", severity = Severity.INFO)
+    public ResponseEntity<BlotterCaseDetailResponse> reopenCase(
+            @PathVariable Long id,
+            @Valid @RequestBody ReopenCaseRequest request) {
+        BlotterCaseDetailResponse response = blotterCaseService.reopenCase(id, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

@@ -34,6 +34,14 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
      */
     boolean existsByCaseNumber(String caseNumber);
 
+    /**
+     * Finds a case by its case number.
+     *
+     * @param caseNumber the case number
+     * @return Optional containing the Case if found
+     */
+    java.util.Optional<Case> findByCaseNumber(String caseNumber);
+
     // KPI Count queries for current month vs previous month trends
     long countByCreatedAtGreaterThanEqual(LocalDateTime start);
 
@@ -50,4 +58,7 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
     long countByCaseStatusInAndCreatedAtGreaterThanEqual(Collection<CaseStatus> statuses, LocalDateTime start);
 
     long countByCaseStatusInAndCreatedAtBetween(Collection<CaseStatus> statuses, LocalDateTime start, LocalDateTime end);
+
+    @Query("SELECT c FROM Case c WHERE c.caseStatus IN :statuses AND (c.isArchived IS NULL OR c.isArchived = false)")
+    List<Case> findActiveCasesForExpirationCheck(@Param("statuses") Collection<CaseStatus> statuses);
 }

@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SessionMinutesRequest {
+public class    SessionMinutesRequest {
 
     private Boolean complainantPresent;
     private Boolean respondentPresent;

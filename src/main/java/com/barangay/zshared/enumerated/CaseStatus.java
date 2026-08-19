@@ -9,5 +9,6 @@ public enum CaseStatus {
     ISSUED_REFERRAL,
     DISMISSED,
     WITHDRAWN,
-    EXPIRED_UNACTIONED
+    EXPIRED_UNACTIONED,
+    REOPENED
 }

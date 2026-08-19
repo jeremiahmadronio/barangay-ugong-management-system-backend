@@ -7,6 +7,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.barangay.cases.blotter.dto.*;
+import com.barangay.zshared.exception.BadRequestException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -14,11 +16,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.barangay.cases.blotter.dto.BlotterCaseCreateRequest;
-import com.barangay.cases.blotter.dto.BlotterCaseDetailResponse;
-import com.barangay.cases.blotter.dto.BlotterFilterRequest;
-import com.barangay.cases.blotter.dto.BlotterStatsResponse;
-import com.barangay.cases.blotter.dto.TimelineEventResponse;
 import com.barangay.cases.shared.model.Case;
 import com.barangay.cases.shared.model.CaseEvidence;
 import com.barangay.cases.shared.model.IncidentDetail;
@@ -334,25 +331,108 @@ public class BlotterCaseService {
     }
 
     /**
+     * Traverses the case lineage (both backwards via previousCaseNumber and forwards via reOpenedCaseNumber)
+     * to return all cases belonging to the same case family.
+     */
+    private List<CaseHistoryItemResponse> buildCaseHistory(Case currentCase) {
+        if (currentCase == null) return List.of();
+
+        // 1. Find root case
+        Case rootCase = currentCase;
+        while (rootCase.getPreviousCaseNumber() != null && !rootCase.getPreviousCaseNumber().trim().isEmpty()) {
+            java.util.Optional<Case> prevOpt = caseRepository.findByCaseNumber(rootCase.getPreviousCaseNumber().trim());
+            if (prevOpt.isPresent()) {
+                rootCase = prevOpt.get();
+            } else {
+                break;
+            }
+        }
+
+        // 2. Traverse forwards from root case
+        List<Case> lineage = new ArrayList<>();
+        Case curr = rootCase;
+        lineage.add(curr);
+        while (curr.getReOpenedCaseNumber() != null && !curr.getReOpenedCaseNumber().trim().isEmpty()) {
+            java.util.Optional<Case> nextOpt = caseRepository.findByCaseNumber(curr.getReOpenedCaseNumber().trim());
+            if (nextOpt.isPresent()) {
+                curr = nextOpt.get();
+                lineage.add(curr);
+            } else {
+                break;
+            }
+        }
+
+        // 3. Map lineage to DTOs
+        Case latestCase = lineage.get(lineage.size() - 1);
+        List<CaseHistoryItemResponse> historyList = new ArrayList<>();
+        for (Case c : lineage) {
+            boolean isCurrent = c.getId().equals(currentCase.getId());
+            boolean isLatestActive = c.getId().equals(latestCase.getId());
+            boolean isPast = !isLatestActive;
+
+            String formattedDate = c.getCreatedAt() != null ?
+                    c.getCreatedAt().format(DateTimeFormatter.ofPattern("MMM d, yyyy")) : "";
+
+            historyList.add(new CaseHistoryItemResponse(
+                    c.getId(),
+                    c.getCaseNumber(),
+                    formattedDate,
+                    c.getCaseStatus(),
+                    isCurrent,
+                    isPast,
+                    isLatestActive
+            ));
+        }
+        return historyList;
+    }
+
+    /**
      * Maps a saved {@link Case} entity to {@link BlotterCaseDetailResponse}.
      */
     private BlotterCaseDetailResponse toDetailResponse(Case aCase, String receivingOfficerName, String assignedOfficerName) {
-        ComplainantDetailDto complainantDto = complainantMapper.toDetailDto(aCase.getComplainant());
-        RespondentDetailDto respondentDto = respondentMapper.toDetailDto(aCase.getRespondent());
-        IncidentDetailDto incidentDto = incidentDetailMapper.toDetailDto(aCase.getIncidentDetail());
-        NarrativeDetailDto narrativeDto = narrativeStatementMapper.toDetailDto(aCase.getNarrativeStatement());
+        // Find root case for deadline calculations and missing intake details fallback
+        Case rootCase = aCase;
+        while (rootCase.getPreviousCaseNumber() != null && !rootCase.getPreviousCaseNumber().trim().isEmpty()) {
+            java.util.Optional<Case> prevOpt = caseRepository.findByCaseNumber(rootCase.getPreviousCaseNumber().trim());
+            if (prevOpt.isPresent()) {
+                rootCase = prevOpt.get();
+            } else {
+                break;
+            }
+        }
+
+        ComplainantDetailDto complainantDto = complainantMapper.toDetailDto(aCase.getComplainant() != null ? aCase.getComplainant() : rootCase.getComplainant());
+        RespondentDetailDto respondentDto = respondentMapper.toDetailDto(aCase.getRespondent() != null ? aCase.getRespondent() : rootCase.getRespondent());
+        IncidentDetailDto incidentDto = incidentDetailMapper.toDetailDto(aCase.getIncidentDetail() != null ? aCase.getIncidentDetail() : rootCase.getIncidentDetail());
+        NarrativeDetailDto narrativeDto = narrativeStatementMapper.toDetailDto(aCase.getNarrativeStatement() != null ? aCase.getNarrativeStatement() : rootCase.getNarrativeStatement());
 
         List<CaseEvidence> evidenceList = caseEvidenceRepository.findByCasesId(aCase.getId());
+        if ((evidenceList == null || evidenceList.isEmpty()) && !aCase.getId().equals(rootCase.getId())) {
+            evidenceList = caseEvidenceRepository.findByCasesId(rootCase.getId());
+        }
+
         EvidenceDetailDto evidenceDto = (evidenceList != null && !evidenceList.isEmpty()) ?
                 caseEvidenceMapper.toDetailDto(evidenceList.get(0)) : null;
         List<EvidenceDetailDto> evidenceDtos = caseEvidenceMapper.toDetailDtoList(evidenceList);
+        if (evidenceDtos == null) evidenceDtos = List.of();
 
-        List<WitnessDetailDto> witnessDtos = aCase.getWitnesses() != null ?
-                aCase.getWitnesses().stream().map(witnessMapper::toDetailDto).toList() : List.of();
+        List<Witness> witnessSource = (aCase.getWitnesses() != null && !aCase.getWitnesses().isEmpty()) ?
+                aCase.getWitnesses() : rootCase.getWitnesses();
+
+        List<WitnessDetailDto> witnessDtos = (witnessSource != null && !witnessSource.isEmpty()) ?
+                witnessSource.stream().map(witnessMapper::toDetailDto).toList() : List.of();
+
+        List<CaseHistoryItemResponse> caseHistory = buildCaseHistory(aCase);
 
         String formattedDate = aCase.getCreatedAt() != null ?
                 aCase.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) :
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+
+        LocalDateTime rootCreatedAt = rootCase.getCreatedAt() != null ? rootCase.getCreatedAt() : aCase.getCreatedAt();
+        String rootDateFiledFormatted = rootCreatedAt != null ?
+                rootCreatedAt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) : formattedDate;
+
+        String reopenRemarks = aCase.getReopenRemarks() != null ? aCase.getReopenRemarks() : rootCase.getReopenRemarks();
 
         Long receivingId = aCase.getCaseFilledBy() != null ? aCase.getCaseFilledBy().getId() : null;
         String receivingName = null;
@@ -380,13 +460,29 @@ public class BlotterCaseService {
         } else {
             assignedName = assignedOfficerName;
         }
+        CaseStatus effectiveStatus = aCase.getCaseStatus();
+        if (caseHistory != null && !caseHistory.isEmpty()) {
+            CaseHistoryItemResponse latest = caseHistory.stream()
+                    .filter(CaseHistoryItemResponse::isLatestActive)
+                    .findFirst()
+                    .orElse(caseHistory.get(caseHistory.size() - 1));
+            effectiveStatus = latest.status();
+        }
 
         return new BlotterCaseDetailResponse(
                 aCase.getId(),
                 aCase.getFilingType(),
-                aCase.getCaseStatus(),
+                effectiveStatus,
+                aCase.getCaseStatusRemarks(),
+                reopenRemarks,
                 aCase.getCaseNumber(),
+                rootCase.getCaseNumber(),
+                rootCase.getId(),
+                aCase.getPreviousCaseNumber(),
+                aCase.getReOpenedCaseNumber(),
                 formattedDate,
+                rootCreatedAt,
+                rootDateFiledFormatted,
                 receivingId,
                 receivingName,
                 assignedId,
@@ -398,10 +494,274 @@ public class BlotterCaseService {
                 evidenceDto,
                 evidenceDtos,
                 witnessDtos,
+                caseHistory,
                 aCase.getIsAttested(),
                 aCase.getCreatedAt(),
                 aCase.getUpdatedAt()
         );
     }
 
+    /**
+     * Updates case status (e.g., DISMISSED) and records status remarks and timeline event.
+     *
+     * @param id the blotter case ID
+     * @param request status update request containing status and remarks
+     * @return updated {@link BlotterCaseDetailResponse}
+     */
+    @Transactional
+    public BlotterCaseDetailResponse updateCaseStatus(Long id, com.barangay.cases.blotter.dto.UpdateCaseStatusRequest request) {
+        Case aCase = caseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Blotter case not found with id: " + id));
+
+        if (request.getStatus() != null && !request.getStatus().trim().isEmpty()) {
+            try {
+                CaseStatus newStatus = CaseStatus.valueOf(request.getStatus().toUpperCase().trim());
+                aCase.setCaseStatus(newStatus);
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid CaseStatus value: {}", request.getStatus());
+            }
+        }
+
+        if (request.getRemarks() != null && !request.getRemarks().trim().isEmpty()) {
+            aCase.setCaseStatusRemarks(request.getRemarks().trim());
+        }
+
+        Case updated = caseRepository.save(aCase);
+
+        // Also sync rootCase in database so the main Blotter table reflects the updated status
+        Case rootCase = updated;
+        while (rootCase.getPreviousCaseNumber() != null && !rootCase.getPreviousCaseNumber().trim().isEmpty()) {
+            java.util.Optional<Case> prevOpt = caseRepository.findByCaseNumber(rootCase.getPreviousCaseNumber().trim());
+            if (prevOpt.isPresent()) {
+                rootCase = prevOpt.get();
+            } else {
+                break;
+            }
+        }
+        if (!rootCase.getId().equals(updated.getId())) {
+            rootCase.setCaseStatus(updated.getCaseStatus());
+            if (updated.getCaseStatusRemarks() != null) {
+                rootCase.setCaseStatusRemarks(updated.getCaseStatusRemarks());
+            }
+            caseRepository.save(rootCase);
+        }
+
+        try {
+            caseTimelineService.logEvent(
+                    updated,
+                    TimelineEventType.STATUS_CHANGED,
+                    "Case Status Updated to " + updated.getCaseStatus().name(),
+                    request.getRemarks() != null ? request.getRemarks().trim() : "Case status was updated.",
+                    SecurityUtils.getCurrentUser()
+            );
+        } catch (Exception e) {
+            log.warn("Failed to log timeline event for status update [caseId={}]: {}", id, e.getMessage(), e);
+        }
+
+        return toDetailResponse(updated, null, null);
+    }
+
+    /**
+     * Reopens a closed, settled, or dismissed blotter case by creating a new case cycle.
+     *
+     * @param oldCaseId the ID of the closed or dismissed case
+     * @param request   the reopen request payload containing remarks
+     * @return {@link BlotterCaseDetailResponse} of the newly created reopened case
+     */
+    @Transactional
+    public BlotterCaseDetailResponse reopenCase(Long oldCaseId, ReopenCaseRequest request) {
+        // 1. Validation Guardrails
+        Case oldCase = caseRepository.findById(oldCaseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Blotter case not found with id: " + oldCaseId));
+
+        CaseStatus oldStatus = oldCase.getCaseStatus();
+        boolean isClosedOrDismissed = oldStatus == CaseStatus.DISMISSED
+                || oldStatus == CaseStatus.SETTLED
+                || oldStatus == CaseStatus.WITHDRAWN
+                || oldStatus == CaseStatus.EXPIRED_UNACTIONED;
+
+        if (!isClosedOrDismissed) {
+            throw new BadRequestException("Cannot reopen case with status: " + oldStatus + ". Only closed, settled, or dismissed cases can be reopened.");
+        }
+
+        if (oldCase.getReOpenedCaseNumber() != null && !oldCase.getReOpenedCaseNumber().trim().isEmpty()) {
+            throw new BadRequestException("Case has already been reopened as " + oldCase.getReOpenedCaseNumber());
+        }
+
+        User currentUser = SecurityUtils.getCurrentUser();
+        String remarksText = request.remarks() != null ? request.remarks().trim() : "";
+
+        // 2. Create Brand New Case for Reopened Cycle
+        Case newCase = new Case();
+        String newCaseNumber = generateUniqueCaseNumber();
+
+        newCase.setCaseNumber(newCaseNumber);
+        newCase.setPreviousCaseNumber(oldCase.getCaseNumber());
+        newCase.setFilingType(oldCase.getFilingType());
+        newCase.setCaseStatus(CaseStatus.PENDING);
+        newCase.setReopenRemarks(remarksText);
+        newCase.setCaseStatusRemarks(remarksText);
+        newCase.setSummonCount(0);
+        newCase.setIsArchived(false);
+        newCase.setIsAttested(false);
+        newCase.setCaseFilledBy(currentUser);
+        newCase.setDepartment(oldCase.getDepartment());
+        newCase.setOfficer(oldCase.getOfficer());
+
+        // Reset settlement fields
+        newCase.setSettlementTerms(null);
+        newCase.setSettledAt(null);
+        newCase.setSettlementDocument(null);
+        newCase.setSettlementVenue(null);
+
+        // 3. One-to-One Entity Cloning (resolve sourceCase with fallback to root case if oldCase is missing details)
+        Case sourceCase = oldCase;
+        while ((sourceCase.getComplainant() == null || sourceCase.getIncidentDetail() == null) &&
+                sourceCase.getPreviousCaseNumber() != null && !sourceCase.getPreviousCaseNumber().trim().isEmpty()) {
+            java.util.Optional<Case> prev = caseRepository.findByCaseNumber(sourceCase.getPreviousCaseNumber().trim());
+            if (prev.isPresent()) {
+                sourceCase = prev.get();
+            } else {
+                break;
+            }
+        }
+
+        if (sourceCase.getComplainant() != null) {
+            Complainant oldComp = sourceCase.getComplainant();
+            Complainant newComp = new Complainant();
+            newComp.setPerson(oldComp.getPerson());
+            newComp.setRelationshipToChild(oldComp.getRelationshipToChild());
+            newCase.setComplainant(newComp);
+        }
+
+        if (sourceCase.getRespondent() != null) {
+            Respondent oldResp = sourceCase.getRespondent();
+            Respondent newResp = new Respondent();
+            newResp.setPerson(oldResp.getPerson());
+            newResp.setAlias(oldResp.getAlias());
+            newResp.setRelationshipToComplainant(oldResp.getRelationshipToComplainant());
+            newResp.setLivingWithComplainant(oldResp.getLivingWithComplainant());
+            newCase.setRespondent(newResp);
+        }
+
+        if (sourceCase.getIncidentDetail() != null) {
+            IncidentDetail oldInc = sourceCase.getIncidentDetail();
+            IncidentDetail newInc = new IncidentDetail();
+            newInc.setNatureOfComplaint(oldInc.getNatureOfComplaint());
+            newInc.setFrequency(oldInc.getFrequency());
+            newInc.setDateOfIncident(oldInc.getDateOfIncident());
+            newInc.setTimeOfIncident(oldInc.getTimeOfIncident());
+            newInc.setIncidentLocation(oldInc.getIncidentLocation());
+            newInc.setInjuriesDamagesDescription(oldInc.getInjuriesDamagesDescription());
+            newCase.setIncidentDetail(newInc);
+        }
+
+        if (sourceCase.getNarrativeStatement() != null) {
+            NarrativeStatement oldNar = sourceCase.getNarrativeStatement();
+            NarrativeStatement newNar = new NarrativeStatement();
+            newNar.setFileName(oldNar.getFileName());
+            newNar.setStatementSummary(oldNar.getStatementSummary());
+            newNar.setFileData(oldNar.getFileData());
+            newCase.setNarrativeStatement(newNar);
+        }
+
+        // Save new case
+        Case savedNewCase = caseRepository.save(newCase);
+
+        // Copy Witness records linking to same Person and new Case
+        List<Witness> sourceWitnesses = (sourceCase.getWitnesses() != null && !sourceCase.getWitnesses().isEmpty()) ?
+                sourceCase.getWitnesses() : oldCase.getWitnesses();
+
+        if (sourceWitnesses != null && !sourceWitnesses.isEmpty()) {
+            List<Witness> newWitnesses = new ArrayList<>();
+            for (Witness oldW : sourceWitnesses) {
+                Witness newW = new Witness();
+                newW.setPerson(oldW.getPerson());
+                newW.setACase(savedNewCase);
+                newW.setTestimonyFile(oldW.getTestimonyFile());
+                newW = witnessRepository.save(newW);
+                newWitnesses.add(newW);
+            }
+            savedNewCase.setWitnesses(newWitnesses);
+        }
+
+        // Copy CaseEvidence records linking to new Case
+        List<CaseEvidence> sourceEvidences = caseEvidenceRepository.findByCasesId(sourceCase.getId());
+        if ((sourceEvidences == null || sourceEvidences.isEmpty()) && !sourceCase.getId().equals(oldCase.getId())) {
+            sourceEvidences = caseEvidenceRepository.findByCasesId(oldCase.getId());
+        }
+
+        if (sourceEvidences != null && !sourceEvidences.isEmpty()) {
+            for (CaseEvidence oldEv : sourceEvidences) {
+                CaseEvidence newEv = new CaseEvidence();
+                newEv.setCases(savedNewCase);
+                newEv.setType(oldEv.getType());
+                newEv.setFiles(oldEv.getFiles());
+                newEv.setFileName(oldEv.getFileName());
+                newEv.setDescription(oldEv.getDescription());
+                caseEvidenceRepository.save(newEv);
+            }
+        }
+
+        // 4. Update Old Case and ALL ancestor cases in the lineage up to rootCase with REOPENED status
+        oldCase.setReopenRemarks(remarksText);
+        oldCase.setReOpenedCaseNumber(newCaseNumber);
+
+        Case ancestor = oldCase;
+        while (ancestor != null) {
+            ancestor.setCaseStatus(CaseStatus.REOPENED);
+            if (ancestor.getReopenRemarks() == null || ancestor.getReopenRemarks().isBlank()) {
+                ancestor.setReopenRemarks(remarksText);
+            }
+            ancestor.setCaseUpdatedBy(currentUser);
+            caseRepository.save(ancestor);
+
+            if (ancestor.getPreviousCaseNumber() != null && !ancestor.getPreviousCaseNumber().trim().isEmpty()) {
+                ancestor = caseRepository.findByCaseNumber(ancestor.getPreviousCaseNumber().trim()).orElse(null);
+            } else {
+                ancestor = null;
+            }
+        }
+
+        // Sync rootCase status in DB to match the new active case status (PENDING)
+        Case rootCase = savedNewCase;
+        while (rootCase.getPreviousCaseNumber() != null && !rootCase.getPreviousCaseNumber().trim().isEmpty()) {
+            java.util.Optional<Case> prevOpt = caseRepository.findByCaseNumber(rootCase.getPreviousCaseNumber().trim());
+            if (prevOpt.isPresent()) {
+                rootCase = prevOpt.get();
+            } else {
+                break;
+            }
+        }
+        if (!rootCase.getId().equals(savedNewCase.getId())) {
+            rootCase.setCaseStatus(savedNewCase.getCaseStatus());
+            rootCase.setCaseStatusRemarks(remarksText);
+            caseRepository.save(rootCase);
+        }
+
+        // 5. Timeline Events
+        try {
+            // Log event on Old Case
+            caseTimelineService.logEvent(
+                    oldCase,
+                    TimelineEventType.STATUS_CHANGED,
+                    "Case Reopened",
+                    String.format("Case reopened as %s. Remarks: %s", newCaseNumber, remarksText),
+                    currentUser
+            );
+
+            // Log event on New Case
+            caseTimelineService.logEvent(
+                    savedNewCase,
+                    TimelineEventType.CASE_FILED,
+                    "Case Created (Reopened)",
+                    String.format("Reopened from previous case %s. Remarks: %s", oldCase.getCaseNumber(), remarksText),
+                    currentUser
+            );
+        } catch (Exception e) {
+            log.warn("Failed to log timeline event for case reopening [oldCaseId={}, newCaseNumber={}]: {}", oldCaseId, newCaseNumber, e.getMessage());
+        }
+
+        return toDetailResponse(savedNewCase, null, null);
+    }
 }

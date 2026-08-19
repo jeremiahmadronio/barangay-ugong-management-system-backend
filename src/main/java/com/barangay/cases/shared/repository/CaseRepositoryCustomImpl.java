@@ -60,8 +60,9 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
     private List<Predicate> buildPredicates(BlotterFilterRequest filter, CriteriaBuilder cb, Root<Case> root) {
         List<Predicate> predicates = new ArrayList<>();
 
-        // Base criteria: non-archived cases
+        // Base criteria: non-archived cases & root cases only (main cases without previousCaseNumber)
         predicates.add(cb.or(cb.isNull(root.get("isArchived")), cb.equal(root.get("isArchived"), false)));
+        predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
 
         if (filter == null) {
             return predicates;
