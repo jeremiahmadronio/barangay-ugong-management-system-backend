@@ -150,6 +150,4 @@ public class Case extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "case_updated_by")
     private User caseUpdatedBy;
-
-
 }

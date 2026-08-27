@@ -19,4 +19,24 @@ public abstract class BaseEntity {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    @Column(name = "is_deleted")
+    private Boolean isDeleted = false;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    public Boolean getIsDeleted() {
+        return isDeleted != null && isDeleted;
+    }
+
+    public void softDelete() {
+        this.isDeleted = true;
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    public void restoreDelete() {
+        this.isDeleted = false;
+        this.deletedAt = null;
+    }
 }

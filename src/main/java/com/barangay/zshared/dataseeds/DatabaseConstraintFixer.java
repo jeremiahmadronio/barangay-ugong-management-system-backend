@@ -33,7 +33,15 @@ public class DatabaseConstraintFixer implements CommandLineRunner {
             jdbcTemplate.update(
                 "UPDATE cases SET case_status = 'RECORDED' WHERE (filing_type = 'FOR_RECORD_ONLY' OR filing_type = 'FOR_THE_RECORD') AND case_status = 'PENDING'"
             );
-            log.info("Successfully dropped obsolete cases table constraint, updated For the Record statuses to RECORDED, and restored past case statuses.");
+            // Update any existing rows that have null in is_deleted column
+            String[] tables = {"users", "residents", "officers", "cases", "first_time_job_seekers", "persons", "complainants", "respondents"};
+            for (String table : tables) {
+                try {
+                    jdbcTemplate.execute("UPDATE " + table + " SET is_deleted = false WHERE is_deleted IS NULL");
+                } catch (Exception ignored) {}
+            }
+
+            log.info("Successfully dropped obsolete cases table constraint, updated For the Record statuses to RECORDED, and initialized is_deleted values.");
         } catch (Exception e) {
             log.warn("Could not execute constraint update on cases table: {}", e.getMessage());
         }

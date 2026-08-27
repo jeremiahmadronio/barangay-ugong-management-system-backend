@@ -2,13 +2,19 @@ package com.barangay.cases.blotter.service;
 
 import com.barangay.cases.blotter.dto.DailyCaseTrendResponse;
 import com.barangay.cases.blotter.dto.MonthlyCaseTrendResponse;
+import com.barangay.cases.blotter.dto.SettlementEfficiencyResponse;
 import com.barangay.cases.shared.projection.CaseCountByDayProjection;
 import com.barangay.cases.shared.projection.CaseCountByMonthProjection;
+import com.barangay.cases.shared.projection.SettlementMetricsProjection;
 import com.barangay.cases.shared.repository.CaseRepository;
+import com.barangay.zshared.enumerated.CaseStatus;
+import com.barangay.zshared.enumerated.FilingType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -117,6 +123,61 @@ public class BlotterReportService {
         }
 
         return responseList;
+    }
+
+
+
+    /**
+     * Generates a settlement efficiency report comparing formal complaints against settled cases.
+     *
+     * @param startDate    the start date filter
+     * @param endDate      the end date filter
+     * @param departmentId the department filter (optional)
+     * @return {@link SettlementEfficiencyResponse} with aggregated counts and calculated percentage
+     */
+    @Transactional(readOnly = true)
+    public SettlementEfficiencyResponse getSettlementEfficiency(
+            LocalDate startDate,
+            LocalDate endDate,
+            Long departmentId
+    ) {
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("Start date cannot be after end date.");
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        SettlementMetricsProjection metrics = caseRepository.getSettlementEfficiencyMetrics(
+                startDateTime,
+                endDateTime,
+                departmentId,
+                FilingType.FORMAL_COMPLAINT,
+                CaseStatus.SETTLED
+        );
+
+        long totalCases = (metrics != null && metrics.getTotalCases() != null) ? metrics.getTotalCases() : 0L;
+        long totalFormal = (metrics != null && metrics.getTotalFormalComplaints() != null) ? metrics.getTotalFormalComplaints() : 0L;
+        long totalSettled = (metrics != null && metrics.getTotalSettledCases() != null) ? metrics.getTotalSettledCases() : 0L;
+
+
+        double settlementRate = 0.0;
+        if (totalFormal > 0) {
+            double rawRate = ((double) totalSettled / totalFormal) * 100.0;
+            settlementRate = BigDecimal.valueOf(rawRate)
+                    .setScale(2, RoundingMode.HALF_UP)
+                    .doubleValue();
+        }
+
+        return new SettlementEfficiencyResponse(
+                startDate,
+                endDate,
+                departmentId,
+                totalCases,
+                totalFormal,
+                totalSettled,
+                settlementRate
+        );
     }
 
 

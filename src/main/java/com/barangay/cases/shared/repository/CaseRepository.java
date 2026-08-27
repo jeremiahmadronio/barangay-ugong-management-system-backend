@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.barangay.cases.shared.projection.CaseCountByDayProjection;
 import com.barangay.cases.shared.projection.CaseCountByMonthProjection;
+import com.barangay.cases.shared.projection.SettlementMetricsProjection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -119,6 +120,37 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate,
             @Param("departmentId") Long departmentId
+    );
+
+
+
+    /**
+     * Aggregates total cases, formal complaints, and settled cases within a given time range and department.
+     *
+     * @param startDate     the inclusive starting timestamp
+     * @param endDate       the inclusive ending timestamp
+     * @param departmentId  the target department ID (optional)
+     * @param formalType    the enum value for formal complaint filing type
+     * @param settledStatus the enum value for settled case status
+     * @return projection containing the aggregated counts
+     */
+    @Query("""
+        SELECT 
+            COUNT(c.id) AS totalCases,
+            SUM(CASE WHEN c.filingType = :formalType THEN 1L ELSE 0L END) AS totalFormalComplaints,
+            SUM(CASE WHEN c.caseStatus = :settledStatus THEN 1L ELSE 0L END) AS totalSettledCases
+        FROM Case c
+        WHERE c.isDeleted = false
+          AND (:departmentId IS NULL OR c.department.id = :departmentId)
+          AND c.createdAt >= :startDate
+          AND c.createdAt <= :endDate
+    """)
+    SettlementMetricsProjection getSettlementEfficiencyMetrics(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("departmentId") Long departmentId,
+            @Param("formalType") FilingType formalType,
+            @Param("settledStatus") CaseStatus settledStatus
     );
 
 }

@@ -286,4 +286,33 @@ public class BlotterController {
 
         return ResponseEntity.ok(report);
     }
+
+
+
+    /**
+     * Retrieves the settlement efficiency rate and breakdown for a specified department and date range.
+     * Defaults to the current month to date if no date range is provided.
+     *
+     * @param startDate    optional start date (defaults to 1st day of current month)
+     * @param endDate      optional end date (defaults to today)
+     * @param departmentId optional department filter (e.g., Blotter Department ID)
+     * @return response entity containing {@link SettlementEfficiencyResponse}
+     */
+    @GetMapping("/settlement-efficiency")
+    public ResponseEntity<SettlementEfficiencyResponse> getSettlementEfficiency(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) Long departmentId
+    ) {
+        LocalDate effectiveEndDate = (endDate != null) ? endDate : LocalDate.now();
+        LocalDate effectiveStartDate = (startDate != null) ? startDate : effectiveEndDate.withDayOfMonth(1);
+
+        SettlementEfficiencyResponse report = blotterReportService.getSettlementEfficiency(
+                effectiveStartDate,
+                effectiveEndDate,
+                departmentId
+        );
+
+        return ResponseEntity.ok(report);
+    }
 }

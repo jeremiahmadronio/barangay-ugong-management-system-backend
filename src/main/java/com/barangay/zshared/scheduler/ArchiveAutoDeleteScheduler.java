@@ -33,7 +33,7 @@ public class ArchiveAutoDeleteScheduler {
     @Scheduled(cron = "0 0 1 * * *")
     @Transactional
     public void autoDeleteExpiredArchives() {
-        log.info("Checking for expired archive items for auto-deletion...");
+        log.info("Checking for expired archive items for soft-deletion...");
         try {
             ArchiveSettings settings = archiveSettingsRepository.findById(1L).orElse(null);
             if (settings == null || !Boolean.TRUE.equals(settings.getAutoDeleteEnabled())) {
@@ -44,34 +44,37 @@ public class ArchiveAutoDeleteScheduler {
             int retentionDays = settings.getDeleteAfterDays() != null ? settings.getDeleteAfterDays() : 30;
             LocalDateTime cutoff = LocalDateTime.now().minusDays(retentionDays);
 
-            // Delete Users
+            // Soft-delete Users
             List<User> archivedUsers = userRepository.findAllByStatus(UserStatus.ARCHIVED);
             for (User u : archivedUsers) {
-                if (u.getArchivedAt() != null && u.getArchivedAt().isBefore(cutoff)) {
-                    userRepository.delete(u);
-                    log.info("Auto-deleted expired user archive: {}", u.getUsername());
+                if (!Boolean.TRUE.equals(u.getIsDeleted()) && u.getArchivedAt() != null && u.getArchivedAt().isBefore(cutoff)) {
+                    u.softDelete();
+                    userRepository.save(u);
+                    log.info("Auto-soft-deleted expired user archive: {}", u.getUsername());
                 }
             }
 
-            // Delete Officers
+            // Soft-delete Officers
             List<Officer> archivedOfficers = officerRepository.findAllByStatus(OfficerStatus.ARCHIVED);
             for (Officer o : archivedOfficers) {
-                if (o.getUpdatedAt() != null && o.getUpdatedAt().isBefore(cutoff)) {
-                    officerRepository.delete(o);
-                    log.info("Auto-deleted expired officer archive: ID {}", o.getId());
+                if (!Boolean.TRUE.equals(o.getIsDeleted()) && o.getUpdatedAt() != null && o.getUpdatedAt().isBefore(cutoff)) {
+                    o.softDelete();
+                    officerRepository.save(o);
+                    log.info("Auto-soft-deleted expired officer archive: ID {}", o.getId());
                 }
             }
 
-            // Delete Residents
+            // Soft-delete Residents
             List<Resident> archivedResidents = residentRepository.findAllByStatus(ResidentStatus.ARCHIVED);
             for (Resident r : archivedResidents) {
-                if (r.getUpdatedAt() != null && r.getUpdatedAt().isBefore(cutoff)) {
-                    residentRepository.delete(r);
-                    log.info("Auto-deleted expired resident archive: ID {}", r.getResidentId());
+                if (!Boolean.TRUE.equals(r.getIsDeleted()) && r.getUpdatedAt() != null && r.getUpdatedAt().isBefore(cutoff)) {
+                    r.softDelete();
+                    residentRepository.save(r);
+                    log.info("Auto-soft-deleted expired resident archive: ID {}", r.getResidentId());
                 }
             }
         } catch (Exception e) {
-            log.error("Error running auto-delete archive task: {}", e.getMessage());
+            log.error("Error running auto-soft-delete archive task: {}", e.getMessage());
         }
     }
 }
