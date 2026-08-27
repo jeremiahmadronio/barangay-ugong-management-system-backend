@@ -33,11 +33,12 @@ public class DatabaseConstraintFixer implements CommandLineRunner {
             jdbcTemplate.update(
                 "UPDATE cases SET case_status = 'RECORDED' WHERE (filing_type = 'FOR_RECORD_ONLY' OR filing_type = 'FOR_THE_RECORD') AND case_status = 'PENDING'"
             );
-            // Update any existing rows that have null in is_deleted column
+            // Update any existing rows that have null in is_deleted or is_permanent_deleted column
             String[] tables = {"users", "residents", "officers", "cases", "first_time_job_seekers", "persons", "complainants", "respondents"};
             for (String table : tables) {
                 try {
                     jdbcTemplate.execute("UPDATE " + table + " SET is_deleted = false WHERE is_deleted IS NULL");
+                    jdbcTemplate.execute("UPDATE " + table + " SET is_permanent_deleted = false WHERE is_permanent_deleted IS NULL");
                 } catch (Exception ignored) {}
             }
 

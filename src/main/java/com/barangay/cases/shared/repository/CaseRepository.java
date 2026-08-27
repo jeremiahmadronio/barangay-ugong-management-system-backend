@@ -60,7 +60,7 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
 
     long countByCaseStatusInAndCreatedAtBetween(Collection<CaseStatus> statuses, LocalDateTime start, LocalDateTime end);
 
-    @Query("SELECT c FROM Case c WHERE c.caseStatus IN :statuses AND (c.isArchived IS NULL OR c.isArchived = false)")
+    @Query("SELECT c FROM Case c WHERE c.caseStatus IN :statuses AND (c.isArchived IS NULL OR c.isArchived = false) AND (c.isDeleted IS NULL OR c.isDeleted = false)")
     List<Case> findActiveCasesForExpirationCheck(@Param("statuses") Collection<CaseStatus> statuses);
 
 
@@ -76,16 +76,16 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
      */
     @Query("""
              SELECT
-                       EXTRACT (YEAR FROM c.createdAt) AS YEAR,
-                       EXTRACT(MONTH FROM c.createdAt) AS MONTH,
-                       COUNT(c.id) AS COUNT
-                  FROM Case c
-                            WHERE c.isArchived = false
-                            AND (:departmentId IS NULL OR c.department.id = :departmentId)
-                            AND c.createdAt >= :startDate
-                            AND c.createdAt >= :endDate
-                            GROUP BY EXTRACT(YEAR FROM c.createdAt), EXTRACT(MONTH FROM c.createdAt)
-                            ORDER BY EXTRACT(YEAR FROM c.createdAt) ASC, EXTRACT(MONTH FROM c.createdAt)
+                       EXTRACT(YEAR FROM c.createdAt) AS year,
+                       EXTRACT(MONTH FROM c.createdAt) AS month,
+                       COUNT(c.id) AS count
+                   FROM Case c
+                             WHERE (c.isDeleted IS NULL OR c.isDeleted = false)
+                             AND (:departmentId IS NULL OR c.department.id = :departmentId)
+                             AND c.createdAt >= :startDate
+                             AND c.createdAt <= :endDate
+                             GROUP BY EXTRACT(YEAR FROM c.createdAt), EXTRACT(MONTH FROM c.createdAt)
+                             ORDER BY EXTRACT(YEAR FROM c.createdAt) ASC, EXTRACT(MONTH FROM c.createdAt)
           """)
     List<CaseCountByMonthProjection> getMonthlyCaseCount(
            @Param("startDate") LocalDateTime startDate,
@@ -107,7 +107,7 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             CAST(c.createdAt AS LocalDate) AS date,
             COUNT(c.id) AS count
         FROM Case c
-        WHERE c.isArchived = false
+        WHERE (c.isDeleted IS NULL OR c.isDeleted = false)
           AND (:departmentId IS NULL OR c.department.id = :departmentId)
           AND c.createdAt >= :startDate
           AND c.createdAt <= :endDate
@@ -138,7 +138,7 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             SUM(CASE WHEN c.filingType = :formalType THEN 1L ELSE 0L END) AS totalFormalComplaints,
             SUM(CASE WHEN c.caseStatus = :settledStatus THEN 1L ELSE 0L END) AS totalSettledCases
         FROM Case c
-        WHERE c.isDeleted = false
+        WHERE (c.isDeleted IS NULL OR c.isDeleted = false)
           AND (:departmentId IS NULL OR c.department.id = :departmentId)
           AND c.createdAt >= :startDate
           AND c.createdAt <= :endDate
@@ -165,7 +165,7 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             c.caseStatus AS status,
             COUNT(c.id) AS count
         FROM Case c
-        WHERE (c.deletedAt IS NULL)
+        WHERE (c.isDeleted IS NULL OR c.isDeleted = false)
           AND (:departmentId IS NULL OR c.department.id = :departmentId)
           AND c.createdAt >= :startDate
           AND c.createdAt <= :endDate
@@ -195,7 +195,7 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             SUM(CASE WHEN c.luponReferral IS NOT NULL THEN 1L ELSE 0L END) AS referredToLupon,
             SUM(CASE WHEN c.luponReferral IS NULL AND c.caseStatus != :settledStatus THEN 1L ELSE 0L END) AS pendingAtBlotter
         FROM Case c
-        WHERE (c.deletedAt IS NULL)
+        WHERE (c.isDeleted IS NULL OR c.isDeleted = false)
           AND c.filingType = :formalType
           AND (:departmentId IS NULL OR c.department.id = :departmentId)
           AND c.createdAt >= :startDate

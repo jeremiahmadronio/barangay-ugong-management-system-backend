@@ -26,17 +26,36 @@ public abstract class BaseEntity {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @Column(name = "is_permanent_deleted")
+    private Boolean isPermanentDeleted = false;
+
+    @Column(name = "permanent_deleted_at")
+    private LocalDateTime permanentDeletedAt;
+
     public Boolean getIsDeleted() {
         return isDeleted != null && isDeleted;
+    }
+
+    public Boolean getIsPermanentDeleted() {
+        return isPermanentDeleted != null && isPermanentDeleted;
     }
 
     public void softDelete() {
         this.isDeleted = true;
         this.deletedAt = LocalDateTime.now();
+        this.isPermanentDeleted = false;
+    }
+
+    public void permanentDelete() {
+        this.isDeleted = false;
+        this.isPermanentDeleted = true;
+        this.permanentDeletedAt = LocalDateTime.now();
     }
 
     public void restoreDelete() {
         this.isDeleted = false;
         this.deletedAt = null;
+        this.isPermanentDeleted = false;
+        this.permanentDeletedAt = null;
     }
 }

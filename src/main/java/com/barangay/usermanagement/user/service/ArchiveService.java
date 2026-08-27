@@ -106,7 +106,7 @@ public class ArchiveService {
             String query = search != null ? search.toLowerCase().trim() : "";
 
             return residents.stream()
-                    .filter(r -> !Boolean.TRUE.equals(r.getIsDeleted()))
+                    .filter(r -> !Boolean.TRUE.equals(r.getIsDeleted()) && !Boolean.TRUE.equals(r.getIsPermanentDeleted()))
                     .filter(r -> {
                         if (query.isEmpty()) return true;
                         Person p = r.getPerson();
@@ -145,7 +145,7 @@ public class ArchiveService {
     public void deleteResidentPermanent(Long residentId) {
         Resident resident = residentRepository.findById(residentId).orElse(null);
         if (resident != null) {
-            resident.softDelete();
+            resident.permanentDelete();
             residentRepository.save(resident);
         }
     }
@@ -158,7 +158,7 @@ public class ArchiveService {
             String query = search != null ? search.toLowerCase().trim() : "";
 
             return users.stream()
-                    .filter(u -> !Boolean.TRUE.equals(u.getIsDeleted()))
+                    .filter(u -> !Boolean.TRUE.equals(u.getIsDeleted()) && !Boolean.TRUE.equals(u.getIsPermanentDeleted()))
                     .filter(u -> {
                         if (query.isEmpty()) return true;
                         Person p = u.getPerson();
@@ -204,7 +204,7 @@ public class ArchiveService {
     public void deleteUserPermanent(Long userId) {
         User user = userRepository.findById(userId).orElse(null);
         if (user != null) {
-            user.softDelete();
+            user.permanentDelete();
             userRepository.save(user);
         }
     }
@@ -217,7 +217,7 @@ public class ArchiveService {
             String query = search != null ? search.toLowerCase().trim() : "";
 
             return officers.stream()
-                    .filter(o -> !Boolean.TRUE.equals(o.getIsDeleted()))
+                    .filter(o -> !Boolean.TRUE.equals(o.getIsDeleted()) && !Boolean.TRUE.equals(o.getIsPermanentDeleted()))
                     .filter(o -> {
                         if (query.isEmpty()) return true;
                         Person p = o.getPerson();
@@ -261,7 +261,7 @@ public class ArchiveService {
     public void deleteOfficerPermanent(Long officerId) {
         Officer officer = officerRepository.findById(officerId).orElse(null);
         if (officer != null) {
-            officer.softDelete();
+            officer.permanentDelete();
             officerRepository.save(officer);
         }
     }
