@@ -37,13 +37,16 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import com.barangay.zshared.entity.Archivable;
+import com.barangay.zshared.entity.BaseEntity;
+
 @Entity
 @Table(name = "cases")
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class Case extends BaseEntity {
+public class Case extends BaseEntity implements Archivable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -77,6 +80,12 @@ public class Case extends BaseEntity {
 
     @Column(name = "is_archived", nullable = false)
     private Boolean isArchived = false;
+
+    @Column(name = "archived_at")
+    private LocalDateTime archivedAt;
+
+    @Column(columnDefinition = "TEXT", name = "archive_remarks")
+    private String archiveRemarks;
 
     @Column(name = "is_attested")
     private Boolean isAttested = false;

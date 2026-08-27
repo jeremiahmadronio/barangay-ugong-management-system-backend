@@ -399,4 +399,31 @@ public class BlotterController {
         BlotterLifecycleKpiResponse response = archiveAndDeleteService.getBlotterLifecycleKpi();
         return ResponseEntity.ok(response);
     }
+
+    /**
+     * Endpoint retrieving paginated archived blotter cases for the Archive Table.
+     *
+     * @param filter {@link BlotterArchiveFilterRequest} search and filingType criteria
+     * @return {@link PageResponse} of {@link BlotterArchiveItemResponse}
+     */
+    @GetMapping("/archive-table")
+    public ResponseEntity<PageResponse<BlotterArchiveItemResponse>> getArchivedBlotterCases(
+            @ModelAttribute BlotterArchiveFilterRequest filter) {
+        PageResponse<BlotterArchiveItemResponse> response = archiveAndDeleteService.getArchivedBlotterCases(filter);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Endpoint retrieving paginated soft-deleted blotter cases for the Recent Delete / Trash Table.
+     * Excludes permanently deleted records.
+     *
+     * @param filter {@link BlotterArchiveFilterRequest} search and filingType criteria
+     * @return {@link PageResponse} of {@link BlotterRecentDeleteItemResponse}
+     */
+    @GetMapping("/recent-delete")
+    public ResponseEntity<PageResponse<BlotterRecentDeleteItemResponse>> getRecentDeletedBlotterCases(
+            @ModelAttribute BlotterArchiveFilterRequest filter) {
+        PageResponse<BlotterRecentDeleteItemResponse> response = archiveAndDeleteService.getRecentDeletedBlotterCases(filter);
+        return ResponseEntity.ok(response);
+    }
 }

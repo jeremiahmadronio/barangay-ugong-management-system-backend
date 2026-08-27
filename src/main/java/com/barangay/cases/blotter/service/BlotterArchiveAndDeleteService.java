@@ -1,9 +1,16 @@
 package com.barangay.cases.blotter.service;
 
+import com.barangay.cases.blotter.dto.BlotterArchiveFilterRequest;
+import com.barangay.cases.blotter.dto.BlotterArchiveItemResponse;
 import com.barangay.cases.blotter.dto.BlotterLifecycleKpiResponse;
+import com.barangay.cases.blotter.dto.BlotterRecentDeleteItemResponse;
 import com.barangay.cases.shared.projection.BlotterLifecycleKpiProjection;
 import com.barangay.cases.shared.repository.CaseRepository;
+import com.barangay.zshared.mapper.PageResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,5 +59,36 @@ public class BlotterArchiveAndDeleteService {
         );
     }
 
+    /**
+     * Retrieves paginated archived blotter cases for the Archive Table.
+     *
+     * @param filter {@link BlotterArchiveFilterRequest} search and filingType criteria
+     * @return {@link PageResponse} of {@link BlotterArchiveItemResponse}
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<BlotterArchiveItemResponse> getArchivedBlotterCases(BlotterArchiveFilterRequest filter) {
+        Pageable pageable = PageRequest.of(
+                filter != null ? filter.getPageNumber() : 0,
+                filter != null ? filter.getPageSize() : 10
+        );
+        Page<BlotterArchiveItemResponse> page = caseRepository.findArchivedBlotterCases(filter, pageable);
+        return PageResponse.of(page);
+    }
 
+    /**
+     * Retrieves paginated soft-deleted blotter cases for the Recent Delete / Trash Table.
+     * Excludes permanently deleted records.
+     *
+     * @param filter {@link BlotterArchiveFilterRequest} search and filingType criteria
+     * @return {@link PageResponse} of {@link BlotterRecentDeleteItemResponse}
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<BlotterRecentDeleteItemResponse> getRecentDeletedBlotterCases(BlotterArchiveFilterRequest filter) {
+        Pageable pageable = PageRequest.of(
+                filter != null ? filter.getPageNumber() : 0,
+                filter != null ? filter.getPageSize() : 10
+        );
+        Page<BlotterRecentDeleteItemResponse> page = caseRepository.findRecentDeletedBlotterCases(filter, pageable);
+        return PageResponse.of(page);
+    }
 }
