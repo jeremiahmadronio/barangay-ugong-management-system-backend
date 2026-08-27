@@ -56,7 +56,7 @@ public class BlotterReportService {
 
         while (!current.isAfter(targetEnd)) {
             long totalCases = countMap.getOrDefault(current, 0L);
-            String monthLabel = current.getMonth().getDisplayName(TextStyle.SHORT, Locale.ENGLISH).toUpperCase()
+            String monthLabel = current.getMonth().getDisplayName(TextStyle.SHORT, Locale.ENGLISH)
                     + " " + current.getYear();
 
             responseList.add(new MonthlyCaseTrendResponse(

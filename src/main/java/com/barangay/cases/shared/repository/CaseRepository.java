@@ -212,7 +212,7 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
      * @return {@link FormalComplaintResolutionProjection} containing aggregated counts
      */
     @Query("""
-        SELECT 
+        SELECT
             COUNT(c.id) AS totalFormalComplaints,
             SUM(CASE WHEN c.luponReferral IS NULL AND c.caseStatus = :settledStatus THEN 1L ELSE 0L END) AS settledAtBlotter,
             SUM(CASE WHEN c.luponReferral IS NOT NULL THEN 1L ELSE 0L END) AS referredToLupon,
@@ -258,5 +258,29 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             @Param("departmentId") Long departmentId,
             @Param("settledStatus") CaseStatus settledStatus,
             @Param("activeStatuses") Collection<CaseStatus> activeStatuses
+    );
+
+
+    /**
+     * Aggregates lifecycle counts for Blotter records (Archived and Recently Deleted).
+     *
+     * @param startOfMonth start timestamp of the current month
+     * @param endOfMonth   end timestamp of the current month
+     * @return {@link BlotterLifecycleKpiProjection} containing aggregated metrics
+     */
+    @Query("""
+        SELECT
+            SUM(CASE WHEN c.isArchived = true AND (c.isDeleted IS NULL OR c.isDeleted = false) THEN 1L ELSE 0L END) AS totalArchived,
+            SUM(CASE WHEN c.isArchived = true AND (c.isDeleted IS NULL OR c.isDeleted = false) 
+                     AND c.updatedAt >= :startOfMonth AND c.updatedAt <= :endOfMonth THEN 1L ELSE 0L END) AS totalArchivedThisMonth,
+            SUM(CASE WHEN c.isDeleted = true AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) THEN 1L ELSE 0L END) AS totalRecentlyDeleted,
+            SUM(CASE WHEN c.isDeleted = true AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) 
+                     AND c.deletedAt >= :startOfMonth AND c.deletedAt <= :endOfMonth THEN 1L ELSE 0L END) AS totalRecentlyDeletedThisMonth
+        FROM Case c
+        WHERE (c.department IS NULL OR UPPER(c.department.name) = 'BLOTTER')
+    """)
+    BlotterLifecycleKpiProjection getBlotterLifecycleKpiMetrics(
+            @Param("startOfMonth") LocalDateTime startOfMonth,
+            @Param("endOfMonth") LocalDateTime endOfMonth
     );
 }

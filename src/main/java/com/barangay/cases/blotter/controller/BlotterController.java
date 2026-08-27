@@ -4,7 +4,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import com.barangay.cases.blotter.dto.*;
-import com.barangay.cases.blotter.service.BlotterReportService;
+import com.barangay.cases.blotter.service.*;
 import jakarta.validation.Valid;
 
 import org.springframework.format.annotation.DateTimeFormat;
@@ -12,10 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import com.barangay.cases.blotter.service.BlotterCaseService;
-import com.barangay.cases.blotter.service.CaseFileService;
 import com.barangay.cases.shared.service.CaseNoteService;
-import com.barangay.cases.blotter.service.MediationSessionService;
 import com.barangay.zshared.audit.annotations.LogAudit;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;
@@ -40,6 +37,7 @@ public class BlotterController {
     private final CaseNoteService caseNoteService;
     private final CaseFileService caseFileService;
     private final BlotterReportService blotterReportService;
+    private final BlotterArchiveAndDeleteService archiveAndDeleteService;
 
     /**
      * Retrieves paginated and filtered blotter cases.
@@ -387,5 +385,18 @@ public class BlotterController {
         );
 
         return ResponseEntity.ok(report);
+    }
+
+
+
+    /**
+     * Endpoint retrieving lifecycle and trash statistics exclusively for the Blotter Department.
+     *
+     * @return {@link BlotterLifecycleKpiResponse}
+     */
+    @GetMapping("/archive-kpi")
+    public ResponseEntity<BlotterLifecycleKpiResponse> getBlotterLifecycleKpi() {
+        BlotterLifecycleKpiResponse response = archiveAndDeleteService.getBlotterLifecycleKpi();
+        return ResponseEntity.ok(response);
     }
 }
