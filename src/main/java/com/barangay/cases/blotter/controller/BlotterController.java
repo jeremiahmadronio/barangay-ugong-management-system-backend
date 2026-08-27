@@ -426,4 +426,37 @@ public class BlotterController {
         PageResponse<BlotterRecentDeleteItemResponse> response = archiveAndDeleteService.getRecentDeletedBlotterCases(filter);
         return ResponseEntity.ok(response);
     }
+
+
+    /**
+     * Archives a resolved or closed blotter case.
+     *
+     * @param caseId  target case ID
+     * @param request archive remarks payload
+     * @return success message
+     */
+    @PatchMapping("/archive-case/{caseId}")
+    public ResponseEntity<Void> archiveCase(
+          @PathVariable Long caseId,
+           @Valid @RequestBody ArchiveCaseRequest request
+    ){
+        archiveAndDeleteService.archiveCase(caseId, request);
+        return ResponseEntity.ok().build();
+    }
+
+
+    /**
+     * Restores an archived case back to the active records table.
+     *
+     * @param caseId target case ID
+     * @return success message
+     */
+    @PatchMapping("/{caseId}/restore-archive")
+    public ResponseEntity<Void> restoreArchivedCase(
+            @PathVariable Long caseId
+    ) {
+        archiveAndDeleteService.restoreArchivedCase(caseId);
+        return ResponseEntity.ok().build();
+
+    }
 }
