@@ -1,10 +1,9 @@
 package com.barangay.cases.blotter.service;
 
-import com.barangay.cases.blotter.dto.DailyCaseTrendResponse;
-import com.barangay.cases.blotter.dto.MonthlyCaseTrendResponse;
-import com.barangay.cases.blotter.dto.SettlementEfficiencyResponse;
+import com.barangay.cases.blotter.dto.*;
 import com.barangay.cases.shared.projection.CaseCountByDayProjection;
 import com.barangay.cases.shared.projection.CaseCountByMonthProjection;
+import com.barangay.cases.shared.projection.CaseStatusCountProjection;
 import com.barangay.cases.shared.projection.SettlementMetricsProjection;
 import com.barangay.cases.shared.repository.CaseRepository;
 import com.barangay.zshared.enumerated.CaseStatus;
@@ -21,10 +20,7 @@ import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -181,6 +177,89 @@ public class BlotterReportService {
     }
 
 
+
+    /**
+     * Generates a complete status distribution breakdown for cases within the specified criteria.
+     *
+     * @param startDate    inclusive start date
+     * @param endDate      inclusive end date
+     * @param departmentId optional department ID filter
+     * @return {@link CaseStatusBreakdownResponse} containing total cases and per-status metrics
+     */
+    @Transactional(readOnly = true)
+    public CaseStatusBreakdownResponse getStatusBreakdownReport(
+            LocalDate startDate,
+            LocalDate endDate,
+            Long departmentId
+    ) {
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("Start date cannot be after end date.");
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        List<CaseStatusCountProjection> dbResults = caseRepository.getCaseStatusCounts(
+                startDateTime,
+                endDateTime,
+                departmentId
+        );
+
+        Map<CaseStatus, Long> countMap = dbResults.stream().collect(
+                Collectors.toMap(
+                        CaseStatusCountProjection::getStatus,
+                        CaseStatusCountProjection::getCount
+                )
+        );
+
+        long totalCases = countMap.values().stream().mapToLong(Long::longValue).sum();
+
+        List<CaseStatusItemDto> breakdownList = new ArrayList<>();
+
+        for (CaseStatus status : CaseStatus.values()) {
+            long count = countMap.getOrDefault(status, 0L);
+            double percentage = 0.0;
+
+            if (totalCases > 0 && count > 0) {
+                double rawPercentage = ((double) count / totalCases) * 100.0;
+                percentage = BigDecimal.valueOf(rawPercentage)
+                        .setScale(2, RoundingMode.HALF_UP)
+                        .doubleValue();
+            }
+
+            String humanReadableLabel = formatEnumLabel(status.name());
+
+            breakdownList.add(new CaseStatusItemDto(
+                    status,
+                    humanReadableLabel,
+                    count,
+                    percentage
+            ));
+        }
+
+        breakdownList.sort(Comparator.comparingLong(CaseStatusItemDto::count).reversed());
+
+        return new CaseStatusBreakdownResponse(
+                startDate,
+                endDate,
+                departmentId,
+                totalCases,
+                breakdownList
+        );
+    }
+
+    private String formatEnumLabel(String enumName) {
+        String[] words = enumName.toLowerCase().split("_");
+        StringBuilder formatted = new StringBuilder();
+        for (String word : words) {
+            if (!word.isEmpty()) {
+                formatted.append(Character.toUpperCase(word.charAt(0)))
+                        .append(word.substring(1))
+                        .append(" ");
+            }
+        }
+        return formatted.toString().trim();
+    }
 
 
 }

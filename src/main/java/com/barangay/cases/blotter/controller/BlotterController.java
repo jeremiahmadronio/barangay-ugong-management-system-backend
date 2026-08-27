@@ -315,4 +315,23 @@ public class BlotterController {
 
         return ResponseEntity.ok(report);
     }
+
+
+    @GetMapping("/status-breakdown")
+    public ResponseEntity<CaseStatusBreakdownResponse> getStatusBreakdown(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) Long departmentId
+    ) {
+        LocalDate effectiveEndDate = (endDate != null) ? endDate : LocalDate.now();
+        LocalDate effectiveStartDate = (startDate != null) ? startDate : effectiveEndDate.withDayOfMonth(1);
+
+        CaseStatusBreakdownResponse report = blotterReportService.getStatusBreakdownReport(
+                effectiveStartDate,
+                effectiveEndDate,
+                departmentId
+        );
+
+        return ResponseEntity.ok(report);
+    }
 }

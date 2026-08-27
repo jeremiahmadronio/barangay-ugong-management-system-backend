@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.barangay.cases.shared.projection.CaseCountByDayProjection;
 import com.barangay.cases.shared.projection.CaseCountByMonthProjection;
+import com.barangay.cases.shared.projection.CaseStatusCountProjection;
 import com.barangay.cases.shared.projection.SettlementMetricsProjection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -135,7 +136,7 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
      * @return projection containing the aggregated counts
      */
     @Query("""
-        SELECT 
+        SELECT
             COUNT(c.id) AS totalCases,
             SUM(CASE WHEN c.filingType = :formalType THEN 1L ELSE 0L END) AS totalFormalComplaints,
             SUM(CASE WHEN c.caseStatus = :settledStatus THEN 1L ELSE 0L END) AS totalSettledCases
@@ -151,6 +152,32 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             @Param("departmentId") Long departmentId,
             @Param("formalType") FilingType formalType,
             @Param("settledStatus") CaseStatus settledStatus
+    );
+
+
+    /**
+     * Aggregates case counts grouped by case status within a given time range and department.
+     *
+     * @param startDate    the inclusive starting timestamp
+     * @param endDate      the inclusive ending timestamp
+     * @param departmentId optional target department ID
+     * @return list of status projections containing counts per status
+     */
+    @Query("""
+        SELECT 
+            c.caseStatus AS status,
+            COUNT(c.id) AS count
+        FROM Case c
+        WHERE (c.deletedAt IS NULL)
+          AND (:departmentId IS NULL OR c.department.id = :departmentId)
+          AND c.createdAt >= :startDate
+          AND c.createdAt <= :endDate
+        GROUP BY c.caseStatus
+    """)
+    List<CaseStatusCountProjection> getCaseStatusCounts(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("departmentId") Long departmentId
     );
 
 }
