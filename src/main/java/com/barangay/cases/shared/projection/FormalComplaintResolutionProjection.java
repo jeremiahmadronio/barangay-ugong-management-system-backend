@@ -11,26 +11,26 @@ public interface FormalComplaintResolutionProjection {
      *
      * @return count of formal complaints
      */
-    Long getTotalFormalComplaints();
+    Number getTotalFormalComplaints();
 
     /**
      * Retrieves the count of cases settled directly at desk level without Lupon referral.
      *
      * @return count of desk-settled cases
      */
-    Long getSettledAtBlotter();
+    Number getSettledAtBlotter();
 
     /**
      * Retrieves the count of cases escalated or referred to Lupong Tagapamayapa.
      *
      * @return count of Lupon referrals
      */
-    Long getReferredToLupon();
+    Number getReferredToLupon();
 
     /**
      * Retrieves the count of cases still pending or unresolved at desk level.
      *
      * @return count of pending desk cases
      */
-    Long getPendingAtBlotter();
+    Number getPendingAtBlotter();
 }

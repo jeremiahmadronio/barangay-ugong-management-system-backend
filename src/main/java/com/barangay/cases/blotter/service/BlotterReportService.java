@@ -92,12 +92,14 @@ public class BlotterReportService {
                 departmentId
         );
 
-        Map<LocalDate, Long> countMap = dbResults.stream().collect(
-                Collectors.toMap(
-                        CaseCountByDayProjection::getDate,
-                        CaseCountByDayProjection::getCount
-                )
-        );
+        Map<LocalDate, Long> countMap = new HashMap<>();
+        if (dbResults != null) {
+            for (CaseCountByDayProjection p : dbResults) {
+                if (p.getDate() != null) {
+                    countMap.put(p.getDate(), p.getCount() != null ? p.getCount() : 0L);
+                }
+            }
+        }
 
         List<DailyCaseTrendResponse> responseList = new ArrayList<>();
         LocalDate current = startDate;
@@ -149,9 +151,9 @@ public class BlotterReportService {
                 CaseStatus.SETTLED
         );
 
-        long totalCases = (metrics != null && metrics.getTotalCases() != null) ? metrics.getTotalCases() : 0L;
-        long totalFormal = (metrics != null && metrics.getTotalFormalComplaints() != null) ? metrics.getTotalFormalComplaints() : 0L;
-        long totalSettled = (metrics != null && metrics.getTotalSettledCases() != null) ? metrics.getTotalSettledCases() : 0L;
+        long totalCases = (metrics != null && metrics.getTotalCases() != null) ? metrics.getTotalCases().longValue() : 0L;
+        long totalFormal = (metrics != null && metrics.getTotalFormalComplaints() != null) ? metrics.getTotalFormalComplaints().longValue() : 0L;
+        long totalSettled = (metrics != null && metrics.getTotalSettledCases() != null) ? metrics.getTotalSettledCases().longValue() : 0L;
 
 
         double settlementRate = 0.0;
@@ -202,12 +204,25 @@ public class BlotterReportService {
                 departmentId
         );
 
-        Map<CaseStatus, Long> countMap = dbResults.stream().collect(
-                Collectors.toMap(
-                        CaseStatusCountProjection::getStatus,
-                        CaseStatusCountProjection::getCount
-                )
-        );
+        Map<CaseStatus, Long> countMap = new HashMap<>();
+        if (dbResults != null) {
+            for (CaseStatusCountProjection p : dbResults) {
+                if (p != null && p.getStatus() != null) {
+                    Object statusObj = p.getStatus();
+                    CaseStatus status = null;
+                    if (statusObj instanceof CaseStatus cs) {
+                        status = cs;
+                    } else if (statusObj instanceof String str) {
+                        try {
+                            status = CaseStatus.valueOf(str.trim().toUpperCase());
+                        } catch (IllegalArgumentException ignored) {}
+                    }
+                    if (status != null) {
+                        countMap.put(status, p.getCount() != null ? p.getCount() : 0L);
+                    }
+                }
+            }
+        }
 
         long totalCases = countMap.values().stream().mapToLong(Long::longValue).sum();
 
@@ -215,23 +230,21 @@ public class BlotterReportService {
 
         for (CaseStatus status : CaseStatus.values()) {
             long count = countMap.getOrDefault(status, 0L);
-            double percentage = 0.0;
-
-            if (totalCases > 0 && count > 0) {
+            if (count > 0) {
                 double rawPercentage = ((double) count / totalCases) * 100.0;
-                percentage = BigDecimal.valueOf(rawPercentage)
+                double percentage = BigDecimal.valueOf(rawPercentage)
                         .setScale(2, RoundingMode.HALF_UP)
                         .doubleValue();
+
+                String humanReadableLabel = formatEnumLabel(status.name());
+
+                breakdownList.add(new CaseStatusItemDto(
+                        status,
+                        humanReadableLabel,
+                        count,
+                        percentage
+                ));
             }
-
-            String humanReadableLabel = formatEnumLabel(status.name());
-
-            breakdownList.add(new CaseStatusItemDto(
-                    status,
-                    humanReadableLabel,
-                    count,
-                    percentage
-            ));
         }
 
         breakdownList.sort(Comparator.comparingLong(CaseStatusItemDto::count).reversed());
@@ -289,13 +302,13 @@ public class BlotterReportService {
         );
 
         long totalFormal = (metrics != null && metrics.getTotalFormalComplaints() != null)
-                ? metrics.getTotalFormalComplaints() : 0L;
+                ? metrics.getTotalFormalComplaints().longValue() : 0L;
         long settledAtBlotter = (metrics != null && metrics.getSettledAtBlotter() != null)
-                ? metrics.getSettledAtBlotter() : 0L;
+                ? metrics.getSettledAtBlotter().longValue() : 0L;
         long referredToLupon = (metrics != null && metrics.getReferredToLupon() != null)
-                ? metrics.getReferredToLupon() : 0L;
+                ? metrics.getReferredToLupon().longValue() : 0L;
         long pendingAtBlotter = (metrics != null && metrics.getPendingAtBlotter() != null)
-                ? metrics.getPendingAtBlotter() : 0L;
+                ? metrics.getPendingAtBlotter().longValue() : 0L;
 
         // Compute percentage rates rounded to 2 decimal places
         double settledRate = calculatePercentage(settledAtBlotter, totalFormal);
@@ -329,5 +342,58 @@ public class BlotterReportService {
         return BigDecimal.valueOf(raw)
                 .setScale(2, RoundingMode.HALF_UP)
                 .doubleValue();
+    }
+
+    /**
+     * Calculates date-filtered KPI metrics for Blotter department reports.
+     *
+     * @param startDate    start date filter
+     * @param endDate      end date filter
+     * @param departmentId optional target department ID filter
+     * @return {@link BlotterReportKpiResponse} with calculated counts and settlement rate
+     */
+    @Transactional(readOnly = true)
+    public BlotterReportKpiResponse getReportKpi(
+            LocalDate startDate,
+            LocalDate endDate,
+            Long departmentId
+    ) {
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("Start date cannot be after end date.");
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        List<CaseStatus> activeStatuses = List.of(
+                CaseStatus.UNDER_MEDIATION,
+                CaseStatus.UNDER_CONCILIATION
+        );
+
+        BlotterReportKpiProjection metrics = caseRepository.getBlotterReportKpiMetrics(
+                startDateTime,
+                endDateTime,
+                departmentId,
+                CaseStatus.SETTLED,
+                activeStatuses
+        );
+
+        long totalCases = (metrics != null && metrics.getTotalCases() != null) ? metrics.getTotalCases().longValue() : 0L;
+        long settledCases = (metrics != null && metrics.getSettledCases() != null) ? metrics.getSettledCases().longValue() : 0L;
+        long activeMediations = (metrics != null && metrics.getActiveMediations() != null) ? metrics.getActiveMediations().longValue() : 0L;
+        long luponReferrals = (metrics != null && metrics.getLuponReferrals() != null) ? metrics.getLuponReferrals().longValue() : 0L;
+
+        double settlementRate = calculatePercentage(settledCases, totalCases);
+
+        return new BlotterReportKpiResponse(
+                startDate,
+                endDate,
+                departmentId,
+                totalCases,
+                settledCases,
+                settlementRate,
+                activeMediations,
+                luponReferrals
+        );
     }
 }

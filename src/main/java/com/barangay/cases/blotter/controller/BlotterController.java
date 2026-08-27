@@ -362,4 +362,30 @@ public class BlotterController {
 
         return ResponseEntity.ok(report);
     }
+
+    /**
+     * Endpoint retrieving date-filtered KPI statistics for Blotter Department reports.
+     *
+     * @param startDate    optional start date (defaults to 1st day of current month)
+     * @param endDate      optional end date (defaults to today)
+     * @param departmentId optional department filter
+     * @return {@link BlotterReportKpiResponse}
+     */
+    @GetMapping("/report-kpi")
+    public ResponseEntity<BlotterReportKpiResponse> getReportKpi(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) Long departmentId
+    ) {
+        LocalDate effectiveEndDate = (endDate != null) ? endDate : LocalDate.now();
+        LocalDate effectiveStartDate = (startDate != null) ? startDate : effectiveEndDate.withDayOfMonth(1);
+
+        BlotterReportKpiResponse report = blotterReportService.getReportKpi(
+                effectiveStartDate,
+                effectiveEndDate,
+                departmentId
+        );
+
+        return ResponseEntity.ok(report);
+    }
 }

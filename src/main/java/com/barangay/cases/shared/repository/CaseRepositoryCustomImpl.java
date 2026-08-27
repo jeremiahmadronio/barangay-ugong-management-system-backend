@@ -17,6 +17,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -60,8 +61,9 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
     private List<Predicate> buildPredicates(BlotterFilterRequest filter, CriteriaBuilder cb, Root<Case> root) {
         List<Predicate> predicates = new ArrayList<>();
 
-        // Base criteria: non-deleted cases, non-archived cases & root cases only (main cases without previousCaseNumber)
+        // Base criteria: non-deleted cases, non-permanently-deleted cases, non-archived cases & root cases only (main cases without previousCaseNumber)
         predicates.add(cb.or(cb.isNull(root.get("isDeleted")), cb.equal(root.get("isDeleted"), false)));
+        predicates.add(cb.or(cb.isNull(root.get("isPermanentDeleted")), cb.equal(root.get("isPermanentDeleted"), false)));
         predicates.add(cb.or(cb.isNull(root.get("isArchived")), cb.equal(root.get("isArchived"), false)));
         predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
 
@@ -117,6 +119,14 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
             Join<Case, IncidentDetail> incidentJoin = root.join("incidentDetail", JoinType.LEFT);
             String naturePattern = "%" + filter.natureOfComplaint().trim().toLowerCase() + "%";
             predicates.add(cb.like(cb.lower(incidentJoin.get("natureOfComplaint")), naturePattern));
+        }
+
+        // Date Range Filter (startDate & endDate)
+        if (filter.startDate() != null) {
+            predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), filter.startDate().atStartOfDay()));
+        }
+        if (filter.endDate() != null) {
+            predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), filter.endDate().atTime(LocalTime.MAX)));
         }
 
         return predicates;

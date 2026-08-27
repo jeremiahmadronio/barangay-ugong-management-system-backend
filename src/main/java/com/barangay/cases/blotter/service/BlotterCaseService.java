@@ -196,27 +196,27 @@ public class BlotterCaseService {
         LocalDateTime prevMonthStart = YearMonth.now().minusMonths(1).atDay(1).atStartOfDay();
         LocalDateTime prevMonthEnd = currentMonthStart.minusNanos(1);
 
-        // 1. Total Cases
-        long totalCases = caseRepository.count();
-        long currentTotal = caseRepository.countByCreatedAtGreaterThanEqual(currentMonthStart);
-        long prevTotal = caseRepository.countByCreatedAtBetween(prevMonthStart, prevMonthEnd);
+        // 1. Total Cases (Root Cases Only)
+        long totalCases = caseRepository.countRootCases();
+        long currentTotal = caseRepository.countRootCasesByCreatedAtGreaterThanEqual(currentMonthStart);
+        long prevTotal = caseRepository.countRootCasesByCreatedAtBetween(prevMonthStart, prevMonthEnd);
         String totalCasesTrend = calculateMonthlyTrend(currentTotal, prevTotal);
 
-        // 2. Total For the Record
-        long totalForTheRecord = caseRepository.countByFilingType(FilingType.FOR_RECORD_ONLY);
-        long currentForRecord = caseRepository.countByFilingTypeAndCreatedAtGreaterThanEqual(FilingType.FOR_RECORD_ONLY, currentMonthStart);
-        long prevForRecord = caseRepository.countByFilingTypeAndCreatedAtBetween(FilingType.FOR_RECORD_ONLY, prevMonthStart, prevMonthEnd);
+        // 2. Total For the Record (Root Cases Only)
+        long totalForTheRecord = caseRepository.countRootCasesByFilingType(FilingType.FOR_RECORD_ONLY);
+        long currentForRecord = caseRepository.countRootCasesByFilingTypeAndCreatedAtGreaterThanEqual(FilingType.FOR_RECORD_ONLY, currentMonthStart);
+        long prevForRecord = caseRepository.countRootCasesByFilingTypeAndCreatedAtBetween(FilingType.FOR_RECORD_ONLY, prevMonthStart, prevMonthEnd);
         String totalForTheRecordTrend = calculateMonthlyTrend(currentForRecord, prevForRecord);
 
-        // 3. Under Mediation / In Progress
-        List<CaseStatus> activeStatuses = List.of(CaseStatus.PENDING, CaseStatus.UNDER_MEDIATION, CaseStatus.UNDER_CONCILIATION);
-        long inProgressCases = caseRepository.countByCaseStatusIn(activeStatuses);
+        // 3. Under Mediation / In Progress (Latest Active Cycles Only)
+        List<CaseStatus> activeStatuses = List.of(CaseStatus.UNDER_MEDIATION, CaseStatus.UNDER_CONCILIATION);
+        long inProgressCases = caseRepository.countLatestCasesByCaseStatusIn(activeStatuses);
 
-        // 4. Settled / Resolved Cases
+        // 4. Settled / Resolved Cases (Latest Active Cycles Only)
         List<CaseStatus> resolvedStatuses = List.of(CaseStatus.SETTLED);
-        long resolvedCases = caseRepository.countByCaseStatusIn(resolvedStatuses);
-        long currentResolved = caseRepository.countByCaseStatusInAndCreatedAtGreaterThanEqual(resolvedStatuses, currentMonthStart);
-        long prevResolved = caseRepository.countByCaseStatusInAndCreatedAtBetween(resolvedStatuses, prevMonthStart, prevMonthEnd);
+        long resolvedCases = caseRepository.countLatestCasesByCaseStatusIn(resolvedStatuses);
+        long currentResolved = caseRepository.countLatestCasesByCaseStatusInAndCreatedAtGreaterThanEqual(resolvedStatuses, currentMonthStart);
+        long prevResolved = caseRepository.countLatestCasesByCaseStatusInAndCreatedAtBetween(resolvedStatuses, prevMonthStart, prevMonthEnd);
         String resolvedCasesTrend = calculateMonthlyTrend(currentResolved, prevResolved);
 
         return new BlotterStatsResponse(

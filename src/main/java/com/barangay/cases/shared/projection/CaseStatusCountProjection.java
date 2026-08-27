@@ -1,18 +1,16 @@
 package com.barangay.cases.shared.projection;
 
-import com.barangay.zshared.enumerated.CaseStatus;
-
 /**
  * Projection interface for aggregated case status counts from the database.
  */
 public interface CaseStatusCountProjection {
 
     /**
-     * Retrieves the case status.
+     * Retrieves the case status (supports both CaseStatus enum or String value from DB).
      *
-     * @return {@link CaseStatus} enum
+     * @return status object
      */
-    CaseStatus getStatus();
+    Object getStatus();
 
     /**
      * Retrieves the count of cases under this status.

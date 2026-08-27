@@ -10,19 +10,19 @@ public interface SettlementMetricsProjection {
      *
      * @return total count of cases
      */
-    Long getTotalCases();
+    Number getTotalCases();
 
     /**
      * Retrieves the total number of cases filed as formal complaints.
      *
      * @return count of formal complaints
      */
-    Long getTotalFormalComplaints();
+    Number getTotalFormalComplaints();
 
     /**
      * Retrieves the total number of cases marked with SETTLED status.
      *
      * @return count of settled cases
      */
-    Long getTotalSettledCases();
+    Number getTotalSettledCases();
 }
