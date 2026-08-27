@@ -74,6 +74,9 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
     @Query("SELECT c FROM Case c WHERE c.caseStatus IN :statuses AND (c.isArchived IS NULL OR c.isArchived = false) AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)")
     List<Case> findActiveCasesForExpirationCheck(@Param("statuses") Collection<CaseStatus> statuses);
 
+    @Query("SELECT c FROM Case c WHERE c.isDeleted = true AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND c.deletedAt IS NOT NULL AND c.deletedAt <= :cutoff")
+    List<Case> findExpiredSoftDeletedCases(@Param("cutoff") LocalDateTime cutoff);
+
 
 
     /**
@@ -271,10 +274,10 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
     @Query("""
         SELECT
             SUM(CASE WHEN c.isArchived = true AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') THEN 1L ELSE 0L END) AS totalArchived,
-            SUM(CASE WHEN c.isArchived = true AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') 
+            SUM(CASE WHEN c.isArchived = true AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
                      AND c.updatedAt >= :startOfMonth AND c.updatedAt <= :endOfMonth THEN 1L ELSE 0L END) AS totalArchivedThisMonth,
             SUM(CASE WHEN c.isDeleted = true AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') THEN 1L ELSE 0L END) AS totalRecentlyDeleted,
-            SUM(CASE WHEN c.isDeleted = true AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') 
+            SUM(CASE WHEN c.isDeleted = true AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
                      AND c.deletedAt >= :startOfMonth AND c.deletedAt <= :endOfMonth THEN 1L ELSE 0L END) AS totalRecentlyDeletedThisMonth
         FROM Case c
         WHERE (c.department IS NULL OR UPPER(c.department.name) = 'BLOTTER')
@@ -282,5 +285,33 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
     BlotterLifecycleKpiProjection getBlotterLifecycleKpiMetrics(
             @Param("startOfMonth") LocalDateTime startOfMonth,
             @Param("endOfMonth") LocalDateTime endOfMonth
+    );
+
+
+    /**
+     * Aggregates Blotter Case KPIs:
+     * 1. New root cases filed this week (Monday to Sunday)
+     * 2. Active pending endmost cases
+     * 3. Unresolved blotter cases (Pending + Under Mediation, strictly excluding Conciliation/Settled)
+     */
+    @Query("""
+        SELECT
+            SUM(CASE WHEN (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+                     AND c.createdAt >= :startOfWeek AND c.createdAt <= :endOfWeek THEN 1L ELSE 0L END) AS newCasesThisWeek,
+            SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
+                     AND c.caseStatus = :pendingStatus THEN 1L ELSE 0L END) AS pendingCases,
+            SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
+                     AND c.caseStatus IN :unresolvedStatuses THEN 1L ELSE 0L END) AS unresolvedCases
+        FROM Case c
+        WHERE (c.department IS NULL OR UPPER(c.department.name) = 'BLOTTER')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+    """)
+    BlotterDashboardKpiProjection getBlotterDashboardCaseKpis(
+            @Param("startOfWeek") LocalDateTime startOfWeek,
+            @Param("endOfWeek") LocalDateTime endOfWeek,
+            @Param("pendingStatus") CaseStatus pendingStatus,
+            @Param("unresolvedStatuses") Collection<CaseStatus> unresolvedStatuses
     );
 }

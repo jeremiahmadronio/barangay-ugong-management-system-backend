@@ -48,16 +48,23 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
     @Query("SELECT r.barangayIdNumber FROM Resident r WHERE r.barangayIdNumber IS NOT NULL ORDER BY r.residentId DESC LIMIT 1")
     Optional<String> findLatestBarangayIdNumber();
 
-    /** Finds residents matching search term for Blotter/Officer/FTJS selection, excluding archived records. */
+    /** Finds residents matching search term for Blotter/Officer/FTJS selection, excluding archived records.
+     * Prioritizes prefix matches (starts with) on First Name, Last Name, or Full Name. */
     @Query("SELECT r FROM Resident r LEFT JOIN r.person p WHERE (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED) AND (" +
-           ":search IS NULL OR :search = '' OR " +
-           "LOWER(p.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(p.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(COALESCE(p.middleName, '')) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(CONCAT(p.firstName, ' ', p.lastName)) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(CONCAT(p.firstName, ' ', COALESCE(p.middleName, ''), ' ', p.lastName)) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(r.barangayIdNumber) LIKE LOWER(CONCAT('%', :search, '%'))) " +
-           "ORDER BY p.firstName ASC, p.lastName ASC")
+           ":search IS NULL OR TRIM(:search) = '' OR " +
+           "LOWER(p.firstName) LIKE LOWER(CONCAT(TRIM(:search), '%')) OR " +
+           "LOWER(p.lastName) LIKE LOWER(CONCAT(TRIM(:search), '%')) OR " +
+           "LOWER(COALESCE(p.middleName, '')) LIKE LOWER(CONCAT(TRIM(:search), '%')) OR " +
+           "LOWER(CONCAT(p.firstName, ' ', p.lastName)) LIKE LOWER(CONCAT(TRIM(:search), '%')) OR " +
+           "LOWER(CONCAT(p.lastName, ' ', p.firstName)) LIKE LOWER(CONCAT(TRIM(:search), '%')) OR " +
+           "LOWER(CONCAT(' ', p.firstName, ' ', COALESCE(p.middleName, ''), ' ', p.lastName)) LIKE LOWER(CONCAT('% ', TRIM(:search), '%')) OR " +
+           "LOWER(r.barangayIdNumber) LIKE LOWER(CONCAT(TRIM(:search), '%'))) " +
+           "ORDER BY " +
+           "CASE " +
+           "  WHEN LOWER(p.firstName) LIKE LOWER(CONCAT(TRIM(:search), '%')) THEN 1 " +
+           "  WHEN LOWER(p.lastName) LIKE LOWER(CONCAT(TRIM(:search), '%')) THEN 2 " +
+           "  ELSE 3 " +
+           "END ASC, p.firstName ASC, p.lastName ASC")
     List<Resident> searchActiveResidents(@Param("search") String search);
 
     /** Returns the most recently created resident to derive the next sequential ID. */

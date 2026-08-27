@@ -191,10 +191,80 @@ public class BlotterArchiveAndDeleteService {
 
         for (Case c : lineage) {
             c.setIsArchived(false);
+            c.setIsDeleted(false);
             c.setArchiveRemarks(null);
             c.setArchivedAt(null);
+            c.setDeletedAt(null);
         }
 
         caseRepository.saveAll(lineage);
     }
+
+
+    /**
+     * Moves a case chain to the recycle bin (soft delete).
+     *
+     * @param caseId the database identifier of any case in the chain
+     */
+    @Transactional
+    public void softDelete(Long caseId) {
+        Case targetCase = caseRepository.findById(caseId).orElseThrow(() ->
+                new NoSuchElementException("Case not found with ID: " + caseId));
+
+
+        Case rootCase = findRootCase(targetCase);
+        List<Case> lineage = getCaseLineage(rootCase);
+
+        boolean isAlreadyDeleted = lineage.stream()
+                .anyMatch(c -> Boolean.TRUE.equals(c.getIsDeleted()));
+        if (isAlreadyDeleted) {
+            throw new IllegalStateException("Case chain for " + rootCase.getCaseNumber() + " is already in the trash.");
+        }
+
+        Case endmostChildCase = lineage.get(lineage.size() - 1);
+        if (ACTIVE_STATUSES.contains(endmostChildCase.getCaseStatus())) {
+            throw new IllegalStateException(
+                    "Cannot move an ongoing case to trash. Endmost active cycle (" + endmostChildCase.getCaseNumber() +
+                            ") is currently: " + endmostChildCase.getCaseStatus() +
+                            ". Settle, dismiss, or withdraw the case first."
+            );
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        for (Case c : lineage) {
+            c.setIsDeleted(true);
+            c.setDeletedAt(now);
+        }
+        caseRepository.saveAll(lineage);
+    }
+
+    /**
+     * Flags the case chain as permanently deleted (audit-safe purge).
+     *
+     * @param caseId the database identifier of any case in the chain
+     */
+    @Transactional
+    public void permanentDeleteCaseByFlag(Long caseId) {
+        Case targetCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new NoSuchElementException("Case not found with ID: " + caseId));
+
+        Case rootCase = findRootCase(targetCase);
+        List<Case> lineage = getCaseLineage(rootCase);
+
+        boolean isInTrash = lineage.stream()
+                .anyMatch(c -> Boolean.TRUE.equals(c.getIsDeleted()));
+
+        if (!isInTrash) {
+            throw new IllegalStateException("Case must be in trash before it can be permanently deleted.");
+        }
+
+        for (Case c : lineage) {
+            c.setIsPermanentDeleted(true);
+        }
+
+        caseRepository.saveAll(lineage);
+    }
+
+
 }

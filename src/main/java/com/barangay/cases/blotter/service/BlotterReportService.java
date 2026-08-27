@@ -3,20 +3,21 @@ package com.barangay.cases.blotter.service;
 import com.barangay.cases.blotter.dto.*;
 import com.barangay.cases.shared.projection.*;
 import com.barangay.cases.shared.repository.CaseRepository;
+import com.barangay.cases.shared.repository.CaseSessionRepository;
 import com.barangay.zshared.enumerated.CaseStatus;
 import com.barangay.zshared.enumerated.FilingType;
+import com.barangay.zshared.enumerated.SessionStatus;
+import com.barangay.zshared.enumerated.SessionType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.YearMonth;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 public class BlotterReportService {
 
     private final CaseRepository caseRepository;
+    private final CaseSessionRepository caseSessionRepository;
     private static final DateTimeFormatter DAY_LABEL_FORMATTER = DateTimeFormatter.ofPattern("MMM d");
 
 
@@ -394,6 +396,64 @@ public class BlotterReportService {
                 settlementRate,
                 activeMediations,
                 luponReferrals
+        );
+    }
+
+
+
+
+    /**
+     * Unresolved statuses at Blotter desk level.
+     * Strictly EXCLUDES UNDER_CONCILIATION (Lupon jurisdiction) and final statuses (Settled, Dismissed, CFA).
+     */
+    private static final List<CaseStatus> UNRESOLVED_STATUSES = List.of(
+            CaseStatus.PENDING,
+            CaseStatus.UNDER_MEDIATION
+    );
+
+    /**
+     * Generates real-time Dashboard KPIs for Blotter.
+     *
+     * @return {@link BlotterDashboardKpiResponse}
+     */
+    @Transactional(readOnly = true)
+    public BlotterDashboardKpiResponse getDashboardKpis() {
+        LocalDate today = LocalDate.now();
+
+        LocalDate mondayDate = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate sundayDate = today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+
+        LocalDateTime startOfWeek = mondayDate.atStartOfDay();
+        LocalDateTime endOfWeek = sundayDate.atTime(LocalTime.MAX);
+
+        BlotterDashboardKpiProjection caseMetrics = caseRepository.getBlotterDashboardCaseKpis(
+                startOfWeek,
+                endOfWeek,
+                CaseStatus.PENDING,
+                UNRESOLVED_STATUSES
+        );
+
+        long newCases = (caseMetrics != null && caseMetrics.getNewCasesThisWeek() != null)
+                ? caseMetrics.getNewCasesThisWeek().longValue() : 0L;
+        long pendingCases = (caseMetrics != null && caseMetrics.getPendingCases() != null)
+                ? caseMetrics.getPendingCases().longValue() : 0L;
+        long unresolvedCases = (caseMetrics != null && caseMetrics.getUnresolvedCases() != null)
+                ? caseMetrics.getUnresolvedCases().longValue() : 0L;
+
+        long upcomingMediations = caseSessionRepository.countUpcomingMediationsThisWeek(
+                startOfWeek,
+                endOfWeek,
+                SessionType.MEDIATION,
+                SessionStatus.SCHEDULED
+        );
+
+        return new BlotterDashboardKpiResponse(
+                mondayDate,
+                sundayDate,
+                newCases,
+                pendingCases,
+                upcomingMediations,
+                unresolvedCases
         );
     }
 }

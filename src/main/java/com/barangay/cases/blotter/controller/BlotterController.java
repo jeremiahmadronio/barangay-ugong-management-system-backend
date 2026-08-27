@@ -2,6 +2,7 @@ package com.barangay.cases.blotter.controller;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import com.barangay.cases.blotter.dto.*;
 import com.barangay.cases.blotter.service.*;
@@ -459,4 +460,29 @@ public class BlotterController {
         return ResponseEntity.ok().build();
 
     }
+
+
+    @PatchMapping("/{caseId}/soft-delete")
+    public ResponseEntity<Map<String, String>> softDelete(@PathVariable Long caseId) {
+        archiveAndDeleteService.softDelete(caseId);
+        return ResponseEntity.ok(Map.of("message", "Case moved to trash successfully"));
+    }
+
+    @DeleteMapping("/{caseId}/permanent-delete")
+    public ResponseEntity<Map<String, String>> permanentDelete(@PathVariable Long caseId) {
+        archiveAndDeleteService.permanentDeleteCaseByFlag(caseId);
+        return ResponseEntity.ok(Map.of("message", "Case permanently deleted"));
+    }
+
+    /**
+     * Endpoint retrieving the 4 key operational dashboard metrics for Blotter.
+     *
+     * @return {@link BlotterDashboardKpiResponse}
+     */
+    @GetMapping("/dashboard-kpi")
+    public ResponseEntity<BlotterDashboardKpiResponse> getDashboardKpis() {
+        BlotterDashboardKpiResponse response = blotterReportService.getDashboardKpis();
+        return ResponseEntity.ok(response);
+    }
+    
 }
