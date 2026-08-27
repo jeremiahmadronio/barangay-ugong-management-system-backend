@@ -1,10 +1,7 @@
 package com.barangay.cases.blotter.service;
 
 import com.barangay.cases.blotter.dto.*;
-import com.barangay.cases.shared.projection.CaseCountByDayProjection;
-import com.barangay.cases.shared.projection.CaseCountByMonthProjection;
-import com.barangay.cases.shared.projection.CaseStatusCountProjection;
-import com.barangay.cases.shared.projection.SettlementMetricsProjection;
+import com.barangay.cases.shared.projection.*;
 import com.barangay.cases.shared.repository.CaseRepository;
 import com.barangay.zshared.enumerated.CaseStatus;
 import com.barangay.zshared.enumerated.FilingType;
@@ -262,4 +259,75 @@ public class BlotterReportService {
     }
 
 
+    /**
+     * Computes the resolution breakdown and percentage rates for formal complaints.
+     *
+     * @param startDate    start date filter
+     * @param endDate      end date filter
+     * @param departmentId optional department ID filter (e.g., Blotter Department ID)
+     * @return {@link FormalComplaintReportResponse} containing calculated metrics
+     */
+    @Transactional(readOnly = true)
+    public FormalComplaintReportResponse getResolutionReport(
+            LocalDate startDate,
+            LocalDate endDate,
+            Long departmentId
+    ) {
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("Start date cannot be after end date.");
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        FormalComplaintResolutionProjection metrics = caseRepository.getFormalComplaintResolutionMetrics(
+                startDateTime,
+                endDateTime,
+                departmentId,
+                FilingType.FORMAL_COMPLAINT,
+                CaseStatus.SETTLED
+        );
+
+        long totalFormal = (metrics != null && metrics.getTotalFormalComplaints() != null)
+                ? metrics.getTotalFormalComplaints() : 0L;
+        long settledAtBlotter = (metrics != null && metrics.getSettledAtBlotter() != null)
+                ? metrics.getSettledAtBlotter() : 0L;
+        long referredToLupon = (metrics != null && metrics.getReferredToLupon() != null)
+                ? metrics.getReferredToLupon() : 0L;
+        long pendingAtBlotter = (metrics != null && metrics.getPendingAtBlotter() != null)
+                ? metrics.getPendingAtBlotter() : 0L;
+
+        // Compute percentage rates rounded to 2 decimal places
+        double settledRate = calculatePercentage(settledAtBlotter, totalFormal);
+        double referredRate = calculatePercentage(referredToLupon, totalFormal);
+        double pendingRate = calculatePercentage(pendingAtBlotter, totalFormal);
+
+        ResolutionBreakdownDto breakdown = new ResolutionBreakdownDto(
+                settledAtBlotter,
+                settledRate,
+                referredToLupon,
+                referredRate,
+                pendingAtBlotter,
+                pendingRate
+        );
+
+        return new FormalComplaintReportResponse(
+                startDate,
+                endDate,
+                departmentId,
+                totalFormal,
+                breakdown,
+                settledRate
+        );
+    }
+
+    private double calculatePercentage(long count, long total) {
+        if (total == 0 || count == 0) {
+            return 0.0;
+        }
+        double raw = ((double) count / total) * 100.0;
+        return BigDecimal.valueOf(raw)
+                .setScale(2, RoundingMode.HALF_UP)
+                .doubleValue();
+    }
 }

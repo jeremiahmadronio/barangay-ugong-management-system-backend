@@ -334,4 +334,32 @@ public class BlotterController {
 
         return ResponseEntity.ok(report);
     }
+
+
+    /**
+     * Endpoint retrieving the settlement and referral distribution for formal complaints.
+     * Defaults to the first day of the current month up to the current date if parameters are omitted.
+     *
+     * @param startDate    optional start date (format: YYYY-MM-DD)
+     * @param endDate      optional end date (format: YYYY-MM-DD)
+     * @param departmentId optional department ID filter (e.g., Blotter Department)
+     * @return {@link ResponseEntity} containing {@link FormalComplaintReportResponse}
+     */
+    @GetMapping("/formal-complaints/resolution-efficiency")
+    public ResponseEntity<FormalComplaintReportResponse> getFormalComplaintResolutionReport(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) Long departmentId
+    ) {
+        LocalDate effectiveEndDate = (endDate != null) ? endDate : LocalDate.now();
+        LocalDate effectiveStartDate = (startDate != null) ? startDate : effectiveEndDate.withDayOfMonth(1);
+
+        FormalComplaintReportResponse report = blotterReportService.getResolutionReport(
+                effectiveStartDate,
+                effectiveEndDate,
+                departmentId
+        );
+
+        return ResponseEntity.ok(report);
+    }
 }

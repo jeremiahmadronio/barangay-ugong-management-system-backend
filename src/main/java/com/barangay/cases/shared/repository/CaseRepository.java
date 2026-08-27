@@ -4,10 +4,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
-import com.barangay.cases.shared.projection.CaseCountByDayProjection;
-import com.barangay.cases.shared.projection.CaseCountByMonthProjection;
-import com.barangay.cases.shared.projection.CaseStatusCountProjection;
-import com.barangay.cases.shared.projection.SettlementMetricsProjection;
+import com.barangay.cases.shared.projection.*;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -164,7 +161,7 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
      * @return list of status projections containing counts per status
      */
     @Query("""
-        SELECT 
+        SELECT
             c.caseStatus AS status,
             COUNT(c.id) AS count
         FROM Case c
@@ -178,6 +175,38 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate,
             @Param("departmentId") Long departmentId
+    );
+
+
+    /**
+     * Aggregates resolution metrics exclusively for FORMAL_COMPLAINT cases within a date range.
+     *
+     * @param startDate     inclusive starting timestamp
+     * @param endDate       inclusive ending timestamp
+     * @param departmentId  optional department filter
+     * @param formalType    enum constant for FORMAL_COMPLAINT
+     * @param settledStatus enum constant for SETTLED status
+     * @return {@link FormalComplaintResolutionProjection} containing aggregated counts
+     */
+    @Query("""
+        SELECT 
+            COUNT(c.id) AS totalFormalComplaints,
+            SUM(CASE WHEN c.luponReferral IS NULL AND c.caseStatus = :settledStatus THEN 1L ELSE 0L END) AS settledAtBlotter,
+            SUM(CASE WHEN c.luponReferral IS NOT NULL THEN 1L ELSE 0L END) AS referredToLupon,
+            SUM(CASE WHEN c.luponReferral IS NULL AND c.caseStatus != :settledStatus THEN 1L ELSE 0L END) AS pendingAtBlotter
+        FROM Case c
+        WHERE (c.deletedAt IS NULL)
+          AND c.filingType = :formalType
+          AND (:departmentId IS NULL OR c.department.id = :departmentId)
+          AND c.createdAt >= :startDate
+          AND c.createdAt <= :endDate
+    """)
+    FormalComplaintResolutionProjection getFormalComplaintResolutionMetrics(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("departmentId") Long departmentId,
+            @Param("formalType") FilingType formalType,
+            @Param("settledStatus") CaseStatus settledStatus
     );
 
 }
