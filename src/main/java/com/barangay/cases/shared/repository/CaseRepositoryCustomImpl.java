@@ -20,6 +20,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -78,26 +79,41 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         query.setMaxResults(pageable.getPageSize());
 
         List<Case> cases = query.getResultList();
-        List<BlotterArchiveItemResponse> content = cases.stream().map(c -> {
+        List<BlotterArchiveItemResponse> content = cases.stream().map(rootCase -> {
+            Case latestCase = resolveLatestChildCase(rootCase);
+
             String compName = "—";
-            if (c.getComplainant() != null && c.getComplainant().getPerson() != null) {
-                Person p = c.getComplainant().getPerson();
-                compName = (p.getLastName() + ", " + p.getFirstName() + (p.getMiddleName() != null && !p.getMiddleName().isBlank() ? " " + p.getMiddleName().charAt(0) + "." : "")).trim();
+            Complainant comp = latestCase.getComplainant() != null ? latestCase.getComplainant() : rootCase.getComplainant();
+            if (comp != null && comp.getPerson() != null) {
+                Person p = comp.getPerson();
+                String f = p.getFirstName() != null ? p.getFirstName() : "";
+                String l = p.getLastName() != null ? p.getLastName() : "";
+                String m = p.getMiddleName() != null ? p.getMiddleName() : "";
+                compName = (l + (l.isBlank() || f.isBlank() ? "" : ", ") + f + (m.isBlank() ? "" : " " + m.charAt(0) + ".")).trim();
             }
+
             String respName = "—";
-            if (c.getRespondent() != null && c.getRespondent().getPerson() != null) {
-                Person p = c.getRespondent().getPerson();
-                respName = (p.getLastName() + ", " + p.getFirstName() + (p.getMiddleName() != null && !p.getMiddleName().isBlank() ? " " + p.getMiddleName().charAt(0) + "." : "")).trim();
+            Respondent resp = latestCase.getRespondent() != null ? latestCase.getRespondent() : rootCase.getRespondent();
+            if (resp != null && resp.getPerson() != null) {
+                Person p = resp.getPerson();
+                String f = p.getFirstName() != null ? p.getFirstName() : "";
+                String l = p.getLastName() != null ? p.getLastName() : "";
+                String m = p.getMiddleName() != null ? p.getMiddleName() : "";
+                respName = (l + (l.isBlank() || f.isBlank() ? "" : ", ") + f + (m.isBlank() ? "" : " " + m.charAt(0) + ".")).trim();
             }
+
+            String remarks = rootCase.getArchiveRemarks() != null ? rootCase.getArchiveRemarks() : (latestCase.getArchiveRemarks() != null ? latestCase.getArchiveRemarks() : "Archived Record");
+            LocalDateTime archivedAt = rootCase.getArchivedAt() != null ? rootCase.getArchivedAt() : (latestCase.getArchivedAt() != null ? latestCase.getArchivedAt() : rootCase.getUpdatedAt());
+
             return new BlotterArchiveItemResponse(
-                    c.getId(),
-                    c.getCaseNumber(),
+                    rootCase.getId(),
+                    rootCase.getCaseNumber(),
                     compName,
                     respName,
-                    c.getArchiveRemarks() != null ? c.getArchiveRemarks() : "Archived Record",
-                    c.getCaseStatus(),
-                    c.getArchivedAt() != null ? c.getArchivedAt() : c.getUpdatedAt(),
-                    c.getFilingType()
+                    remarks,
+                    latestCase.getCaseStatus(),
+                    archivedAt,
+                    rootCase.getFilingType()
             );
         }).toList();
 
@@ -130,25 +146,39 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         query.setMaxResults(pageable.getPageSize());
 
         List<Case> cases = query.getResultList();
-        List<BlotterRecentDeleteItemResponse> content = cases.stream().map(c -> {
+        List<BlotterRecentDeleteItemResponse> content = cases.stream().map(rootCase -> {
+            Case latestCase = resolveLatestChildCase(rootCase);
+
             String compName = "—";
-            if (c.getComplainant() != null && c.getComplainant().getPerson() != null) {
-                Person p = c.getComplainant().getPerson();
-                compName = (p.getLastName() + ", " + p.getFirstName() + (p.getMiddleName() != null && !p.getMiddleName().isBlank() ? " " + p.getMiddleName().charAt(0) + "." : "")).trim();
+            Complainant comp = latestCase.getComplainant() != null ? latestCase.getComplainant() : rootCase.getComplainant();
+            if (comp != null && comp.getPerson() != null) {
+                Person p = comp.getPerson();
+                String f = p.getFirstName() != null ? p.getFirstName() : "";
+                String l = p.getLastName() != null ? p.getLastName() : "";
+                String m = p.getMiddleName() != null ? p.getMiddleName() : "";
+                compName = (l + (l.isBlank() || f.isBlank() ? "" : ", ") + f + (m.isBlank() ? "" : " " + m.charAt(0) + ".")).trim();
             }
+
             String respName = "—";
-            if (c.getRespondent() != null && c.getRespondent().getPerson() != null) {
-                Person p = c.getRespondent().getPerson();
-                respName = (p.getLastName() + ", " + p.getFirstName() + (p.getMiddleName() != null && !p.getMiddleName().isBlank() ? " " + p.getMiddleName().charAt(0) + "." : "")).trim();
+            Respondent resp = latestCase.getRespondent() != null ? latestCase.getRespondent() : rootCase.getRespondent();
+            if (resp != null && resp.getPerson() != null) {
+                Person p = resp.getPerson();
+                String f = p.getFirstName() != null ? p.getFirstName() : "";
+                String l = p.getLastName() != null ? p.getLastName() : "";
+                String m = p.getMiddleName() != null ? p.getMiddleName() : "";
+                respName = (l + (l.isBlank() || f.isBlank() ? "" : ", ") + f + (m.isBlank() ? "" : " " + m.charAt(0) + ".")).trim();
             }
+
+            LocalDateTime deletedAt = rootCase.getDeletedAt() != null ? rootCase.getDeletedAt() : (latestCase.getDeletedAt() != null ? latestCase.getDeletedAt() : rootCase.getUpdatedAt());
+
             return new BlotterRecentDeleteItemResponse(
-                    c.getId(),
-                    c.getCaseNumber(),
+                    rootCase.getId(),
+                    rootCase.getCaseNumber(),
                     compName,
                     respName,
-                    c.getCaseStatus(),
-                    c.getDeletedAt() != null ? c.getDeletedAt() : c.getUpdatedAt(),
-                    c.getFilingType()
+                    latestCase.getCaseStatus(),
+                    deletedAt,
+                    rootCase.getFilingType()
             );
         }).toList();
 
@@ -162,6 +192,22 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         Long totalCount = entityManager.createQuery(countCq).getSingleResult();
 
         return new PageImpl<>(content, pageable, totalCount);
+    }
+
+    private Case resolveLatestChildCase(Case rootCase) {
+        if (rootCase == null) return null;
+        Case curr = rootCase;
+        while (curr.getReOpenedCaseNumber() != null && !curr.getReOpenedCaseNumber().trim().isEmpty()) {
+            TypedQuery<Case> tq = entityManager.createQuery("SELECT c FROM Case c WHERE c.caseNumber = :cn", Case.class);
+            tq.setParameter("cn", curr.getReOpenedCaseNumber().trim());
+            List<Case> res = tq.getResultList();
+            if (!res.isEmpty()) {
+                curr = res.get(0);
+            } else {
+                break;
+            }
+        }
+        return curr;
     }
 
     private List<Predicate> buildPredicates(BlotterFilterRequest filter, CriteriaBuilder cb, Root<Case> root) {

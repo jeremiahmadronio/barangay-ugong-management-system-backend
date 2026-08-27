@@ -101,60 +101,100 @@ public class BlotterArchiveAndDeleteService {
             CaseStatus.UNDER_CONCILIATION
     );
 
+    private Case findRootCase(Case targetCase) {
+        Case root = targetCase;
+        while (root.getPreviousCaseNumber() != null && !root.getPreviousCaseNumber().trim().isEmpty()) {
+            java.util.Optional<Case> prevOpt = caseRepository.findByCaseNumber(root.getPreviousCaseNumber().trim());
+            if (prevOpt.isPresent()) {
+                root = prevOpt.get();
+            } else {
+                break;
+            }
+        }
+        return root;
+    }
+
+    private List<Case> getCaseLineage(Case rootCase) {
+        List<Case> lineage = new java.util.ArrayList<>();
+        Case curr = rootCase;
+        lineage.add(curr);
+        while (curr.getReOpenedCaseNumber() != null && !curr.getReOpenedCaseNumber().trim().isEmpty()) {
+            java.util.Optional<Case> nextOpt = caseRepository.findByCaseNumber(curr.getReOpenedCaseNumber().trim());
+            if (nextOpt.isPresent()) {
+                curr = nextOpt.get();
+                lineage.add(curr);
+            } else {
+                break;
+            }
+        }
+        return lineage;
+    }
+
     /**
-     * Moves a closed or completed case to the archive.
+     * Moves a closed or completed case chain to the archive.
+     * Uses the status of the endmost child case as the primary status check.
      *
-     * @param caseId  the database identifier of the case
+     * @param caseId  the database identifier of any case in the chain
      * @param request payload containing archive remarks
      */
     @Transactional
     public void archiveCase(Long caseId, ArchiveCaseRequest request) {
         Case targetCase = caseRepository.findById(caseId)
-                .orElseThrow(() -> new NoSuchElementException("Case not found with ID: " + caseId));
+                .orElseThrow(() -> new java.util.NoSuchElementException("Case not found with ID: " + caseId));
 
-        if (Boolean.TRUE.equals(targetCase.getIsDeleted())) {
+        Case rootCase = findRootCase(targetCase);
+        List<Case> lineage = getCaseLineage(rootCase);
+        Case endmostChildCase = lineage.get(lineage.size() - 1);
+
+        if (Boolean.TRUE.equals(endmostChildCase.getIsDeleted()) || Boolean.TRUE.equals(rootCase.getIsDeleted())) {
             throw new IllegalStateException("Cannot archive a deleted case. Restore it from trash first.");
         }
 
-        if (Boolean.TRUE.equals(targetCase.getIsArchived())) {
-            throw new IllegalStateException("Case " + targetCase.getCaseNumber() + " is already archived.");
+        if (Boolean.TRUE.equals(endmostChildCase.getIsArchived()) && Boolean.TRUE.equals(rootCase.getIsArchived())) {
+            throw new IllegalStateException("Case " + rootCase.getCaseNumber() + " is already archived.");
         }
 
-        if (ACTIVE_STATUSES.contains(targetCase.getCaseStatus())) {
+        if (ACTIVE_STATUSES.contains(endmostChildCase.getCaseStatus())) {
             throw new IllegalStateException(
-                    "Cannot archive an ongoing case with status: " + targetCase.getCaseStatus() +
+                    "Cannot archive an ongoing case. Endmost active cycle (" + endmostChildCase.getCaseNumber() +
+                            ") is still: " + endmostChildCase.getCaseStatus() +
                             ". Settle, dismiss, or issue a Certificate to File Action first."
             );
         }
-        targetCase.setIsArchived(true);
-        if (request != null && request.remarks() != null && !request.remarks().isBlank()) {
-            targetCase.setCaseStatusRemarks(request.remarks().trim());
+
+        LocalDateTime now = LocalDateTime.now();
+        String remarks = (request != null && request.remarks() != null && !request.remarks().isBlank())
+                ? request.remarks().trim()
+                : "Archived Record";
+
+        for (Case c : lineage) {
+            c.setIsArchived(true);
+            c.setArchivedAt(now);
+            c.setArchiveRemarks(remarks);
         }
 
-        caseRepository.save(targetCase);
+        caseRepository.saveAll(lineage);
     }
 
     /**
-     * Restores an archived case back to active records.
+     * Restores an archived case chain (root case and all child cases) back to active records.
      *
-     * @param caseId the database identifier of the case
+     * @param caseId the database identifier of any case in the chain
      */
     @Transactional
     public void restoreArchivedCase(Long caseId) {
         Case targetCase = caseRepository.findById(caseId)
-                .orElseThrow(() -> new NoSuchElementException("Case not found with ID: " + caseId));
+                .orElseThrow(() -> new java.util.NoSuchElementException("Case not found with ID: " + caseId));
 
-        if (Boolean.TRUE.equals(targetCase.getIsDeleted())) {
-            throw new IllegalStateException("Cannot restore a deleted case. Check recycle bin instead.");
+        Case rootCase = findRootCase(targetCase);
+        List<Case> lineage = getCaseLineage(rootCase);
+
+        for (Case c : lineage) {
+            c.setIsArchived(false);
+            c.setArchiveRemarks(null);
+            c.setArchivedAt(null);
         }
 
-        if (Boolean.FALSE.equals(targetCase.getIsArchived()) || targetCase.getIsArchived() == null) {
-            throw new IllegalStateException("Case " + targetCase.getCaseNumber() + " is not archived.");
-        }
-
-        targetCase.setIsArchived(false);
-        targetCase.setArchiveRemarks(null);
-        targetCase.setArchivedAt(null);
-        caseRepository.save(targetCase);
+        caseRepository.saveAll(lineage);
     }
 }
