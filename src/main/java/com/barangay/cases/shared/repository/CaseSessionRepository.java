@@ -1,8 +1,10 @@
 package com.barangay.cases.shared.repository;
 
+import com.barangay.cases.blotter.dto.QuickMediationSummaryDto;
 import com.barangay.cases.shared.model.CaseSession;
 import com.barangay.zshared.enumerated.SessionStatus;
 import com.barangay.zshared.enumerated.SessionType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -43,5 +45,40 @@ public interface CaseSessionRepository extends JpaRepository<CaseSession, Long> 
             @Param("endOfWeek") LocalDateTime endOfWeek,
             @Param("hearingType") SessionType hearingType,
             @Param("sessionStatus") SessionStatus sessionStatus
+    );
+
+    @Query("""
+    SELECT new com.barangay.cases.blotter.dto.QuickMediationSummaryDto(
+        s.id,
+        c.caseNumber,
+        CONCAT(
+            COALESCE(compPerson.firstName, ''), ' ', COALESCE(compPerson.lastName, ''),
+            ' vs. ',
+            COALESCE(respPerson.firstName, ''), ' ', COALESCE(respPerson.lastName, '')
+        ),
+        s.summonNumber,
+        s.scheduledStart,
+        s.venue
+    )
+    FROM CaseSession s
+    JOIN s.cases c
+    LEFT JOIN c.complainant comp
+    LEFT JOIN comp.person compPerson
+    LEFT JOIN c.respondent resp
+    LEFT JOIN resp.person respPerson
+    WHERE (c.department IS NULL OR UPPER(c.department.name) = 'BLOTTER')
+      AND (c.isArchived IS NULL OR c.isArchived = false)
+      AND (c.isDeleted IS NULL OR c.isDeleted = false)
+      AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+      AND s.hearingType = 'MEDIATION'
+      AND s.status = 'SCHEDULED'
+      AND s.scheduledStart >= :startOfDay
+      AND s.scheduledStart <= :endOfDay
+    ORDER BY s.scheduledStart ASC
+""")
+    List<QuickMediationSummaryDto> findQuickTodayMediations(
+            @Param("startOfDay") LocalDateTime startOfDay,
+            @Param("endOfDay") LocalDateTime endOfDay,
+            Pageable pageable
     );
 }

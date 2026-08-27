@@ -484,5 +484,28 @@ public class BlotterController {
         BlotterDashboardKpiResponse response = blotterReportService.getDashboardKpis();
         return ResponseEntity.ok(response);
     }
-    
+
+
+    /**
+     * Endpoint retrieving the top 5 most recent blotter cases issued today for the dashboard.
+     *
+     * @return {@link ResponseEntity} containing a list of {@link RecentBlotterCaseResponse}
+     */
+    @GetMapping("/recent-today")
+    public ResponseEntity<List<RecentBlotterCaseResponse>> getRecentCasesToday() {
+        List<RecentBlotterCaseResponse> response = blotterReportService.getRecentCasesToday();
+        return ResponseEntity.ok(response);
+    }
+
+
+    /**
+     * Endpoint para sa dashboard quick mediation widget (Top 5 scheduled hearings today).
+     *
+     * @return List ng {@link QuickMediationSummaryDto}
+     */
+    @GetMapping("/mediations-today-summary")
+    public ResponseEntity<List<QuickMediationSummaryDto>> getQuickTodayMediations() {
+        List<QuickMediationSummaryDto> response = blotterReportService.getQuickTodayMediations();
+        return ResponseEntity.ok(response);
+    }
 }

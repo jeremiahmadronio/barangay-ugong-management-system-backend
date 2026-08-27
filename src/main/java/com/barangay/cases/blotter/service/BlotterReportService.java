@@ -9,6 +9,7 @@ import com.barangay.zshared.enumerated.FilingType;
 import com.barangay.zshared.enumerated.SessionStatus;
 import com.barangay.zshared.enumerated.SessionType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -456,4 +457,35 @@ public class BlotterReportService {
                 unresolvedCases
         );
     }
+
+
+    /**
+     * Retrieves up to 5 of the most recently issued Blotter cases filed today.
+     *
+     * @return list of recent cases (empty if none, up to max 5)
+     */
+    @Transactional(readOnly = true)
+    public List<RecentBlotterCaseResponse> getRecentCasesToday() {
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
+
+        // Limit strictly to top 5 results
+        return caseRepository.findRecentBlotterCasesToday(
+                startOfDay,
+                endOfDay,
+                PageRequest.of(0, 5)
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<QuickMediationSummaryDto> getQuickTodayMediations() {
+        LocalDate today = LocalDate.now();
+        return caseSessionRepository.findQuickTodayMediations(
+                today.atStartOfDay(),
+                today.atTime(LocalTime.MAX),
+                PageRequest.of(0, 5)
+        );
+    }
+
 }

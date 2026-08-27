@@ -4,7 +4,9 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
+import com.barangay.cases.blotter.dto.RecentBlotterCaseResponse;
 import com.barangay.cases.shared.projection.*;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -313,5 +315,44 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             @Param("endOfWeek") LocalDateTime endOfWeek,
             @Param("pendingStatus") CaseStatus pendingStatus,
             @Param("unresolvedStatuses") Collection<CaseStatus> unresolvedStatuses
+    );
+
+
+    /**
+     * Retrieves recent blotter cases filed today, ordered from newest to oldest.
+     * Excludes archived, soft-deleted, and permanently deleted records.
+     *
+     * @param startOfDay start of the current day (00:00:00)
+     * @param endOfDay   end of the current day (23:59:59.999)
+     * @param pageable   pagination limit (e.g. PageRequest.of(0, 5))
+     * @return list of {@link RecentBlotterCaseResponse} (max 5)
+     */
+    @Query("""
+        SELECT new com.barangay.cases.blotter.dto.RecentBlotterCaseResponse(
+            c.id,
+            c.caseNumber,
+            TRIM(CONCAT(COALESCE(compPerson.firstName, ''), ' ', COALESCE(compPerson.lastName, ''))),
+            TRIM(CONCAT(COALESCE(respPerson.firstName, ''), ' ', COALESCE(respPerson.lastName, ''))),
+            c.filingType,
+            c.caseStatus,
+            c.createdAt
+        )
+        FROM Case c
+        LEFT JOIN c.complainant comp
+        LEFT JOIN comp.person compPerson
+        LEFT JOIN c.respondent resp
+        LEFT JOIN resp.person respPerson
+        WHERE (c.department IS NULL OR UPPER(c.department.name) = 'BLOTTER')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.createdAt >= :startOfDay
+          AND c.createdAt <= :endOfDay
+        ORDER BY c.createdAt DESC
+    """)
+    List<RecentBlotterCaseResponse> findRecentBlotterCasesToday(
+            @Param("startOfDay") LocalDateTime startOfDay,
+            @Param("endOfDay") LocalDateTime endOfDay,
+            Pageable pageable
     );
 }
