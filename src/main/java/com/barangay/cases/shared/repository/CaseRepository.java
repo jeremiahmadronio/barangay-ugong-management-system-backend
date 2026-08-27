@@ -270,11 +270,11 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
      */
     @Query("""
         SELECT
-            SUM(CASE WHEN c.isArchived = true AND (c.isDeleted IS NULL OR c.isDeleted = false) THEN 1L ELSE 0L END) AS totalArchived,
-            SUM(CASE WHEN c.isArchived = true AND (c.isDeleted IS NULL OR c.isDeleted = false) 
+            SUM(CASE WHEN c.isArchived = true AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') THEN 1L ELSE 0L END) AS totalArchived,
+            SUM(CASE WHEN c.isArchived = true AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') 
                      AND c.updatedAt >= :startOfMonth AND c.updatedAt <= :endOfMonth THEN 1L ELSE 0L END) AS totalArchivedThisMonth,
-            SUM(CASE WHEN c.isDeleted = true AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) THEN 1L ELSE 0L END) AS totalRecentlyDeleted,
-            SUM(CASE WHEN c.isDeleted = true AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) 
+            SUM(CASE WHEN c.isDeleted = true AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') THEN 1L ELSE 0L END) AS totalRecentlyDeleted,
+            SUM(CASE WHEN c.isDeleted = true AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') 
                      AND c.deletedAt >= :startOfMonth AND c.deletedAt <= :endOfMonth THEN 1L ELSE 0L END) AS totalRecentlyDeletedThisMonth
         FROM Case c
         WHERE (c.department IS NULL OR UPPER(c.department.name) = 'BLOTTER')
