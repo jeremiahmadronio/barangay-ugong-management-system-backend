@@ -21,11 +21,13 @@ public class NarrativeStatementMapper {
     public NarrativeDetailDto toDetailDto(NarrativeStatement narrative) {
         if (narrative == null) return null;
 
+        boolean hasFile = narrative.getFileData() != null && narrative.getFileData().length > 0;
         return new NarrativeDetailDto(
                 narrative.getId(),
                 narrative.getFileName(),
                 narrative.getStatementSummary(),
-                narrative.getFileData()
+                narrative.getFileData(),
+                hasFile
         );
     }
 

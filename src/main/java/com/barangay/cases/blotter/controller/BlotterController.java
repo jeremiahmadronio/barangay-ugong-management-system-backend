@@ -1,37 +1,17 @@
 package com.barangay.cases.blotter.controller;
 
+import java.time.LocalDate;
 import java.util.List;
 
+import com.barangay.cases.blotter.dto.*;
+import com.barangay.cases.blotter.service.BlotterReportService;
 import jakarta.validation.Valid;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import com.barangay.cases.blotter.dto.BlotterCaseCreateRequest;
-import com.barangay.cases.blotter.dto.BlotterCaseDetailResponse;
-import com.barangay.cases.blotter.dto.BlotterTableRowResponse;
-import com.barangay.cases.blotter.dto.BlotterFilterRequest;
-import com.barangay.cases.blotter.dto.BlotterStatsResponse;
-import com.barangay.cases.blotter.dto.CaseNoteRequest;
-import com.barangay.cases.blotter.dto.CaseNoteResponse;
-import com.barangay.cases.blotter.dto.MediationSessionRequest;
-import com.barangay.cases.blotter.dto.MediationSessionResponse;
-import com.barangay.cases.blotter.dto.SessionFollowUpRequest;
-import com.barangay.cases.blotter.dto.SessionFollowUpResponse;
-import com.barangay.cases.blotter.dto.SessionMinutesRequest;
-import com.barangay.cases.blotter.dto.SessionMinutesResponse;
-import com.barangay.cases.blotter.dto.ReopenCaseRequest;
-import com.barangay.cases.blotter.dto.TimelineEventResponse;
-import com.barangay.cases.blotter.dto.UpdateCaseStatusRequest;
 import com.barangay.cases.blotter.service.BlotterCaseService;
 import com.barangay.cases.blotter.service.CaseFileService;
 import com.barangay.cases.shared.service.CaseNoteService;
@@ -59,6 +39,7 @@ public class BlotterController {
     private final MediationSessionService mediationSessionService;
     private final CaseNoteService caseNoteService;
     private final CaseFileService caseFileService;
+    private final BlotterReportService blotterReportService;
 
     /**
      * Retrieves paginated and filtered blotter cases.
@@ -262,5 +243,47 @@ public class BlotterController {
             @Valid @RequestBody ReopenCaseRequest request) {
         BlotterCaseDetailResponse response = blotterCaseService.reopenCase(id, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+
+
+    @GetMapping("/monthly-trend")
+    public ResponseEntity<List<MonthlyCaseTrendResponse>> getMonthlyTrend(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) Long departmentId
+    ) {
+        LocalDate effectiveEndDate = (endDate != null) ? endDate : LocalDate.now();
+        LocalDate effectiveStartDate = (startDate != null)
+                ? startDate
+                : effectiveEndDate.minusMonths(5).withDayOfMonth(1);
+
+        List<MonthlyCaseTrendResponse> report = blotterReportService.getMonthlyTrendReport(
+                effectiveStartDate,
+                effectiveEndDate,
+                departmentId
+        );
+
+        return ResponseEntity.ok(report);
+    }
+
+    @GetMapping("/daily-trend")
+    public ResponseEntity<List<DailyCaseTrendResponse>> getDailyTrend(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) Long departmentId
+    ) {
+        LocalDate effectiveEndDate = (endDate != null) ? endDate : LocalDate.now();
+        LocalDate effectiveStartDate = (startDate != null)
+                ? startDate
+                : effectiveEndDate.withDayOfMonth(1);
+
+        List<DailyCaseTrendResponse> report = blotterReportService.getDailyTrendReport(
+                effectiveStartDate,
+                effectiveEndDate,
+                departmentId
+        );
+
+        return ResponseEntity.ok(report);
     }
 }

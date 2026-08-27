@@ -249,7 +249,11 @@ public class BlotterCaseService {
             caseNumber = generateUniqueCaseNumber();
         }
         aCase.setCaseNumber(caseNumber);
-        aCase.setCaseStatus(CaseStatus.PENDING);
+        if (filingType == FilingType.FOR_RECORD_ONLY) {
+            aCase.setCaseStatus(CaseStatus.RECORDED);
+        } else {
+            aCase.setCaseStatus(CaseStatus.PENDING);
+        }
         aCase.setIsArchived(false);
         aCase.setIsAttested(request.isCertified() != null ? request.isCertified() : false);
 
@@ -581,6 +585,12 @@ public class BlotterCaseService {
             try {
                 CaseStatus newStatus = CaseStatus.valueOf(request.getStatus().toUpperCase().trim());
                 aCase.setCaseStatus(newStatus);
+                if (newStatus == CaseStatus.SETTLED) {
+                    aCase.setSettledAt(LocalDateTime.now());
+                    if (request.getRemarks() != null && !request.getRemarks().trim().isEmpty()) {
+                        aCase.setSettlementTerms(request.getRemarks().trim());
+                    }
+                }
             } catch (IllegalArgumentException e) {
                 log.warn("Invalid CaseStatus value: {}", request.getStatus());
             }
@@ -593,11 +603,16 @@ public class BlotterCaseService {
         Case updated = caseRepository.save(aCase);
 
         try {
+            String remarksText = request.getRemarks() != null ? request.getRemarks().trim() : "";
+            String detailsText = remarksText.isBlank()
+                    ? "Case status updated to " + updated.getCaseStatus().name()
+                    : String.format("Case status updated to %s. Remarks: %s", updated.getCaseStatus().name(), remarksText);
+
             caseTimelineService.logEvent(
                     updated,
                     TimelineEventType.STATUS_CHANGED,
                     "Case Status Updated to " + updated.getCaseStatus().name(),
-                    request.getRemarks() != null ? request.getRemarks().trim() : "Case status was updated.",
+                    detailsText,
                     SecurityUtils.getCurrentUser()
             );
         } catch (Exception e) {

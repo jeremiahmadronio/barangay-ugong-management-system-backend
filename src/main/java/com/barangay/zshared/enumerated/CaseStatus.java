@@ -10,5 +10,6 @@ public enum CaseStatus {
     DISMISSED,
     WITHDRAWN,
     EXPIRED_UNACTIONED,
-    REOPENED
+    REOPENED,
+    RECORDED
 }

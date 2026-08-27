@@ -29,7 +29,11 @@ public class DatabaseConstraintFixer implements CommandLineRunner {
             jdbcTemplate.update(
                 "UPDATE cases SET case_status = 'DISMISSED' WHERE reopened_case_number IS NOT NULL AND TRIM(reopened_case_number) != '' AND case_status IN ('PENDING', 'REOPENED')"
             );
-            log.info("Successfully dropped obsolete cases table constraint and restored past case statuses.");
+            // Update For the Record entries to RECORDED status if currently set to PENDING
+            jdbcTemplate.update(
+                "UPDATE cases SET case_status = 'RECORDED' WHERE (filing_type = 'FOR_RECORD_ONLY' OR filing_type = 'FOR_THE_RECORD') AND case_status = 'PENDING'"
+            );
+            log.info("Successfully dropped obsolete cases table constraint, updated For the Record statuses to RECORDED, and restored past case statuses.");
         } catch (Exception e) {
             log.warn("Could not execute constraint update on cases table: {}", e.getMessage());
         }

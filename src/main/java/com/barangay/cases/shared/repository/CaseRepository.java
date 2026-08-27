@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
+import com.barangay.cases.shared.projection.CaseCountByDayProjection;
+import com.barangay.cases.shared.projection.CaseCountByMonthProjection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -61,4 +63,62 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
 
     @Query("SELECT c FROM Case c WHERE c.caseStatus IN :statuses AND (c.isArchived IS NULL OR c.isArchived = false)")
     List<Case> findActiveCasesForExpirationCheck(@Param("statuses") Collection<CaseStatus> statuses);
+
+
+
+    /**
+     * Aggregates total non-deleted cases grouped by Year and Month within a date range.
+     * Includes archived historical records while filtering out soft-deleted records.
+     *
+     * @param startDate the inclusive starting timestamp
+     * @param endDate the inclusive ending timestamp
+     * @param departmentId optional department filter; if {@code null}, aggregates across all departments
+     * @return list of monthly count projections ordered chronologically
+     */
+    @Query("""
+             SELECT
+                       EXTRACT (YEAR FROM c.createdAt) AS YEAR,
+                       EXTRACT(MONTH FROM c.createdAt) AS MONTH,
+                       COUNT(c.id) AS COUNT
+                  FROM Case c
+                            WHERE c.isArchived = false
+                            AND (:departmentId IS NULL OR c.department.id = :departmentId)
+                            AND c.createdAt >= :startDate
+                            AND c.createdAt >= :endDate
+                            GROUP BY EXTRACT(YEAR FROM c.createdAt), EXTRACT(MONTH FROM c.createdAt)
+                            ORDER BY EXTRACT(YEAR FROM c.createdAt) ASC, EXTRACT(MONTH FROM c.createdAt)
+          """)
+    List<CaseCountByMonthProjection> getMonthlyCaseCount(
+           @Param("startDate") LocalDateTime startDate,
+           @Param("endDate") LocalDateTime endDate,
+           @Param("departmentId") Long departmentId
+    );
+
+    /**
+     * Aggregates total non-deleted cases grouped by individual calendar day within a date range.
+     * Includes archived historical records while filtering out soft-deleted records.
+     *
+     * @param startDate the inclusive starting timestamp
+     * @param endDate the inclusive ending timestamp
+     * @param departmentId optional department filter; if {@code null}, aggregates across all departments
+     * @return list of daily count projections ordered chronologically
+     */
+    @Query("""
+        SELECT
+            CAST(c.createdAt AS LocalDate) AS date,
+            COUNT(c.id) AS count
+        FROM Case c
+        WHERE c.isArchived = false
+          AND (:departmentId IS NULL OR c.department.id = :departmentId)
+          AND c.createdAt >= :startDate
+          AND c.createdAt <= :endDate
+        GROUP BY CAST(c.createdAt AS LocalDate)
+        ORDER BY CAST(c.createdAt AS LocalDate) ASC
+    """)
+    List<CaseCountByDayProjection> getDailyCaseCounts(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("departmentId") Long departmentId
+    );
+
 }

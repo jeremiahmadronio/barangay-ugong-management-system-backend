@@ -6,6 +6,7 @@ public record NarrativeDetailDto(
         Long id,
         String fileName,
         String statementSummary,
-        byte[] fileData
+        byte[] fileData,
+        boolean hasFile
 
 ) {}
