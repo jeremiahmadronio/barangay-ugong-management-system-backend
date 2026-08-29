@@ -160,13 +160,50 @@ public class OfficerServiceImpl implements OfficerService {
         return mapToTableResponse(updated);
     }
 
+
+
+
+
     @Override
     @Transactional
     public void deleteOfficer(Long id) {
-        if (!officerRepository.existsById(id)) {
-            throw new IllegalArgumentException("Officer not found with ID: " + id);
-        }
-        officerRepository.deleteById(id);
+        softDeleteOfficer(id);
+    }
+
+    @Override
+    @Transactional
+    public void softDeleteOfficer(Long id) {
+        Officer officer = officerRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Officer not found with ID: " + id));
+        officer.setStatus(OfficerStatus.ARCHIVED);
+        officer.setIsDeleted(true);
+        officerRepository.save(officer);
+    }
+
+    @Override
+    @Transactional
+    public void permanentDeleteOfficer(Long id) {
+        Officer officer = officerRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Officer not found with ID: " + id));
+        officer.setIsPermanentDeleted(true);
+        officerRepository.save(officer);
+    }
+
+    @Override
+    @Transactional
+    public OfficerTableResponse restoreOfficer(Long id) {
+        Officer officer = officerRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Officer not found with ID: " + id));
+        officer.setStatus(OfficerStatus.ACTIVE);
+        officer.setIsDeleted(false);
+        officer.setIsPermanentDeleted(false);
+        Officer saved = officerRepository.save(officer);
+        return mapToTableResponse(saved);
+    }
+
+    @Override
+    public List<LuponOfficerResponse> getLuponOfficer() {
+        return officerRepository.findLuponOfficer();
     }
 
     private OfficerTableResponse mapToTableResponse(Officer officer) {
@@ -213,4 +250,13 @@ public class OfficerServiceImpl implements OfficerService {
         if (suffix != null && !suffix.isBlank()) sb.append(" ").append(suffix.trim());
         return sb.toString().trim();
     }
+
+
+
+
+
+
+
+
 }
+

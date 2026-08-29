@@ -8,6 +8,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.barangay.cases.blotter.dto.*;
+import com.barangay.cases.shared.model.*;
+import com.barangay.cases.shared.repository.CaseSessionRepository;
+import com.barangay.zshared.enumerated.SessionStatus;
 import com.barangay.zshared.exception.BadRequestException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -16,10 +19,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.barangay.cases.shared.model.Case;
-import com.barangay.cases.shared.model.CaseEvidence;
-import com.barangay.cases.shared.model.IncidentDetail;
-import com.barangay.cases.shared.model.NarrativeStatement;
 import com.barangay.cases.shared.repository.CaseEvidenceRepository;
 import com.barangay.cases.shared.repository.CaseRepository;
 import com.barangay.cases.shared.service.CaseTimelineService;
@@ -71,6 +70,7 @@ public class BlotterCaseService {
     private final CaseEvidenceRepository caseEvidenceRepository;
     private final WitnessRepository witnessRepository;
     private final CaseTimelineService caseTimelineService;
+    private final CaseSessionRepository caseSessionRepository;
 
     private final ComplainantMapper complainantMapper;
     private final RespondentMapper respondentMapper;
@@ -196,27 +196,27 @@ public class BlotterCaseService {
         LocalDateTime prevMonthStart = YearMonth.now().minusMonths(1).atDay(1).atStartOfDay();
         LocalDateTime prevMonthEnd = currentMonthStart.minusNanos(1);
 
-        // 1. Total Cases (Root Cases Only)
-        long totalCases = caseRepository.countRootCases();
-        long currentTotal = caseRepository.countRootCasesByCreatedAtGreaterThanEqual(currentMonthStart);
-        long prevTotal = caseRepository.countRootCasesByCreatedAtBetween(prevMonthStart, prevMonthEnd);
+        // 1. Total Blotter Cases
+        long totalCases = caseRepository.countRootBlotterCases();
+        long currentTotal = caseRepository.countRootBlotterCasesByCreatedAtGreaterThanEqual(currentMonthStart);
+        long prevTotal = caseRepository.countRootBlotterCasesByCreatedAtBetween(prevMonthStart, prevMonthEnd);
         String totalCasesTrend = calculateMonthlyTrend(currentTotal, prevTotal);
 
-        // 2. Total For the Record (Root Cases Only)
-        long totalForTheRecord = caseRepository.countRootCasesByFilingType(FilingType.FOR_RECORD_ONLY);
-        long currentForRecord = caseRepository.countRootCasesByFilingTypeAndCreatedAtGreaterThanEqual(FilingType.FOR_RECORD_ONLY, currentMonthStart);
-        long prevForRecord = caseRepository.countRootCasesByFilingTypeAndCreatedAtBetween(FilingType.FOR_RECORD_ONLY, prevMonthStart, prevMonthEnd);
+        // 2. Total For the Record Only
+        long totalForTheRecord = caseRepository.countRootBlotterCasesByFilingType(FilingType.FOR_RECORD_ONLY);
+        long currentForRecord = caseRepository.countRootBlotterCasesByFilingTypeAndCreatedAtGreaterThanEqual(FilingType.FOR_RECORD_ONLY, currentMonthStart);
+        long prevForRecord = caseRepository.countRootBlotterCasesByFilingTypeAndCreatedAtBetween(FilingType.FOR_RECORD_ONLY, prevMonthStart, prevMonthEnd);
         String totalForTheRecordTrend = calculateMonthlyTrend(currentForRecord, prevForRecord);
 
-        // 3. Under Mediation / In Progress (Latest Active Cycles Only)
-        List<CaseStatus> activeStatuses = List.of(CaseStatus.UNDER_MEDIATION, CaseStatus.UNDER_CONCILIATION);
-        long inProgressCases = caseRepository.countLatestCasesByCaseStatusIn(activeStatuses);
+        // 3. Under Mediation / In Progress
+        List<CaseStatus> activeStatuses = List.of(CaseStatus.UNDER_MEDIATION);
+        long inProgressCases = caseRepository.countLatestBlotterCasesByCaseStatusIn(activeStatuses);
 
-        // 4. Settled / Resolved Cases (Latest Active Cycles Only)
+        // 4. Settled / Resolved Cases (Gamit ang settledAt para sa accurate monthly resolution metrics)
         List<CaseStatus> resolvedStatuses = List.of(CaseStatus.SETTLED);
-        long resolvedCases = caseRepository.countLatestCasesByCaseStatusIn(resolvedStatuses);
-        long currentResolved = caseRepository.countLatestCasesByCaseStatusInAndCreatedAtGreaterThanEqual(resolvedStatuses, currentMonthStart);
-        long prevResolved = caseRepository.countLatestCasesByCaseStatusInAndCreatedAtBetween(resolvedStatuses, prevMonthStart, prevMonthEnd);
+        long resolvedCases = caseRepository.countLatestSettledBlotterCases(resolvedStatuses);
+        long currentResolved = caseRepository.countLatestSettledBlotterCasesBySettledAtGreaterThanEqual(resolvedStatuses, currentMonthStart);
+        long prevResolved = caseRepository.countLatestSettledBlotterCasesBySettledAtBetween(resolvedStatuses, prevMonthStart, prevMonthEnd);
         String resolvedCasesTrend = calculateMonthlyTrend(currentResolved, prevResolved);
 
         return new BlotterStatsResponse(
@@ -368,6 +368,199 @@ public class BlotterCaseService {
         }
 
         return response;
+    }
+
+    /**
+     * Updates an existing Blotter Case with modified fields.
+     * Selectively updates respondent relationship/living status, incident specifics,
+     * narrative statement text/file, evidences, and witnesses.
+     */
+    @Transactional
+    public BlotterCaseDetailResponse updateBlotterCase(Long caseId, BlotterCaseUpdateRequest request) {
+        Case aCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Case not found with ID: " + caseId));
+
+        User currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser != null) {
+            aCase.setCaseUpdatedBy(currentUser);
+        }
+
+        // 1. Update Respondent relationship & living status
+        if (aCase.getRespondent() != null) {
+            if (request.relationshipToComplainant() != null) {
+                aCase.getRespondent().setRelationshipToComplainant(request.relationshipToComplainant());
+            }
+            if (request.currentlyLivingWithComplainant() != null) {
+                aCase.getRespondent().setLivingWithComplainant(request.currentlyLivingWithComplainant());
+            }
+        }
+
+        // 2. Update Incident Details
+        if (request.incident() != null) {
+            IncidentDetail inc = incidentDetailMapper.fromCreateDto(request.incident());
+            aCase.setIncidentDetail(inc);
+        }
+
+        // 3. Update Narrative Statement
+        if (request.narrative() != null) {
+            if (aCase.getNarrativeStatement() == null) {
+                aCase.setNarrativeStatement(narrativeStatementMapper.fromCreateDto(request.narrative()));
+            } else {
+                NarrativeStatement narr = aCase.getNarrativeStatement();
+                if (request.narrative().statementSummary() != null) {
+                    narr.setStatementSummary(request.narrative().statementSummary());
+                }
+                if (request.narrative().fileName() != null && !request.narrative().fileName().isBlank()) {
+                    narr.setFileName(request.narrative().fileName());
+                }
+                if (request.narrative().fileData() != null && request.narrative().fileData().length > 0) {
+                    narr.setFileData(request.narrative().fileData());
+                }
+            }
+        }
+
+        // 4. Update Evidences (Selective update without losing existing evidence files)
+        if (request.evidences() != null) {
+            List<CaseEvidence> existingEvidences = caseEvidenceRepository.findByCasesId(aCase.getId());
+            java.util.Map<String, CaseEvidence> existingEvMapByName = new java.util.HashMap<>();
+            java.util.Map<Long, CaseEvidence> existingEvMapById = new java.util.HashMap<>();
+            for (CaseEvidence ce : existingEvidences) {
+                if (ce.getId() != null) {
+                    existingEvMapById.put(ce.getId(), ce);
+                }
+                if (ce.getType() != null && ce.getType().getName() != null) {
+                    existingEvMapByName.put(ce.getType().getName().trim().toLowerCase(), ce);
+                }
+            }
+
+            List<CaseEvidence> updatedEvidences = new ArrayList<>();
+            for (EvidenceCreateDto eDto : request.evidences()) {
+                String typeName = (eDto.evidenceTypeName() != null) ? eDto.evidenceTypeName().trim() : "General Evidence";
+                CaseEvidence targetEvidence = null;
+                if (eDto.id() != null && existingEvMapById.containsKey(eDto.id())) {
+                    targetEvidence = existingEvMapById.get(eDto.id());
+                } else if (existingEvMapByName.containsKey(typeName.toLowerCase())) {
+                    targetEvidence = existingEvMapByName.get(typeName.toLowerCase());
+                }
+
+                if (targetEvidence != null) {
+                    // If new file provided, update file bytes and name; otherwise PRESERVE existing file
+                    if (eDto.files() != null && eDto.files().length > 0) {
+                        targetEvidence.setFiles(eDto.files());
+                        if (eDto.fileName() != null && !eDto.fileName().isBlank()) {
+                            targetEvidence.setFileName(eDto.fileName().trim());
+                        }
+                    }
+                    if (eDto.description() != null) {
+                        targetEvidence.setDescription(eDto.description());
+                    }
+                    targetEvidence = caseEvidenceRepository.save(targetEvidence);
+                    updatedEvidences.add(targetEvidence);
+                } else {
+                    // New evidence added during edit
+                    CaseEvidence newEv = caseEvidenceMapper.fromCreateDto(eDto, aCase);
+                    if (newEv != null) {
+                        newEv = caseEvidenceRepository.save(newEv);
+                        updatedEvidences.add(newEv);
+                    }
+                }
+            }
+
+            // Remove any evidence that was unselected by the user
+            for (CaseEvidence ce : existingEvidences) {
+                if (!updatedEvidences.contains(ce)) {
+                    caseEvidenceRepository.delete(ce);
+                }
+            }
+        }
+
+        // 5. Update Witnesses (Selective in-place update without losing testimony files)
+        if (request.witnesses() != null) {
+            List<Witness> currentWitnessList = (aCase.getWitnesses() != null && !aCase.getWitnesses().isEmpty())
+                    ? new ArrayList<>(aCase.getWitnesses())
+                    : witnessRepository.findByCaseId(aCase.getId());
+
+            java.util.Map<Long, Witness> existingWitnessById = new java.util.HashMap<>();
+            java.util.Map<Integer, Witness> existingWitnessByIndex = new java.util.HashMap<>();
+            int idx = 0;
+            for (Witness w : currentWitnessList) {
+                if (w.getId() != null) {
+                    existingWitnessById.put(w.getId(), w);
+                }
+                existingWitnessByIndex.put(idx++, w);
+            }
+
+            List<Witness> updatedWitnessEntities = new ArrayList<>();
+            int dtoIndex = 0;
+            for (WitnessCreateDto wDto : request.witnesses()) {
+                Witness targetWitness = null;
+                if (wDto.id() != null && existingWitnessById.containsKey(wDto.id())) {
+                    targetWitness = existingWitnessById.get(wDto.id());
+                } else if (existingWitnessByIndex.containsKey(dtoIndex)) {
+                    targetWitness = existingWitnessByIndex.get(dtoIndex);
+                }
+
+                if (targetWitness != null) {
+                    // Update person info
+                    Person p = targetWitness.getPerson();
+                    if (p == null) {
+                        p = new Person();
+                    }
+                    if (wDto.firstName() != null) p.setFirstName(wDto.firstName().trim());
+                    if (wDto.lastName() != null) p.setLastName(wDto.lastName().trim());
+                    if (wDto.contactNumber() != null) p.setContactNumber(wDto.contactNumber().trim());
+                    p = personRepository.save(p);
+                    targetWitness.setPerson(p);
+
+                    // Update testimony file ONLY IF new file is provided; otherwise PRESERVE existing
+                    if (wDto.testimonyFile() != null && wDto.testimonyFile().length > 0) {
+                        targetWitness.setTestimonyFile(wDto.testimonyFile());
+                        if (wDto.testimonyFileName() != null && !wDto.testimonyFileName().isBlank()) {
+                            targetWitness.setTestimonyFileName(wDto.testimonyFileName().trim());
+                        }
+                    }
+                    targetWitness = witnessRepository.save(targetWitness);
+                    updatedWitnessEntities.add(targetWitness);
+                } else {
+                    // Brand new witness added in Edit Modal
+                    Person newPerson = witnessMapper.toNewPerson(wDto);
+                    if (newPerson == null) {
+                        newPerson = new Person();
+                        newPerson.setFirstName(wDto.firstName() != null ? wDto.firstName().trim() : "Witness");
+                        newPerson.setLastName(wDto.lastName() != null ? wDto.lastName().trim() : "Statement");
+                        if (wDto.contactNumber() != null) newPerson.setContactNumber(wDto.contactNumber().trim());
+                    }
+                    newPerson = personRepository.save(newPerson);
+                    Witness newW = witnessMapper.toWitness(newPerson, aCase, wDto);
+                    newW = witnessRepository.save(newW);
+                    updatedWitnessEntities.add(newW);
+                }
+                dtoIndex++;
+            }
+
+            if (aCase.getWitnesses() != null) {
+                aCase.getWitnesses().clear();
+                aCase.getWitnesses().addAll(updatedWitnessEntities);
+            } else {
+                aCase.setWitnesses(new ArrayList<>(updatedWitnessEntities));
+            }
+        }
+
+        Case updatedCase = caseRepository.save(aCase);
+
+        try {
+            caseTimelineService.logEvent(
+                    updatedCase,
+                    TimelineEventType.STATUS_CHANGED,
+                    "Case Details Updated",
+                    "Case details, evidences, or testimonies updated via Edit Case.",
+                    currentUser
+            );
+        } catch (Exception e) {
+            log.warn("Failed to log timeline event for case update [caseId={}]: {}", updatedCase.getId(), e.getMessage());
+        }
+
+        return getBlotterCaseById(updatedCase.getId());
     }
 
     /**
@@ -569,22 +762,21 @@ public class BlotterCaseService {
         );
     }
 
-    /**
-     * Updates case status (e.g., DISMISSED) and records status remarks and timeline event.
-     *
-     * @param id the blotter case ID
-     * @param request status update request containing status and remarks
-     * @return updated {@link BlotterCaseDetailResponse}
-     */
     @Transactional
     public BlotterCaseDetailResponse updateCaseStatus(Long id, com.barangay.cases.blotter.dto.UpdateCaseStatusRequest request) {
         Case aCase = caseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Blotter case not found with id: " + id));
 
+        if (Boolean.TRUE.equals(aCase.getIsDeleted()) || Boolean.TRUE.equals(aCase.getIsPermanentDeleted())) {
+            throw new IllegalStateException("Cannot update status of a deleted case.");
+        }
+
+        CaseStatus newStatus = null;
         if (request.getStatus() != null && !request.getStatus().trim().isEmpty()) {
             try {
-                CaseStatus newStatus = CaseStatus.valueOf(request.getStatus().toUpperCase().trim());
+                newStatus = CaseStatus.valueOf(request.getStatus().toUpperCase().trim());
                 aCase.setCaseStatus(newStatus);
+
                 if (newStatus == CaseStatus.SETTLED) {
                     aCase.setSettledAt(LocalDateTime.now());
                     if (request.getRemarks() != null && !request.getRemarks().trim().isEmpty()) {
@@ -592,7 +784,8 @@ public class BlotterCaseService {
                     }
                 }
             } catch (IllegalArgumentException e) {
-                log.warn("Invalid CaseStatus value: {}", request.getStatus());
+                log.error("Invalid CaseStatus value provided: {}", request.getStatus());
+                throw new IllegalArgumentException("Invalid case status: " + request.getStatus());
             }
         }
 
@@ -600,8 +793,17 @@ public class BlotterCaseService {
             aCase.setCaseStatusRemarks(request.getRemarks().trim());
         }
 
+        User currentUser = SecurityUtils.getCurrentUser();
+        aCase.setCaseUpdatedBy(currentUser);
+
+        if (newStatus == CaseStatus.SETTLED || newStatus == CaseStatus.DISMISSED || newStatus == CaseStatus.WITHDRAWN || newStatus == CaseStatus.EXPIRED_UNACTIONED) {
+            cancelActiveMediationSessions(aCase.getId(), newStatus);
+        }
+
+        // 2. Persist Case Entity
         Case updated = caseRepository.save(aCase);
 
+        // 3. Log Timeline Event
         try {
             String remarksText = request.getRemarks() != null ? request.getRemarks().trim() : "";
             String detailsText = remarksText.isBlank()
@@ -613,13 +815,31 @@ public class BlotterCaseService {
                     TimelineEventType.STATUS_CHANGED,
                     "Case Status Updated to " + updated.getCaseStatus().name(),
                     detailsText,
-                    SecurityUtils.getCurrentUser()
+                    currentUser
             );
         } catch (Exception e) {
             log.warn("Failed to log timeline event for status update [caseId={}]: {}", id, e.getMessage(), e);
         }
 
         return toDetailResponse(updated, null, null);
+    }
+
+    /**
+     * Helper method para kanselahin ang lahat ng SCHEDULED sessions ng case.
+     */
+    private void cancelActiveMediationSessions(Long caseId, CaseStatus newStatus) {
+        List<CaseSession> scheduledSessions = caseSessionRepository.findSessionsByCaseIdAndStatus(
+                caseId,
+                SessionStatus.SCHEDULED
+        );
+
+        if (!scheduledSessions.isEmpty()) {
+            for (CaseSession session : scheduledSessions) {
+                session.setStatus(SessionStatus.CANCELLED);
+                session.setNotes("System: Automatically cancelled because case was marked as " + newStatus.name() + ".");
+            }
+            caseSessionRepository.saveAll(scheduledSessions);
+        }
     }
 
     /**

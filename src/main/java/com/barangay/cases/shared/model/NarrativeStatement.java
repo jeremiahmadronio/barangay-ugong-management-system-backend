@@ -31,4 +31,6 @@ public class        NarrativeStatement extends BaseEntity {
     @Basic(fetch = FetchType.LAZY)
     @Column(name = "statement")
     private byte[] fileData;
+
+
 }

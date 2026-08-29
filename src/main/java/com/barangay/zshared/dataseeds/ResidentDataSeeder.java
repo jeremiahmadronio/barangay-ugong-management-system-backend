@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Random;
 
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +21,7 @@ import com.barangay.zshared.enumerated.ResidentStatus;
 import lombok.RequiredArgsConstructor;
 
 @Component
+@Order(5)
 @RequiredArgsConstructor
 public class ResidentDataSeeder implements CommandLineRunner {
 

@@ -16,4 +16,6 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
      * Retrieves all active departments ordered alphabetically by name for dropdowns.
      */
     List<Department> findByIsActiveTrueOrderByNameAsc();
+
+    Optional<Department> findByNameIgnoreCase(String name);
 }

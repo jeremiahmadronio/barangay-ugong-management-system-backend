@@ -45,33 +45,143 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
      */
     java.util.Optional<Case> findByCaseNumber(String caseNumber);
 
-    // Root Case KPI Count queries for current month vs previous month trends
-    @Query("SELECT COUNT(c) FROM Case c WHERE (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') AND (c.isArchived IS NULL OR c.isArchived = false) AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)")
-    long countRootCases();
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+    """)
+    long countRootBlotterCases();
 
-    @Query("SELECT COUNT(c) FROM Case c WHERE (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') AND (c.isArchived IS NULL OR c.isArchived = false) AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND c.createdAt >= :start")
-    long countRootCasesByCreatedAtGreaterThanEqual(@Param("start") LocalDateTime start);
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.createdAt >= :start
+    """)
+    long countRootBlotterCasesByCreatedAtGreaterThanEqual(@Param("start") LocalDateTime start);
 
-    @Query("SELECT COUNT(c) FROM Case c WHERE (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') AND (c.isArchived IS NULL OR c.isArchived = false) AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND c.createdAt BETWEEN :start AND :end")
-    long countRootCasesByCreatedAtBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.createdAt BETWEEN :start AND :end
+    """)
+    long countRootBlotterCasesByCreatedAtBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
-    @Query("SELECT COUNT(c) FROM Case c WHERE (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') AND (c.isArchived IS NULL OR c.isArchived = false) AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND c.filingType = :filingType")
-    long countRootCasesByFilingType(@Param("filingType") FilingType filingType);
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.filingType = :filingType
+    """)
+    long countRootBlotterCasesByFilingType(@Param("filingType") FilingType filingType);
 
-    @Query("SELECT COUNT(c) FROM Case c WHERE (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') AND (c.isArchived IS NULL OR c.isArchived = false) AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND c.filingType = :filingType AND c.createdAt >= :start")
-    long countRootCasesByFilingTypeAndCreatedAtGreaterThanEqual(@Param("filingType") FilingType filingType, @Param("start") LocalDateTime start);
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.filingType = :filingType
+          AND c.createdAt >= :start
+    """)
+    long countRootBlotterCasesByFilingTypeAndCreatedAtGreaterThanEqual(
+            @Param("filingType") FilingType filingType,
+            @Param("start") LocalDateTime start
+    );
 
-    @Query("SELECT COUNT(c) FROM Case c WHERE (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') AND (c.isArchived IS NULL OR c.isArchived = false) AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND c.filingType = :filingType AND c.createdAt BETWEEN :start AND :end")
-    long countRootCasesByFilingTypeAndCreatedAtBetween(@Param("filingType") FilingType filingType, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.filingType = :filingType
+          AND c.createdAt BETWEEN :start AND :end
+    """)
+    long countRootBlotterCasesByFilingTypeAndCreatedAtBetween(
+            @Param("filingType") FilingType filingType,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
 
-    @Query("SELECT COUNT(c) FROM Case c WHERE (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '') AND (c.isArchived IS NULL OR c.isArchived = false) AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND c.caseStatus IN :statuses")
-    long countLatestCasesByCaseStatusIn(@Param("statuses") Collection<CaseStatus> statuses);
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.caseStatus IN :statuses
+    """)
+    long countLatestBlotterCasesByCaseStatusIn(@Param("statuses") Collection<CaseStatus> statuses);
 
-    @Query("SELECT COUNT(c) FROM Case c WHERE (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '') AND (c.isArchived IS NULL OR c.isArchived = false) AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND c.caseStatus IN :statuses AND c.createdAt >= :start")
-    long countLatestCasesByCaseStatusInAndCreatedAtGreaterThanEqual(@Param("statuses") Collection<CaseStatus> statuses, @Param("start") LocalDateTime start);
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.caseStatus IN :statuses
+    """)
+    long countLatestSettledBlotterCases(@Param("statuses") Collection<CaseStatus> statuses);
 
-    @Query("SELECT COUNT(c) FROM Case c WHERE (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '') AND (c.isArchived IS NULL OR c.isArchived = false) AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND c.caseStatus IN :statuses AND c.createdAt BETWEEN :start AND :end")
-    long countLatestCasesByCaseStatusInAndCreatedAtBetween(@Param("statuses") Collection<CaseStatus> statuses, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.caseStatus IN :statuses
+          AND c.settledAt >= :start
+    """)
+    long countLatestSettledBlotterCasesBySettledAtGreaterThanEqual(
+            @Param("statuses") Collection<CaseStatus> statuses,
+            @Param("start") LocalDateTime start
+    );
+
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.caseStatus IN :statuses
+          AND c.settledAt BETWEEN :start AND :end
+    """)
+    long countLatestSettledBlotterCasesBySettledAtBetween(
+            @Param("statuses") Collection<CaseStatus> statuses,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
+
 
     @Query("SELECT c FROM Case c WHERE c.caseStatus IN :statuses AND (c.isArchived IS NULL OR c.isArchived = false) AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)")
     List<Case> findActiveCasesForExpirationCheck(@Param("statuses") Collection<CaseStatus> statuses);
@@ -100,7 +210,7 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
                              AND (c.isArchived IS NULL OR c.isArchived = false)
                              AND (c.isDeleted IS NULL OR c.isDeleted = false)
                              AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
-                             AND (:departmentId IS NULL OR c.department IS NULL OR c.department.id = :departmentId)
+                             AND (:departmentId IS NULL OR c.department IS NULL OR UPPER(c.department.name) IN ('BLOTTER', 'LUPON'))
                              AND c.createdAt >= :startDate
                              AND c.createdAt <= :endDate
                              GROUP BY EXTRACT(YEAR FROM c.createdAt), EXTRACT(MONTH FROM c.createdAt)
@@ -130,7 +240,7 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
           AND (c.isArchived IS NULL OR c.isArchived = false)
           AND (c.isDeleted IS NULL OR c.isDeleted = false)
           AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
-          AND (:departmentId IS NULL OR c.department IS NULL OR c.department.id = :departmentId)
+          AND (:departmentId IS NULL OR c.department IS NULL OR UPPER(c.department.name) IN ('BLOTTER', 'LUPON'))
           AND c.createdAt >= :startDate
           AND c.createdAt <= :endDate
         GROUP BY CAST(c.createdAt AS LocalDate)
@@ -163,7 +273,7 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
         WHERE (c.isArchived IS NULL OR c.isArchived = false)
           AND (c.isDeleted IS NULL OR c.isDeleted = false)
           AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
-          AND (:departmentId IS NULL OR c.department IS NULL OR c.department.id = :departmentId)
+          AND (:departmentId IS NULL OR c.department IS NULL OR UPPER(c.department.name) IN ('BLOTTER', 'LUPON'))
           AND c.createdAt >= :startDate
           AND c.createdAt <= :endDate
     """)
@@ -193,7 +303,7 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
           AND (c.isArchived IS NULL OR c.isArchived = false)
           AND (c.isDeleted IS NULL OR c.isDeleted = false)
           AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
-          AND (:departmentId IS NULL OR c.department IS NULL OR c.department.id = :departmentId)
+          AND (:departmentId IS NULL OR c.department IS NULL OR UPPER(c.department.name) IN ('BLOTTER', 'LUPON'))
           AND c.createdAt >= :startDate
           AND c.createdAt <= :endDate
           AND c.caseStatus IS NOT NULL
@@ -220,14 +330,14 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
         SELECT
             COUNT(c.id) AS totalFormalComplaints,
             SUM(CASE WHEN c.luponReferral IS NULL AND c.caseStatus = :settledStatus THEN 1L ELSE 0L END) AS settledAtBlotter,
-            SUM(CASE WHEN c.luponReferral IS NOT NULL THEN 1L ELSE 0L END) AS referredToLupon,
-            SUM(CASE WHEN c.luponReferral IS NULL AND c.caseStatus != :settledStatus THEN 1L ELSE 0L END) AS pendingAtBlotter
+            SUM(CASE WHEN c.luponReferral IS NOT NULL OR c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION OR (c.department IS NOT NULL AND UPPER(c.department.name) = 'LUPON') THEN 1L ELSE 0L END) AS referredToLupon,
+            SUM(CASE WHEN c.luponReferral IS NULL AND c.caseStatus != :settledStatus AND c.caseStatus != com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION AND (c.department IS NULL OR UPPER(c.department.name) != 'LUPON') THEN 1L ELSE 0L END) AS pendingAtBlotter
         FROM Case c
         WHERE (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
           AND (c.isArchived IS NULL OR c.isArchived = false)
           AND (c.isDeleted IS NULL OR c.isDeleted = false)
           AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
-          AND (:departmentId IS NULL OR c.department IS NULL OR c.department.id = :departmentId)
+          AND (:departmentId IS NULL OR c.department IS NULL OR UPPER(c.department.name) IN ('BLOTTER', 'LUPON'))
           AND c.createdAt >= :startDate
           AND c.createdAt <= :endDate
     """)
@@ -248,12 +358,12 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             SUM(CASE WHEN (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') THEN 1L ELSE 0L END) AS totalCases,
             SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '') AND c.caseStatus = :settledStatus THEN 1L ELSE 0L END) AS settledCases,
             SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '') AND c.caseStatus IN :activeStatuses THEN 1L ELSE 0L END) AS activeMediations,
-            SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '') AND c.luponReferral IS NOT NULL THEN 1L ELSE 0L END) AS luponReferrals
+            SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '') AND (c.luponReferral IS NOT NULL OR c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION OR (c.department IS NOT NULL AND UPPER(c.department.name) = 'LUPON')) THEN 1L ELSE 0L END) AS luponReferrals
         FROM Case c
         WHERE (c.isArchived IS NULL OR c.isArchived = false)
           AND (c.isDeleted IS NULL OR c.isDeleted = false)
           AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
-          AND (:departmentId IS NULL OR c.department IS NULL OR c.department.id = :departmentId)
+          AND (:departmentId IS NULL OR c.department IS NULL OR UPPER(c.department.name) IN ('BLOTTER', 'LUPON'))
           AND c.createdAt >= :startDate
           AND c.createdAt <= :endDate
     """)
@@ -277,12 +387,14 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
         SELECT
             SUM(CASE WHEN c.isArchived = true AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') THEN 1L ELSE 0L END) AS totalArchived,
             SUM(CASE WHEN c.isArchived = true AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
-                     AND c.updatedAt >= :startOfMonth AND c.updatedAt <= :endOfMonth THEN 1L ELSE 0L END) AS totalArchivedThisMonth,
+                     AND ((c.archivedAt IS NOT NULL AND c.archivedAt >= :startOfMonth AND c.archivedAt <= :endOfMonth) OR (c.archivedAt IS NULL AND c.updatedAt >= :startOfMonth AND c.updatedAt <= :endOfMonth)) THEN 1L ELSE 0L END) AS totalArchivedThisMonth,
             SUM(CASE WHEN c.isDeleted = true AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') THEN 1L ELSE 0L END) AS totalRecentlyDeleted,
-            SUM(CASE WHEN c.isDeleted = true AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
-                     AND c.deletedAt >= :startOfMonth AND c.deletedAt <= :endOfMonth THEN 1L ELSE 0L END) AS totalRecentlyDeletedThisMonth
+            SUM(CASE WHEN (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+                     AND ((c.isDeleted = true AND c.deletedAt IS NOT NULL AND c.deletedAt >= :startOfMonth AND c.deletedAt <= :endOfMonth)
+                          OR (c.isPermanentDeleted = true AND c.permanentDeletedAt IS NOT NULL AND c.permanentDeletedAt >= :startOfMonth AND c.permanentDeletedAt <= :endOfMonth)
+                          OR ((c.isDeleted = true OR c.isPermanentDeleted = true) AND c.updatedAt >= :startOfMonth AND c.updatedAt <= :endOfMonth)) THEN 1L ELSE 0L END) AS totalRecentlyDeletedThisMonth
         FROM Case c
-        WHERE (c.department IS NULL OR UPPER(c.department.name) = 'BLOTTER')
+        WHERE (c.department IS NULL OR UPPER(c.department.name) IN ('BLOTTER', 'LUPON'))
     """)
     BlotterLifecycleKpiProjection getBlotterLifecycleKpiMetrics(
             @Param("startOfMonth") LocalDateTime startOfMonth,
@@ -305,7 +417,7 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
                      AND c.caseStatus IN :unresolvedStatuses THEN 1L ELSE 0L END) AS unresolvedCases
         FROM Case c
-        WHERE (c.department IS NULL OR UPPER(c.department.name) = 'BLOTTER')
+        WHERE (c.department IS NULL OR UPPER(c.department.name) IN ('BLOTTER', 'LUPON'))
           AND (c.isArchived IS NULL OR c.isArchived = false)
           AND (c.isDeleted IS NULL OR c.isDeleted = false)
           AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
@@ -342,7 +454,7 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
         LEFT JOIN comp.person compPerson
         LEFT JOIN c.respondent resp
         LEFT JOIN resp.person respPerson
-        WHERE (c.department IS NULL OR UPPER(c.department.name) = 'BLOTTER')
+        WHERE (c.department IS NULL OR UPPER(c.department.name) IN ('BLOTTER', 'LUPON'))
           AND (c.isArchived IS NULL OR c.isArchived = false)
           AND (c.isDeleted IS NULL OR c.isDeleted = false)
           AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
@@ -354,5 +466,25 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             @Param("startOfDay") LocalDateTime startOfDay,
             @Param("endOfDay") LocalDateTime endOfDay,
             Pageable pageable
+    );
+
+    @Query("""
+        SELECT c
+        FROM Case c
+        LEFT JOIN FETCH c.complainant comp
+        LEFT JOIN FETCH comp.person compPerson
+        LEFT JOIN FETCH c.respondent resp
+        LEFT JOIN FETCH resp.person respPerson
+        WHERE (c.department IS NULL OR UPPER(c.department.name) IN ('BLOTTER', 'LUPON'))
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.createdAt >= :startOfDay
+          AND c.createdAt <= :endOfDay
+        ORDER BY c.createdAt DESC
+    """)
+    List<Case> findRecentCasesCreatedToday(
+            @Param("startOfDay") LocalDateTime startOfDay,
+            @Param("endOfDay") LocalDateTime endOfDay
     );
 }

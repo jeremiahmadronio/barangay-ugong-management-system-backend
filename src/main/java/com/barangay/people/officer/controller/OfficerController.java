@@ -114,7 +114,7 @@ public class OfficerController {
     }
 
     /**
-     * Restore an Officer record.
+     * Restore an Officer record (resets deletedAt & permanentDeletedAt to null and status to ACTIVE).
      */
     @PatchMapping("/{id}/restore")
     @LogAudit(
@@ -123,21 +123,42 @@ public class OfficerController {
             severity = Severity.INFO
     )
     public ResponseEntity<OfficerTableResponse> restoreOfficer(@PathVariable Long id) {
-        OfficerStatusUpdateRequest req = new OfficerStatusUpdateRequest(OfficerStatus.ACTIVE);
-        return ResponseEntity.ok(officerService.updateOfficerStatus(id, req));
+        return ResponseEntity.ok(officerService.restoreOfficer(id));
     }
 
     /**
-     * Delete an Officer record.
+     * Soft Delete an Officer record (sets isDeleted = true, deletedAt = now() without SQL row removal).
      */
     @DeleteMapping("/{id}")
     @LogAudit(
             module = AuditModule.USER_MANAGEMENT,
-            action = "DELETE_OFFICER",
+            action = "SOFT_DELETE_OFFICER",
             severity = Severity.WARNING
     )
     public ResponseEntity<Void> deleteOfficer(@PathVariable Long id) {
-        officerService.deleteOfficer(id);
+        officerService.softDeleteOfficer(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Permanent Delete an Officer record (sets isPermanentDeleted = true, permanentDeletedAt = now() without SQL row removal).
+     */
+    @DeleteMapping("/{id}/permanent")
+    @LogAudit(
+            module = AuditModule.USER_MANAGEMENT,
+            action = "PERMANENT_DELETE_OFFICER",
+            severity = Severity.WARNING
+    )
+    public ResponseEntity<Void> permanentDeleteOfficer(@PathVariable Long id) {
+        officerService.permanentDeleteOfficer(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Fetch active officers belonging to the Lupon department (or global officers).
+     */
+    @GetMapping("/lupon")
+    public ResponseEntity<List<LuponOfficerResponse>> getLuponOfficers() {
+        return ResponseEntity.ok(officerService.getLuponOfficer());
     }
 }

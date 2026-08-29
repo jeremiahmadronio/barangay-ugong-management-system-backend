@@ -10,4 +10,8 @@ public interface OfficerService {
     OfficerTableResponse updateOfficer(Long id, OfficerUpdateRequest request);
     OfficerTableResponse updateOfficerStatus(Long id, OfficerStatusUpdateRequest request);
     void deleteOfficer(Long id);
+    void softDeleteOfficer(Long id);
+    void permanentDeleteOfficer(Long id);
+    OfficerTableResponse restoreOfficer(Long id);
+    List<LuponOfficerResponse> getLuponOfficer();
 }

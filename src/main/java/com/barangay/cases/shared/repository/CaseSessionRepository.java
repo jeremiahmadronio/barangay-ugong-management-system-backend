@@ -81,4 +81,34 @@ public interface CaseSessionRepository extends JpaRepository<CaseSession, Long> 
             @Param("endOfDay") LocalDateTime endOfDay,
             Pageable pageable
     );
+
+    /**
+     * Explicit JPQL version of findAllByCasesIdAndStatus.
+     * Useful if you want guaranteed explicit JOIN and ordering by scheduled start time.
+     *
+     * @param caseId database identifier of the parent case
+     * @param status target session status
+     * @return list of matching {@link CaseSession} entities ordered by scheduledStart
+     */
+    @Query("""
+        SELECT s FROM CaseSession s
+        WHERE s.cases.id = :caseId
+          AND s.status = :status
+        ORDER BY s.scheduledStart ASC
+    """)
+    List<CaseSession> findSessionsByCaseIdAndStatus(
+            @Param("caseId") Long caseId,
+            @Param("status") SessionStatus status
+    );
+
+    @Query("""
+        SELECT s FROM CaseSession s
+        WHERE s.cases.id IN :caseIds
+          AND s.status = :status
+        ORDER BY s.scheduledStart ASC
+    """)
+    List<CaseSession> findSessionsByCaseIdInAndStatus(
+            @Param("caseIds") List<Long> caseIds,
+            @Param("status") SessionStatus status
+    );
 }

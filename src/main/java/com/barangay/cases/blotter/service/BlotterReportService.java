@@ -1,6 +1,7 @@
 package com.barangay.cases.blotter.service;
 
 import com.barangay.cases.blotter.dto.*;
+import com.barangay.cases.shared.model.Case;
 import com.barangay.cases.shared.projection.*;
 import com.barangay.cases.shared.repository.CaseRepository;
 import com.barangay.cases.shared.repository.CaseSessionRepository;
@@ -404,12 +405,13 @@ public class BlotterReportService {
 
 
     /**
-     * Unresolved statuses at Blotter desk level.
-     * Strictly EXCLUDES UNDER_CONCILIATION (Lupon jurisdiction) and final statuses (Settled, Dismissed, CFA).
+     * Unresolved active statuses across Blotter & Lupon.
+     * Excludes final statuses (Settled, Dismissed, CFA).
      */
     private static final List<CaseStatus> UNRESOLVED_STATUSES = List.of(
             CaseStatus.PENDING,
-            CaseStatus.UNDER_MEDIATION
+            CaseStatus.UNDER_MEDIATION,
+            CaseStatus.UNDER_CONCILIATION
     );
 
     /**
@@ -461,6 +463,7 @@ public class BlotterReportService {
 
     /**
      * Retrieves up to 5 of the most recently issued Blotter cases filed today.
+     * Deduplicates reopened cycles to show only distinct root cases with their endmost child case status.
      *
      * @return list of recent cases (empty if none, up to max 5)
      */
@@ -470,12 +473,85 @@ public class BlotterReportService {
         LocalDateTime startOfDay = today.atStartOfDay();
         LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
 
-        // Limit strictly to top 5 results
-        return caseRepository.findRecentBlotterCasesToday(
+        List<Case> casesToday = caseRepository.findRecentCasesCreatedToday(
                 startOfDay,
-                endOfDay,
-                PageRequest.of(0, 5)
+                endOfDay
         );
+
+        Map<Long, RecentBlotterCaseResponse> distinctRootCasesMap = new LinkedHashMap<>();
+
+        for (Case c : casesToday) {
+            Case rootCase = findRootCase(c);
+            if (distinctRootCasesMap.containsKey(rootCase.getId())) {
+                continue;
+            }
+
+            List<Case> lineage = getCaseLineage(rootCase);
+            Case endmostCase = lineage.get(lineage.size() - 1);
+
+            String complainantName = "—";
+            if (rootCase.getComplainant() != null && rootCase.getComplainant().getPerson() != null) {
+                String fn = rootCase.getComplainant().getPerson().getFirstName() != null ? rootCase.getComplainant().getPerson().getFirstName() : "";
+                String ln = rootCase.getComplainant().getPerson().getLastName() != null ? rootCase.getComplainant().getPerson().getLastName() : "";
+                complainantName = (fn + " " + ln).trim();
+                if (complainantName.isEmpty()) complainantName = "—";
+            }
+
+            String respondentName = "—";
+            if (rootCase.getRespondent() != null && rootCase.getRespondent().getPerson() != null) {
+                String fn = rootCase.getRespondent().getPerson().getFirstName() != null ? rootCase.getRespondent().getPerson().getFirstName() : "";
+                String ln = rootCase.getRespondent().getPerson().getLastName() != null ? rootCase.getRespondent().getPerson().getLastName() : "";
+                respondentName = (fn + " " + ln).trim();
+                if (respondentName.isEmpty()) respondentName = "—";
+            }
+
+            RecentBlotterCaseResponse resp = new RecentBlotterCaseResponse(
+                    rootCase.getId(),
+                    rootCase.getCaseNumber(),
+                    complainantName,
+                    respondentName,
+                    rootCase.getFilingType(),
+                    endmostCase.getCaseStatus(),
+                    rootCase.getCreatedAt()
+            );
+
+            distinctRootCasesMap.put(rootCase.getId(), resp);
+
+            if (distinctRootCasesMap.size() >= 5) {
+                break;
+            }
+        }
+
+        return new ArrayList<>(distinctRootCasesMap.values());
+    }
+
+    private Case findRootCase(Case targetCase) {
+        Case root = targetCase;
+        while (root.getPreviousCaseNumber() != null && !root.getPreviousCaseNumber().trim().isEmpty()) {
+            Optional<Case> prevOpt = caseRepository.findByCaseNumber(root.getPreviousCaseNumber().trim());
+            if (prevOpt.isPresent()) {
+                root = prevOpt.get();
+            } else {
+                break;
+            }
+        }
+        return root;
+    }
+
+    private List<Case> getCaseLineage(Case rootCase) {
+        List<Case> lineage = new ArrayList<>();
+        Case curr = rootCase;
+        lineage.add(curr);
+        while (curr.getReOpenedCaseNumber() != null && !curr.getReOpenedCaseNumber().trim().isEmpty()) {
+            Optional<Case> nextOpt = caseRepository.findByCaseNumber(curr.getReOpenedCaseNumber().trim());
+            if (nextOpt.isPresent()) {
+                curr = nextOpt.get();
+                lineage.add(curr);
+            } else {
+                break;
+            }
+        }
+        return lineage;
     }
 
     @Transactional(readOnly = true)

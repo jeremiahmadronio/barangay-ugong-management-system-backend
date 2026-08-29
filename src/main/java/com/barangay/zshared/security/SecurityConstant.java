@@ -62,7 +62,8 @@ public class SecurityConstant {
 
     // Endpoints restricted to ROOT_ADMIN or staff assigned to the BLOTTER department
     public static final String[] BLOTTER_ENDPOINTS = {
-            "/api/v1/blotter/**"
+            "/api/v1/blotter/**",
+
     };
 
     // Endpoints restricted to ROOT_ADMIN or staff assigned to the BCPC department
@@ -86,7 +87,7 @@ public class SecurityConstant {
             "/api/v1/cases/**",
             "/api/v1/cases/shared/**",
             "/api/v1/hearings/**",
-            "/api/v1/notices/**"
+            "/api/v1/notices/**",
     };
 
     // CORS configuration settings

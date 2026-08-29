@@ -6,6 +6,9 @@ import java.util.Map;
 
 import com.barangay.cases.blotter.dto.*;
 import com.barangay.cases.blotter.service.*;
+import com.barangay.cases.lupon.dto.LuponReferRalRequest;
+import com.barangay.cases.lupon.dto.LuponReferralResponse;
+import com.barangay.cases.lupon.service.LuponService;
 import jakarta.validation.Valid;
 
 import org.springframework.format.annotation.DateTimeFormat;
@@ -39,6 +42,7 @@ public class BlotterController {
     private final CaseFileService caseFileService;
     private final BlotterReportService blotterReportService;
     private final BlotterArchiveAndDeleteService archiveAndDeleteService;
+    private final LuponService luponService;
 
     /**
      * Retrieves paginated and filtered blotter cases.
@@ -88,6 +92,16 @@ public class BlotterController {
     public ResponseEntity<BlotterCaseDetailResponse> createBlotterCase(@Valid @RequestBody BlotterCaseCreateRequest request) {
         BlotterCaseDetailResponse response = blotterCaseService.createBlotterCase(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PutMapping("/{caseId}")
+    @LogAudit(module = AuditModule.BLOTTER, action = "UPDATE_BLOTTER_CASE", severity = Severity.INFO)
+    public ResponseEntity<BlotterCaseDetailResponse> updateBlotterCase(
+            @PathVariable Long caseId,
+            @Valid @RequestBody BlotterCaseUpdateRequest request
+    ) {
+        BlotterCaseDetailResponse response = blotterCaseService.updateBlotterCase(caseId, request);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/files/narrative/{caseId}")
@@ -506,6 +520,16 @@ public class BlotterController {
     @GetMapping("/mediations-today-summary")
     public ResponseEntity<List<QuickMediationSummaryDto>> getQuickTodayMediations() {
         List<QuickMediationSummaryDto> response = blotterReportService.getQuickTodayMediations();
+        return ResponseEntity.ok(response);
+    }
+
+
+    @PostMapping("/refer/{caseNumber}")
+    public ResponseEntity<LuponReferralResponse> referToLupon(
+            @PathVariable String caseNumber,
+            @Valid @RequestBody LuponReferRalRequest request
+    ) {
+        LuponReferralResponse response = luponService.processLuponReferral(caseNumber, request);
         return ResponseEntity.ok(response);
     }
 }

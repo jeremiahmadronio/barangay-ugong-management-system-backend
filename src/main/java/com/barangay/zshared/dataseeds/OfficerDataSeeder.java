@@ -50,9 +50,9 @@ public class OfficerDataSeeder implements CommandLineRunner {
                 .orElseGet(() -> departmentRepository.save(new Department(null, "ADMIN", "Administration", true)));
 
         createOrGetOfficer("Carlos", "Santos", "Punong Barangay", adminDept, true);
-        createOrGetOfficer("Ramon", "Reyes", "Kagawad (Peace & Order)", peaceDept, false);
-        createOrGetOfficer("Maria", "Cruz", "Kagawad (VAWC Desk)", vawcDept, false);
-        createOrGetOfficer("Fernando", "Lopez", "Kagawad (Lupon Member)", luponDept, false);
+        createOrGetOfficer("Ramon", "Reyes", "Punong Barangay", peaceDept, false);
+        createOrGetOfficer("Maria", "Cruz", "VAWC Desk Officer", vawcDept, false);
+        createOrGetOfficer("Fernando", "Lopez", "Lupon Members", luponDept, false);
         createOrGetOfficer("Elena", "Gomez", "Lupon Secretary", luponDept, false);
 
         log.info("Successfully seeded 5 active Barangay Officers for case assignment!");

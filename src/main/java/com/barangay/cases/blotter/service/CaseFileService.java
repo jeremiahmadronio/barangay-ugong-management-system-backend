@@ -1,5 +1,7 @@
 package com.barangay.cases.blotter.service;
 
+import java.util.List;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Service for retrieving binary files (narratives, evidence, witness statements) for Blotter cases.
+ * Seamlessly resolves files from root case records when viewing reopened case cycles.
  */
 @Service
 @RequiredArgsConstructor
@@ -29,6 +32,7 @@ public class CaseFileService {
 
     /**
      * Retrieves the narrative statement attachment for a given case.
+     * If the case is a reopened cycle without attached files, traverses back to the root case.
      *
      * @param caseId the case ID
      * @return {@link ResponseEntity} containing file byte array
@@ -37,45 +41,163 @@ public class CaseFileService {
     public ResponseEntity<byte[]> getNarrativeFile(Long caseId) {
         Case aCase = caseRepository.findById(caseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Case not found"));
-        if (aCase.getNarrativeStatement() == null) {
+
+        Case targetCase = findCaseWithNarrative(aCase);
+        if (targetCase == null || targetCase.getNarrativeStatement() == null) {
             return ResponseEntity.notFound().build();
         }
-        byte[] bytes = aCase.getNarrativeStatement().getFileData();
-        String fileName = aCase.getNarrativeStatement().getFileName() != null
-                ? aCase.getNarrativeStatement().getFileName() : "narrative.pdf";
+        byte[] bytes = targetCase.getNarrativeStatement().getFileData();
+        String fileName = targetCase.getNarrativeStatement().getFileName() != null
+                ? targetCase.getNarrativeStatement().getFileName() : "narrative.pdf";
 
         return buildFileResponse(bytes, fileName);
     }
 
+    private Case findCaseWithNarrative(Case currentCase) {
+        Case curr = currentCase;
+        while (curr != null) {
+            if (curr.getNarrativeStatement() != null &&
+                curr.getNarrativeStatement().getFileData() != null &&
+                curr.getNarrativeStatement().getFileData().length > 0) {
+                return curr;
+            }
+            if (curr.getPreviousCaseNumber() != null && !curr.getPreviousCaseNumber().trim().isEmpty()) {
+                curr = caseRepository.findByCaseNumber(curr.getPreviousCaseNumber().trim()).orElse(null);
+            } else {
+                break;
+            }
+        }
+        return currentCase;
+    }
+
     /**
      * Retrieves the evidence file for a given evidence entry.
+     * If the evidence entry has no direct binary data (e.g. from reopened cycle), traverses back to the root case.
      *
      * @param evidenceId the evidence ID
      * @return {@link ResponseEntity} containing file byte array
      */
     @Transactional(readOnly = true)
     public ResponseEntity<byte[]> getEvidenceFile(Long evidenceId) {
-        CaseEvidence evidence = caseEvidenceRepository.findById(evidenceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Evidence not found"));
+        CaseEvidence evidence = caseEvidenceRepository.findById(evidenceId).orElse(null);
+
+        if (evidence == null) {
+            // Check if evidenceId might be a Case ID where we take the first evidence with files
+            Case aCase = caseRepository.findById(evidenceId).orElse(null);
+            if (aCase != null) {
+                List<CaseEvidence> caseEvidences = caseEvidenceRepository.findByCasesId(aCase.getId());
+                if (caseEvidences != null && !caseEvidences.isEmpty()) {
+                    evidence = caseEvidences.stream()
+                            .filter(ce -> ce.getFiles() != null && ce.getFiles().length > 0)
+                            .findFirst()
+                            .orElse(caseEvidences.get(0));
+                }
+            }
+        }
+
+        if (evidence == null) {
+            return ResponseEntity.notFound().build();
+        }
+
         byte[] bytes = evidence.getFiles();
         String fileName = evidence.getFileName() != null ? evidence.getFileName() : "evidence.png";
+
+        if ((bytes == null || bytes.length == 0) && evidence.getCases() != null) {
+            Case curr = evidence.getCases();
+            while (curr != null && (bytes == null || bytes.length == 0)) {
+                if (curr.getPreviousCaseNumber() != null && !curr.getPreviousCaseNumber().trim().isEmpty()) {
+                    curr = caseRepository.findByCaseNumber(curr.getPreviousCaseNumber().trim()).orElse(null);
+                    if (curr != null) {
+                        List<CaseEvidence> parentEvidences = caseEvidenceRepository.findByCasesId(curr.getId());
+                        for (CaseEvidence pe : parentEvidences) {
+                            boolean typeMatches = false;
+                            if (pe.getType() != null && evidence.getType() != null) {
+                                if (pe.getType().getId() != null && pe.getType().getId().equals(evidence.getType().getId())) {
+                                    typeMatches = true;
+                                } else if (pe.getType().getName() != null && pe.getType().getName().equalsIgnoreCase(evidence.getType().getName())) {
+                                    typeMatches = true;
+                                }
+                            }
+                            if (typeMatches && pe.getFiles() != null && pe.getFiles().length > 0) {
+                                bytes = pe.getFiles();
+                                if (pe.getFileName() != null && !pe.getFileName().isBlank()) {
+                                    fileName = pe.getFileName();
+                                }
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+
+        if ((bytes == null || bytes.length == 0) && evidence.getType() != null && evidence.getType().getFile() != null) {
+            bytes = evidence.getType().getFile();
+        }
 
         return buildFileResponse(bytes, fileName);
     }
 
     /**
      * Retrieves the witness statement file for a given witness entry.
+     * If the witness entry has no direct binary data (e.g. from reopened cycle), traverses back to the root case.
      *
      * @param witnessId the witness ID
      * @return {@link ResponseEntity} containing file byte array
      */
     @Transactional(readOnly = true)
     public ResponseEntity<byte[]> getWitnessFile(Long witnessId) {
-        Witness witness = witnessRepository.findById(witnessId)
-                .orElseThrow(() -> new ResourceNotFoundException("Witness not found"));
+        Witness witness = witnessRepository.findById(witnessId).orElse(null);
+
+        if (witness == null) {
+            // Check if witnessId might be a Case ID where we take the first witness with testimony file
+            Case aCase = caseRepository.findById(witnessId).orElse(null);
+            if (aCase != null) {
+                List<Witness> caseWitnesses = witnessRepository.findByCaseId(aCase.getId());
+                if (caseWitnesses != null && !caseWitnesses.isEmpty()) {
+                    witness = caseWitnesses.stream()
+                            .filter(w -> w.getTestimonyFile() != null && w.getTestimonyFile().length > 0)
+                            .findFirst()
+                            .orElse(caseWitnesses.get(0));
+                }
+            }
+        }
+
+        if (witness == null) {
+            return ResponseEntity.notFound().build();
+        }
+
         byte[] bytes = witness.getTestimonyFile();
         String fileName = witness.getTestimonyFileName() != null
                 ? witness.getTestimonyFileName() : "witness_statement_" + witnessId + ".pdf";
+
+        if ((bytes == null || bytes.length == 0) && witness.getACase() != null) {
+            Case curr = witness.getACase();
+            while (curr != null && (bytes == null || bytes.length == 0)) {
+                if (curr.getPreviousCaseNumber() != null && !curr.getPreviousCaseNumber().trim().isEmpty()) {
+                    curr = caseRepository.findByCaseNumber(curr.getPreviousCaseNumber().trim()).orElse(null);
+                    if (curr != null) {
+                        List<Witness> parentWitnesses = witnessRepository.findByCaseId(curr.getId());
+                        for (Witness pw : parentWitnesses) {
+                            if (pw.getTestimonyFile() != null && pw.getTestimonyFile().length > 0) {
+                                if (witness.getPerson() != null && pw.getPerson() != null &&
+                                    witness.getPerson().getId().equals(pw.getPerson().getId())) {
+                                    bytes = pw.getTestimonyFile();
+                                    if (pw.getTestimonyFileName() != null && !pw.getTestimonyFileName().isBlank()) {
+                                        fileName = pw.getTestimonyFileName();
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
 
         return buildFileResponse(bytes, fileName);
     }
