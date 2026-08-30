@@ -60,7 +60,7 @@ public class MediationSessionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Blotter case not found: " + caseId));
 
         List<CaseSession> sessions = caseSessionRepository
-                .findByCasesIdAndHearingTypeOrderBySummonNumberAsc(caseId, SessionType.MEDIATION);
+                .findByCasesIdOrderByScheduledStartAsc(caseId);
 
         return sessions.stream().map(this::toMediationResponse).toList();
     }
@@ -79,17 +79,22 @@ public class MediationSessionService {
         Case aCase = caseRepository.findById(caseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Blotter case not found: " + caseId));
 
+        boolean isLuponOrConciliation = aCase.getCaseStatus() == CaseStatus.UNDER_CONCILIATION
+                || (aCase.getDepartment() != null && "LUPON".equalsIgnoreCase(aCase.getDepartment().getName()));
+
+        SessionType targetHearingType = isLuponOrConciliation ? SessionType.CONCILIATION : SessionType.MEDIATION;
+
         List<CaseSession> existing = caseSessionRepository
-                .findByCasesIdAndHearingTypeOrderBySummonNumberAsc(caseId, SessionType.MEDIATION);
+                .findByCasesIdAndHearingTypeOrderBySummonNumberAsc(caseId, targetHearingType);
         short nextNumber = (short) (existing.size() + 1);
 
         CaseSession session = new CaseSession();
         session.setCases(aCase);
-        session.setHearingType(SessionType.MEDIATION);
+        session.setHearingType(targetHearingType);
         session.setSummonNumber(nextNumber);
         session.setScheduledStart(request.getScheduledStart());
         session.setScheduledEnd(request.getScheduledEnd());
-        session.setVenue(request.getVenue() != null ? request.getVenue() : "Barangay Hall");
+        session.setVenue(request.getVenue() != null ? request.getVenue() : (isLuponOrConciliation ? "Lupon" : "Barangay Hall"));
         session.setNotes(request.getNotes());
         session.setStatus(SessionStatus.SCHEDULED);
 
@@ -102,15 +107,18 @@ public class MediationSessionService {
 
         try {
             String dateFormatted = formatDateTimeReadable(request.getScheduledStart());
+            String eventTitle = isLuponOrConciliation
+                    ? "Conciliation Hearing Scheduled (Hearing #" + nextNumber + ")"
+                    : "Mediation Scheduled (Summon #" + nextNumber + ")";
             caseTimelineService.logEvent(
                     aCase,
                     TimelineEventType.SUMMON_ISSUED,
-                    "Mediation Scheduled (Summon #" + nextNumber + ")",
+                    eventTitle,
                     "Hearing #" + nextNumber + " scheduled for " + dateFormatted + " at " + session.getVenue() + ".",
                     SecurityUtils.getCurrentUser()
             );
         } catch (Exception e) {
-            log.warn("Failed to log timeline event for scheduled mediation [caseId={}]: {}", aCase.getId(), e.getMessage(), e);
+            log.warn("Failed to log timeline event for scheduled hearing [caseId={}]: {}", aCase.getId(), e.getMessage(), e);
         }
 
         return toMediationResponse(saved);
@@ -287,10 +295,16 @@ public class MediationSessionService {
         List<SessionFollowUpResponse> followUpList = sessionFollowUpRepository.findBySessionIdOrderByCreatedAtDesc(s.getId())
                 .stream().map(this::toFollowUpResponse).toList();
 
+        String hType = s.getHearingType() != null ? s.getHearingType().name() : "MEDIATION";
+        String sTitle = (s.getHearingType() == SessionType.CONCILIATION ? "Conciliation Hearing " : "Mediation ")
+                + s.getSummonNumber();
+
         return MediationSessionResponse.builder()
                 .id(s.getId())
                 .caseId(s.getCases() != null ? s.getCases().getId() : null)
                 .hearingNumber(s.getSummonNumber())
+                .hearingType(hType)
+                .sessionTitle(sTitle)
                 .scheduledStart(s.getScheduledStart())
                 .scheduledEnd(s.getScheduledEnd())
                 .venue(s.getVenue())

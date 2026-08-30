@@ -63,6 +63,37 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
     }
 
     @Override
+    public Page<Case> findLuponCasesFiltered(com.barangay.cases.lupon.dto.LuponFilterRequest filter, Pageable pageable) {
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+
+        // 1. Data Query
+        CriteriaQuery<Case> cq = cb.createQuery(Case.class);
+        Root<Case> root = cq.from(Case.class);
+
+        List<Predicate> predicates = buildLuponPredicates(filter, cb, root);
+        cq.where(predicates.toArray(new Predicate[0]));
+        cq.orderBy(cb.desc(root.get("createdAt")));
+
+        TypedQuery<Case> query = entityManager.createQuery(cq);
+        query.setFirstResult((int) pageable.getOffset());
+        query.setMaxResults(pageable.getPageSize());
+
+        List<Case> resultList = query.getResultList();
+
+        // 2. Count Query
+        CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
+        Root<Case> countRoot = countCq.from(Case.class);
+
+        List<Predicate> countPredicates = buildLuponPredicates(filter, cb, countRoot);
+        countCq.select(cb.count(countRoot));
+        countCq.where(countPredicates.toArray(new Predicate[0]));
+
+        Long totalCount = entityManager.createQuery(countCq).getSingleResult();
+
+        return new PageImpl<>(resultList, pageable, totalCount);
+    }
+
+    @Override
     public Page<BlotterArchiveItemResponse> findArchivedBlotterCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
 
@@ -366,6 +397,82 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
                 predicates.add(cb.equal(root.get("filingType"), filingEnum));
             } catch (IllegalArgumentException ignored) {
             }
+        }
+
+        return predicates;
+    }
+
+    private List<Predicate> buildLuponPredicates(com.barangay.cases.lupon.dto.LuponFilterRequest filter, CriteriaBuilder cb, Root<Case> root) {
+        List<Predicate> predicates = new ArrayList<>();
+
+        // Base criteria for Lupon:
+        // 1. Root cases only
+        predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
+
+        // 2. Non-deleted, non-permanently-deleted, non-archived
+        predicates.add(cb.or(cb.isNull(root.get("isDeleted")), cb.equal(root.get("isDeleted"), false)));
+        predicates.add(cb.or(cb.isNull(root.get("isPermanentDeleted")), cb.equal(root.get("isPermanentDeleted"), false)));
+        predicates.add(cb.or(cb.isNull(root.get("isArchived")), cb.equal(root.get("isArchived"), false)));
+
+        // 3. Exclude For The Record Only (Lupon handles formal complaints only)
+        predicates.add(cb.or(cb.isNull(root.get("filingType")), cb.equal(root.get("filingType"), FilingType.FORMAL_COMPLAINT)));
+
+        // 4. MUST be escalated / referred to Lupon
+        Predicate hasLuponReferral = cb.isNotNull(root.get("luponReferral"));
+        Predicate isUnderConciliation = cb.equal(root.get("caseStatus"), CaseStatus.UNDER_CONCILIATION);
+        Predicate isLuponDept = cb.and(
+                cb.isNotNull(root.get("department")),
+                cb.equal(cb.upper(root.get("department").get("name")), "LUPON")
+        );
+        predicates.add(cb.or(hasLuponReferral, isUnderConciliation, isLuponDept));
+
+        if (filter == null) {
+            return predicates;
+        }
+
+        // Search text (Case Number, Complainant First/Last Name, Respondent First/Last Name)
+        if (filter.search() != null && !filter.search().isBlank()) {
+            String searchPattern = "%" + filter.search().trim().toLowerCase() + "%";
+
+            Join<Case, Complainant> compJoin = root.join("complainant", JoinType.LEFT);
+            Join<Complainant, Person> compPersonJoin = compJoin.join("person", JoinType.LEFT);
+
+            Join<Case, Respondent> respJoin = root.join("respondent", JoinType.LEFT);
+            Join<Respondent, Person> respPersonJoin = respJoin.join("person", JoinType.LEFT);
+
+            Predicate caseNumberLike = cb.like(cb.lower(root.get("caseNumber")), searchPattern);
+
+            Predicate compFirstNameLike = cb.like(cb.lower(compPersonJoin.get("firstName")), searchPattern);
+            Predicate compLastNameLike = cb.like(cb.lower(compPersonJoin.get("lastName")), searchPattern);
+
+            Predicate respFirstNameLike = cb.like(cb.lower(respPersonJoin.get("firstName")), searchPattern);
+            Predicate respLastNameLike = cb.like(cb.lower(respPersonJoin.get("lastName")), searchPattern);
+
+            predicates.add(cb.or(caseNumberLike, compFirstNameLike, compLastNameLike, respFirstNameLike, respLastNameLike));
+        }
+
+        // Status Filter
+        if (filter.status() != null && !filter.status().isBlank() && !"all".equalsIgnoreCase(filter.status())) {
+            try {
+                CaseStatus statusEnum = CaseStatus.valueOf(filter.status().toUpperCase());
+                predicates.add(cb.equal(root.get("caseStatus"), statusEnum));
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+
+        // Nature of Complaint Filter
+        if (filter.natureOfComplaint() != null && !filter.natureOfComplaint().isBlank() && !"all".equalsIgnoreCase(filter.natureOfComplaint())) {
+            Join<Case, IncidentDetail> incidentJoin = root.join("incidentDetail", JoinType.LEFT);
+            String naturePattern = "%" + filter.natureOfComplaint().trim().toLowerCase() + "%";
+            predicates.add(cb.like(cb.lower(incidentJoin.get("natureOfComplaint")), naturePattern));
+        }
+
+        // Date Range Filter (startDate & endDate)
+        if (filter.startDate() != null) {
+            predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), filter.startDate().atStartOfDay()));
+        }
+        if (filter.endDate() != null) {
+            predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), filter.endDate().atTime(LocalTime.MAX)));
         }
 
         return predicates;

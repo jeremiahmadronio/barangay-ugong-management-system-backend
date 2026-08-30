@@ -159,4 +159,20 @@ public class Case extends BaseEntity implements Archivable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "case_updated_by")
     private User caseUpdatedBy;
+
+    @Column(name = "is_extended")
+    private Boolean isExtended = false;
+
+    @Column(name = "extension_count")
+    private Integer extensionCount = 0;
+
+    @Column(name = "extended_at")
+    private LocalDateTime extendedAt;
+
+    @Column(columnDefinition = "TEXT", name = "extension_reason")
+    private String extensionReason;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "extended_by")
+    private User extendedBy;
 }

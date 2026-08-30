@@ -487,4 +487,81 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             @Param("startOfDay") LocalDateTime startOfDay,
             @Param("endOfDay") LocalDateTime endOfDay
     );
+
+    /**
+     * Counts all distinct root cases referred to Lupon (excluding archived and deleted).
+     */
+    @Query("""
+        SELECT COUNT(c.id)
+        FROM Case c
+        WHERE (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.luponReferral IS NOT NULL OR c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION OR (c.department IS NOT NULL AND UPPER(c.department.name) = 'LUPON'))
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+    """)
+    long countTotalLuponReferredCases();
+
+    /**
+     * Counts all distinct root cases referred to Lupon within a creation date range.
+     */
+    @Query("""
+        SELECT COUNT(c.id)
+        FROM Case c
+        WHERE (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.luponReferral IS NOT NULL OR c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION OR (c.department IS NOT NULL AND UPPER(c.department.name) = 'LUPON'))
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.createdAt >= :startDate
+          AND c.createdAt <= :endDate
+    """)
+    long countTotalLuponReferredCasesBetween(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    /**
+     * Counts active cases currently under conciliation in Lupon (latest cycle).
+     */
+    @Query("""
+        SELECT COUNT(c.id)
+        FROM Case c
+        WHERE (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
+          AND c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+    """)
+    long countActiveLuponConciliationCases();
+
+    /**
+     * Counts cases referred to Lupon that were successfully settled.
+     */
+    @Query("""
+        SELECT COUNT(c.id)
+        FROM Case c
+        WHERE (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
+          AND (c.luponReferral IS NOT NULL OR (c.department IS NOT NULL AND UPPER(c.department.name) = 'LUPON'))
+          AND c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.SETTLED
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+    """)
+    long countSuccessfullySettledLuponCases();
+
+    /**
+     * Counts cases referred to Lupon that resulted in Certificate to File Action (CFA) issuance.
+     */
+    @Query("""
+        SELECT COUNT(c.id)
+        FROM Case c
+        WHERE (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
+          AND (c.luponReferral IS NOT NULL OR (c.department IS NOT NULL AND UPPER(c.department.name) = 'LUPON') OR c.certificateToFileAction IS NOT NULL)
+          AND (c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.CERTIFIED_TO_FILE_ACTION OR c.certificateToFileAction IS NOT NULL)
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+    """)
+    long countCfaIssuedLuponCases();
 }

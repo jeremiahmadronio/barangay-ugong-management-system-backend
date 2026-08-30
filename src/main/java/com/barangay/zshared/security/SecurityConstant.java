@@ -16,6 +16,7 @@ public class SecurityConstant {
     public static final String ROLE_SYSTEM_ADMIN = "SYSTEM_ADMIN";
     public static final String ROLE_ADMIN        = "ADMIN";
     public static final String ROLE_STAFF        = "STAFF";
+    public static final String ROLE_OFFICER      = "OFFICER";
 
     // Endpoints that anyone can access without a token
     public static final String[] PUBLIC_ENDPOINTS = {

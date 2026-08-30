@@ -31,11 +31,30 @@ public record CustomUserDetails(User user) implements UserDetails {
         ));
 
         if (user.getDepartments() != null) {
-            user.getDepartments().forEach(dept ->
-                    authorities.add(new SimpleGrantedAuthority(
-                            "DEPT_" + dept.getName().toUpperCase().replace(" ", "_")
-                    ))
-            );
+            user.getDepartments().forEach(dept -> {
+                if (dept != null && dept.getName() != null) {
+                    String raw = dept.getName().trim().toUpperCase().replace(" ", "_");
+                    authorities.add(new SimpleGrantedAuthority("DEPT_" + raw));
+                    if (raw.contains("LUPON")) {
+                        authorities.add(new SimpleGrantedAuthority("DEPT_LUPON"));
+                    }
+                    if (raw.contains("BLOTTER")) {
+                        authorities.add(new SimpleGrantedAuthority("DEPT_BLOTTER"));
+                    }
+                    if (raw.contains("VAWC")) {
+                        authorities.add(new SimpleGrantedAuthority("DEPT_VAWC"));
+                    }
+                    if (raw.contains("BCPC")) {
+                        authorities.add(new SimpleGrantedAuthority("DEPT_BCPC"));
+                    }
+                    if (raw.contains("CLEARANCE")) {
+                        authorities.add(new SimpleGrantedAuthority("DEPT_CLEARANCE"));
+                    }
+                    if (raw.contains("FTJS")) {
+                        authorities.add(new SimpleGrantedAuthority("DEPT_FTJS"));
+                    }
+                }
+            });
         }
         return authorities;
     }

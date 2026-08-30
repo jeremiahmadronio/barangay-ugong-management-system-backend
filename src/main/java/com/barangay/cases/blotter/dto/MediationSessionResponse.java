@@ -36,6 +36,12 @@ public class MediationSessionResponse {
 
     private String notes;
 
+    /** Hearing Type: MEDIATION | CONCILIATION */
+    private String hearingType;
+
+    /** Dynamic session title: e.g. "Mediation 1" or "Conciliation Hearing 1" */
+    private String sessionTitle;
+
     private Boolean hasMinutes;
     private SessionMinutesResponse minutes;
     private java.util.List<SessionFollowUpResponse> followUps;

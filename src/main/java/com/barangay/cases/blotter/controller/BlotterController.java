@@ -532,4 +532,25 @@ public class BlotterController {
         LuponReferralResponse response = luponService.processLuponReferral(caseNumber, request);
         return ResponseEntity.ok(response);
     }
+
+    /**
+     * Extends the Blotter mediation period by 15 days (one-time allowable extension).
+     *
+     * @param caseId  the case ID
+     * @param request the extension request
+     * @return {@link ResponseEntity} of {@link BlotterCaseDetailResponse}
+     */
+    @PostMapping("/{caseId}/extend")
+    @LogAudit(
+            module = AuditModule.BLOTTER,
+            action = "EXTEND_MEDIATION_PERIOD",
+            severity = Severity.INFO,
+            captureNewValue = true
+    )
+    public ResponseEntity<BlotterCaseDetailResponse> extendCase(
+            @PathVariable Long caseId,
+            @Valid @RequestBody ExtendCaseRequest request) {
+        BlotterCaseDetailResponse response = blotterCaseService.extendCase(caseId, request);
+        return ResponseEntity.ok(response);
+    }
 }

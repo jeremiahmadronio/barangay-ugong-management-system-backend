@@ -46,12 +46,12 @@ public class SecurityConfig {
 
     /**
      * Creates an access rule for department-specific endpoints.
-     * ROOT_ADMIN can always access. ADMIN and STAFF need the matching department.
+     * ROOT_ADMIN and SYSTEM_ADMIN can always access. ADMIN, STAFF, and OFFICER need the matching department authority.
      */
     private static AuthorizationManager<RequestAuthorizationContext> deptAccess(String dept) {
         return new WebExpressionAuthorizationManager(
                 "hasAnyRole('ROOT_ADMIN', 'SYSTEM_ADMIN') or " +
-                        "(hasAnyRole('ADMIN','STAFF') and hasAuthority('DEPT_" + dept + "'))"
+                        "(hasAnyRole('ADMIN', 'STAFF', 'OFFICER') and (hasAuthority('DEPT_" + dept + "') or hasAuthority('DEPT_" + dept + "_TAGAPAMAYAPA')))"
         );
     }
 
@@ -74,7 +74,7 @@ public class SecurityConfig {
                         .requestMatchers(BLOTTER_ENDPOINTS).access(deptAccess("BLOTTER"))
                         .requestMatchers(BCPC_ENDPOINTS).access(deptAccess("BCPC"))
                         .requestMatchers(CLEARANCE_ENDPOINTS).access(deptAccess("CLEARANCE"))
-                        .requestMatchers(SHARED_CASE_ENDPOINTS).hasAnyRole(ROLE_ROOT_ADMIN, ROLE_SYSTEM_ADMIN, ROLE_ADMIN, ROLE_STAFF)
+                        .requestMatchers(SHARED_CASE_ENDPOINTS).hasAnyRole(ROLE_ROOT_ADMIN, ROLE_SYSTEM_ADMIN, ROLE_ADMIN, ROLE_STAFF, ROLE_OFFICER)
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

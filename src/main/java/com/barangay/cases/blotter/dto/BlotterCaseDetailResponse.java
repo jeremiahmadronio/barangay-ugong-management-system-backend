@@ -34,6 +34,11 @@ public record BlotterCaseDetailResponse(
         List<WitnessDetailDto> witnesses,
         List<CaseHistoryItemResponse> caseHistory,
         Boolean isCertified,
+        Boolean isExtended,
+        Integer extensionCount,
+        LocalDateTime extendedAt,
+        String extensionReason,
+        String extendedBy,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {}

@@ -24,6 +24,12 @@ public interface CaseSessionRepository extends JpaRepository<CaseSession, Long> 
             Long caseId, SessionType hearingType);
 
     /**
+     * Retrieves all sessions for a specific case (Mediation + Conciliation),
+     * ordered by scheduled start date ascending.
+     */
+    List<CaseSession> findByCasesIdOrderByScheduledStartAsc(Long caseId);
+
+    /**
      * Counts scheduled mediation sessions for Blotter cases within a date range (Monday-Sunday).
      * Excludes sessions tied to archived or deleted cases.
      */

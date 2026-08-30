@@ -730,6 +730,15 @@ public class BlotterCaseService {
         } else {
             assignedName = assignedOfficerName;
         }
+
+        String extendedByName = null;
+        if (aCase.getExtendedBy() != null && aCase.getExtendedBy().getPerson() != null) {
+            Person ep = aCase.getExtendedBy().getPerson();
+            extendedByName = ((ep.getFirstName() != null ? ep.getFirstName() : "") + " " + (ep.getLastName() != null ? ep.getLastName() : "")).trim();
+        } else if (aCase.getExtendedBy() != null) {
+            extendedByName = aCase.getExtendedBy().getUsername();
+        }
+
         return new BlotterCaseDetailResponse(
                 aCase.getId(),
                 aCase.getFilingType(),
@@ -757,6 +766,11 @@ public class BlotterCaseService {
                 witnessDtos,
                 caseHistory,
                 aCase.getIsAttested(),
+                Boolean.TRUE.equals(aCase.getIsExtended()),
+                aCase.getExtensionCount() != null ? aCase.getExtensionCount() : 0,
+                aCase.getExtendedAt(),
+                aCase.getExtensionReason(),
+                extendedByName,
                 aCase.getCreatedAt(),
                 aCase.getUpdatedAt()
         );
@@ -1014,5 +1028,57 @@ public class BlotterCaseService {
         }
 
         return toDetailResponse(savedNewCase, null, null);
+    }
+
+    /**
+     * Extends the case mediation period by 15 days (one-time allowable extension).
+     *
+     * @param id      the case ID
+     * @param request the extension request containing reason
+     * @return updated {@link BlotterCaseDetailResponse}
+     */
+    @Transactional
+    public BlotterCaseDetailResponse extendCase(Long id, com.barangay.cases.blotter.dto.ExtendCaseRequest request) {
+        Case aCase = caseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Case not found with id: " + id));
+
+        if (Boolean.TRUE.equals(aCase.getIsDeleted()) || Boolean.TRUE.equals(aCase.getIsPermanentDeleted())) {
+            throw new IllegalStateException("Cannot extend a deleted case.");
+        }
+        if (Boolean.TRUE.equals(aCase.getIsArchived())) {
+            throw new IllegalStateException("Cannot extend an archived case.");
+        }
+        if (aCase.getCaseStatus() == CaseStatus.SETTLED || aCase.getCaseStatus() == CaseStatus.DISMISSED || aCase.getCaseStatus() == CaseStatus.ISSUED_REFERRAL) {
+            throw new IllegalStateException("Cannot extend a case that is already " + aCase.getCaseStatus() + ".");
+        }
+        if (Boolean.TRUE.equals(aCase.getIsExtended()) || (aCase.getExtensionCount() != null && aCase.getExtensionCount() >= 1)) {
+            throw new IllegalStateException("This case has already been granted a 15-day extension. Cases can only be extended once.");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        User currentUser = com.barangay.zshared.security.SecurityUtils.getCurrentUser();
+
+        aCase.setIsExtended(true);
+        aCase.setExtensionCount(1);
+        aCase.setExtendedAt(now);
+        aCase.setExtensionReason(request.reason());
+        aCase.setExtendedBy(currentUser);
+        aCase.setCaseUpdatedBy(currentUser);
+
+        caseRepository.save(aCase);
+
+        try {
+            caseTimelineService.logEvent(
+                    aCase,
+                    TimelineEventType.CONCILIATION_EXTENDED,
+                    "Mediation Period Extended (15 Days)",
+                    "15-day extension granted under Katarungang Pambarangay. Reason: " + request.reason(),
+                    currentUser
+            );
+        } catch (Exception e) {
+            log.warn("Failed to log timeline event for case extension [caseId={}]: {}", id, e.getMessage());
+        }
+
+        return getBlotterCaseById(aCase.getId());
     }
 }

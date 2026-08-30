@@ -15,9 +15,11 @@ import com.barangay.cases.shared.model.CaseTimeline;
 import com.barangay.cases.shared.repository.CaseRepository;
 import com.barangay.cases.shared.repository.CaseSessionRepository;
 import com.barangay.cases.shared.repository.CaseTimelineRepository;
+import com.barangay.people.complainant.model.Complainant;
 import com.barangay.people.officer.model.Officer;
 import com.barangay.people.officer.repository.OfficerRepository;
 import com.barangay.people.person.model.Person;
+import com.barangay.people.respondent.model.Respondent;
 import com.barangay.usermanagement.department.model.Department;
 import com.barangay.usermanagement.department.repository.DepartmentRepository;
 import com.barangay.usermanagement.user.model.User;
@@ -45,6 +47,7 @@ public class LuponService {
     private final CaseSessionRepository caseSessionRepository;
     private final OfficerRepository officerRepository;
     private final CaseTimelineRepository caseTimelineRepository;
+    private final com.barangay.cases.blotter.service.BlotterCaseService blotterCaseService;
 
 
     private Case findRootCase(Case targetCase) {
@@ -190,6 +193,158 @@ public class LuponService {
         );
     }
 
+    /**
+     * Calculates Lupon KPI summary statistics with month-to-date vs full previous calendar month trend.
+     *
+     * @return {@link LuponStatsResponse}
+     */
+    @Transactional(readOnly = true)
+    public com.barangay.cases.lupon.dto.LuponStatsResponse getLuponStats() {
+        java.time.LocalDateTime currentMonthStart = java.time.YearMonth.now().atDay(1).atStartOfDay();
+        java.time.LocalDateTime currentMonthEnd = java.time.LocalDateTime.now();
+        java.time.LocalDateTime prevMonthStart = java.time.YearMonth.now().minusMonths(1).atDay(1).atStartOfDay();
+        java.time.LocalDateTime prevMonthEnd = currentMonthStart.minusNanos(1);
+
+        // 1. Total Referred (all-time & trend)
+        long totalReferred = caseRepository.countTotalLuponReferredCases();
+        long currentMonthReferred = caseRepository.countTotalLuponReferredCasesBetween(currentMonthStart, currentMonthEnd);
+        long prevMonthReferred = caseRepository.countTotalLuponReferredCasesBetween(prevMonthStart, prevMonthEnd);
+        String totalReferredTrend = calculateMonthlyTrend(currentMonthReferred, prevMonthReferred);
+
+        // 2. Active Conciliation
+        long activeConciliation = caseRepository.countActiveLuponConciliationCases();
+
+        // 3. Successfully Settled
+        long successfullySettled = caseRepository.countSuccessfullySettledLuponCases();
+
+        // 4. CFA Issued
+        long cfaIssued = caseRepository.countCfaIssuedLuponCases();
+
+        return new com.barangay.cases.lupon.dto.LuponStatsResponse(
+                totalReferred,
+                totalReferredTrend,
+                activeConciliation,
+                successfullySettled,
+                cfaIssued
+        );
+    }
+
+    /**
+     * Retrieves assigned Pangkat Tagapagkasundo panel members for a case.
+     *
+     * @param caseId primary key of the case
+     * @return list of assigned {@link LuponPanelMemberResponse}
+     */
+    @Transactional(readOnly = true)
+    public List<com.barangay.cases.lupon.dto.LuponPanelMemberResponse> getPanelMembers(Long caseId) {
+        List<LuponPanelMember> members = luponPanelMemberRepository.findByCasesId(caseId);
+        return members.stream()
+                .map(m -> new com.barangay.cases.lupon.dto.LuponPanelMemberResponse(
+                        m.getId(),
+                        m.getOfficer() != null ? m.getOfficer().getId() : null,
+                        formatOfficerFullName(m.getOfficer()),
+                        m.getPosition(),
+                        m.getAssignedAt()
+                ))
+                .toList();
+    }
+
+    /**
+     * Retrieves paginated and filtered Lupong Tagapamayapa cases.
+     * Only displays cases that were referred/escalated to Lupon (excluding For-The-Record).
+     *
+     * @param filter the filtering criteria and pagination parameters
+     * @return {@link com.barangay.zshared.mapper.PageResponse} of {@link com.barangay.cases.lupon.dto.LuponTableRowResponse}
+     */
+    @Transactional(readOnly = true)
+    public com.barangay.zshared.mapper.PageResponse<com.barangay.cases.lupon.dto.LuponTableRowResponse> getLuponCases(
+            com.barangay.cases.lupon.dto.LuponFilterRequest filter
+    ) {
+        int page = filter != null ? filter.getPageNumber() : 0;
+        int size = filter != null ? filter.getPageSize() : 10;
+
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                page,
+                size,
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")
+        );
+        org.springframework.data.domain.Page<Case> casePage = caseRepository.findLuponCasesFiltered(filter, pageable);
+
+        org.springframework.data.domain.Page<com.barangay.cases.lupon.dto.LuponTableRowResponse> dtoPage =
+                casePage.map(this::toLuponTableRowResponse);
+
+        return com.barangay.zshared.mapper.PageResponse.of(dtoPage);
+    }
+
+    private com.barangay.cases.lupon.dto.LuponTableRowResponse toLuponTableRowResponse(Case rootCase) {
+        if (rootCase == null) return null;
+
+        Case trueRoot = findRootCase(rootCase);
+        List<Case> lineage = getCaseLineage(trueRoot);
+        Case latestCase = lineage.get(lineage.size() - 1);
+        int cycleCount = lineage.size();
+        boolean isReopened = cycleCount > 1;
+
+        String filingTypeLabel = "Formal Complaint";
+
+        String compName = "—";
+        Complainant comp = latestCase.getComplainant() != null ? latestCase.getComplainant() : trueRoot.getComplainant();
+        if (comp != null && comp.getPerson() != null) {
+            String f = comp.getPerson().getFirstName() != null ? comp.getPerson().getFirstName() : "";
+            String l = comp.getPerson().getLastName() != null ? comp.getPerson().getLastName() : "";
+            String m = comp.getPerson().getMiddleName() != null ? comp.getPerson().getMiddleName() : "";
+            compName = (l + (l.isBlank() || f.isBlank() ? "" : ", ") + f + (m.isBlank() ? "" : " " + m.charAt(0) + ".")).trim();
+        }
+
+        String respName = "—";
+        Respondent resp = latestCase.getRespondent() != null ? latestCase.getRespondent() : trueRoot.getRespondent();
+        if (resp != null && resp.getPerson() != null) {
+            String f = resp.getPerson().getFirstName() != null ? resp.getPerson().getFirstName() : "";
+            String l = resp.getPerson().getLastName() != null ? resp.getPerson().getLastName() : "";
+            String m = resp.getPerson().getMiddleName() != null ? resp.getPerson().getMiddleName() : "";
+            respName = (l + (l.isBlank() || f.isBlank() ? "" : ", ") + f + (m.isBlank() ? "" : " " + m.charAt(0) + ".")).trim();
+        }
+
+        LocalDateTime dateFiled = trueRoot.getCreatedAt() != null ? trueRoot.getCreatedAt() : LocalDateTime.now();
+        LocalDateTime dateReferred = null;
+        if (latestCase.getLuponReferral() != null && latestCase.getLuponReferral().getReferredAt() != null) {
+            dateReferred = latestCase.getLuponReferral().getReferredAt();
+        } else if (trueRoot.getLuponReferral() != null && trueRoot.getLuponReferral().getReferredAt() != null) {
+            dateReferred = trueRoot.getLuponReferral().getReferredAt();
+        } else {
+            dateReferred = latestCase.getUpdatedAt() != null ? latestCase.getUpdatedAt() : dateFiled;
+        }
+
+        return new com.barangay.cases.lupon.dto.LuponTableRowResponse(
+                trueRoot.getId(),
+                trueRoot.getCaseNumber(),
+                latestCase.getId(),
+                latestCase.getCaseNumber(),
+                filingTypeLabel,
+                cycleCount,
+                isReopened,
+                latestCase.getCaseStatus(),
+                compName,
+                respName,
+                dateFiled,
+                dateReferred
+        );
+    }
+
+    private String calculateMonthlyTrend(long currentCount, long prevCount) {
+        if (prevCount == 0) {
+            return currentCount > 0 ? "+100% vs last month" : "0% vs last month";
+        }
+        double diff = (double) (currentCount - prevCount) / prevCount * 100.0;
+        if (diff > 0) {
+            return String.format("+%.1f%% vs last month", diff);
+        } else if (diff < 0) {
+            return String.format("%.1f%% vs last month", diff);
+        } else {
+            return "0% vs last month";
+        }
+    }
+
     private String formatOfficerFullName(Officer officer) {
         if (officer == null || officer.getPerson() == null) {
             return "N/A";
@@ -199,5 +354,58 @@ public class LuponService {
         String last = person.getLastName() != null ? person.getLastName().trim() : "";
         String full = (first + " " + last).trim();
         return full.isEmpty() ? "N/A" : full;
+    }
+
+    /**
+     * Extends the Lupon conciliation period by 15 days (one-time allowable extension).
+     *
+     * @param caseId  the case ID
+     * @param request the extension request containing reason
+     * @return updated {@link com.barangay.cases.blotter.dto.BlotterCaseDetailResponse}
+     */
+    @Transactional
+    public com.barangay.cases.blotter.dto.BlotterCaseDetailResponse extendLuponCase(
+            Long caseId,
+            com.barangay.cases.blotter.dto.ExtendCaseRequest request
+    ) {
+        Case targetCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new NoSuchElementException("Lupon case not found: " + caseId));
+
+        if (Boolean.TRUE.equals(targetCase.getIsDeleted()) || Boolean.TRUE.equals(targetCase.getIsPermanentDeleted())) {
+            throw new IllegalStateException("Cannot extend a deleted case.");
+        }
+        if (Boolean.TRUE.equals(targetCase.getIsArchived())) {
+            throw new IllegalStateException("Cannot extend an archived case.");
+        }
+        if (targetCase.getCaseStatus() == CaseStatus.SETTLED || targetCase.getCaseStatus() == CaseStatus.DISMISSED) {
+            throw new IllegalStateException("Cannot extend a case that is already " + targetCase.getCaseStatus() + ".");
+        }
+        if (Boolean.TRUE.equals(targetCase.getIsExtended()) || (targetCase.getExtensionCount() != null && targetCase.getExtensionCount() >= 1)) {
+            throw new IllegalStateException("This Lupon case has already been granted a 15-day extension. Cases can only be extended once.");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        User currentUser = SecurityUtils.getCurrentUser();
+
+        targetCase.setIsExtended(true);
+        targetCase.setExtensionCount(1);
+        targetCase.setExtendedAt(now);
+        targetCase.setExtensionReason(request.reason());
+        targetCase.setExtendedBy(currentUser);
+        targetCase.setCaseUpdatedBy(currentUser);
+
+        caseRepository.save(targetCase);
+
+        // Add to Case Timeline
+        CaseTimeline timeline = new CaseTimeline();
+        timeline.setCases(targetCase);
+        timeline.setEventType(TimelineEventType.CONCILIATION_EXTENDED);
+        timeline.setTitle("Conciliation Period Extended (15 Days)");
+        timeline.setDescription("15-day conciliation extension granted under Katarungang Pambarangay. Reason: " + request.reason());
+        timeline.setPerformedBy(currentUser);
+        timeline.setEventDate(now);
+        caseTimelineRepository.save(timeline);
+
+        return blotterCaseService.getBlotterCaseById(targetCase.getId());
     }
 }
