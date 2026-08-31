@@ -70,7 +70,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         CriteriaQuery<Case> cq = cb.createQuery(Case.class);
         Root<Case> root = cq.from(Case.class);
 
-        List<Predicate> predicates = buildLuponPredicates(filter, cb, root);
+        List<Predicate> predicates = buildLuponPredicates(filter, cb, cq, root);
         cq.where(predicates.toArray(new Predicate[0]));
         cq.orderBy(cb.desc(root.get("createdAt")));
 
@@ -84,7 +84,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
         Root<Case> countRoot = countCq.from(Case.class);
 
-        List<Predicate> countPredicates = buildLuponPredicates(filter, cb, countRoot);
+        List<Predicate> countPredicates = buildLuponPredicates(filter, cb, countCq, countRoot);
         countCq.select(cb.count(countRoot));
         countCq.where(countPredicates.toArray(new Predicate[0]));
 
@@ -402,7 +402,12 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         return predicates;
     }
 
-    private List<Predicate> buildLuponPredicates(com.barangay.cases.lupon.dto.LuponFilterRequest filter, CriteriaBuilder cb, Root<Case> root) {
+    private List<Predicate> buildLuponPredicates(
+            com.barangay.cases.lupon.dto.LuponFilterRequest filter,
+            CriteriaBuilder cb,
+            CommonAbstractCriteria query,
+            Root<Case> root
+    ) {
         List<Predicate> predicates = new ArrayList<>();
 
         // Base criteria for Lupon:
@@ -417,14 +422,30 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         // 3. Exclude For The Record Only (Lupon handles formal complaints only)
         predicates.add(cb.or(cb.isNull(root.get("filingType")), cb.equal(root.get("filingType"), FilingType.FORMAL_COMPLAINT)));
 
-        // 4. MUST be escalated / referred to Lupon
+        // 4. MUST be escalated / referred to Lupon (root OR any reopened child in its lineage)
         Predicate hasLuponReferral = cb.isNotNull(root.get("luponReferral"));
         Predicate isUnderConciliation = cb.equal(root.get("caseStatus"), CaseStatus.UNDER_CONCILIATION);
         Predicate isLuponDept = cb.and(
                 cb.isNotNull(root.get("department")),
                 cb.equal(cb.upper(root.get("department").get("name")), "LUPON")
         );
-        predicates.add(cb.or(hasLuponReferral, isUnderConciliation, isLuponDept));
+
+        Subquery<Long> childLuponSq = query.subquery(Long.class);
+        Root<Case> childRoot = childLuponSq.from(Case.class);
+        childLuponSq.select(cb.literal(1L));
+        childLuponSq.where(
+                cb.equal(childRoot.get("previousCaseNumber"), root.get("caseNumber")),
+                cb.or(
+                        cb.isNotNull(childRoot.get("luponReferral")),
+                        cb.equal(childRoot.get("caseStatus"), CaseStatus.UNDER_CONCILIATION),
+                        cb.and(
+                                cb.isNotNull(childRoot.get("department")),
+                                cb.equal(cb.upper(childRoot.get("department").get("name")), "LUPON")
+                        )
+                )
+        );
+
+        predicates.add(cb.or(hasLuponReferral, isUnderConciliation, isLuponDept, cb.exists(childLuponSq)));
 
         if (filter == null) {
             return predicates;
@@ -448,14 +469,32 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
             Predicate respFirstNameLike = cb.like(cb.lower(respPersonJoin.get("firstName")), searchPattern);
             Predicate respLastNameLike = cb.like(cb.lower(respPersonJoin.get("lastName")), searchPattern);
 
-            predicates.add(cb.or(caseNumberLike, compFirstNameLike, compLastNameLike, respFirstNameLike, respLastNameLike));
+            Subquery<Long> childSearchSq = query.subquery(Long.class);
+            Root<Case> childSearchRoot = childSearchSq.from(Case.class);
+            childSearchSq.select(cb.literal(1L));
+            childSearchSq.where(
+                    cb.equal(childSearchRoot.get("previousCaseNumber"), root.get("caseNumber")),
+                    cb.like(cb.lower(childSearchRoot.get("caseNumber")), searchPattern)
+            );
+
+            predicates.add(cb.or(caseNumberLike, compFirstNameLike, compLastNameLike, respFirstNameLike, respLastNameLike, cb.exists(childSearchSq)));
         }
 
         // Status Filter
         if (filter.status() != null && !filter.status().isBlank() && !"all".equalsIgnoreCase(filter.status())) {
             try {
                 CaseStatus statusEnum = CaseStatus.valueOf(filter.status().toUpperCase());
-                predicates.add(cb.equal(root.get("caseStatus"), statusEnum));
+                Predicate rootStatusMatch = cb.equal(root.get("caseStatus"), statusEnum);
+
+                Subquery<Long> childStatusSq = query.subquery(Long.class);
+                Root<Case> childStatusRoot = childStatusSq.from(Case.class);
+                childStatusSq.select(cb.literal(1L));
+                childStatusSq.where(
+                        cb.equal(childStatusRoot.get("previousCaseNumber"), root.get("caseNumber")),
+                        cb.equal(childStatusRoot.get("caseStatus"), statusEnum)
+                );
+
+                predicates.add(cb.or(rootStatusMatch, cb.exists(childStatusSq)));
             } catch (IllegalArgumentException ignored) {
             }
         }

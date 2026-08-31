@@ -131,12 +131,19 @@ public class LuponService {
 
         User actor = SecurityUtils.getCurrentUser();
 
+        for (Case c : lineage) {
+            c.setDepartment(dept);
+            if (c.getLuponReferral() == null) {
+                c.setLuponReferral(referral);
+            }
+        }
+
         endmostCase.setDepartment(dept);
         endmostCase.setCaseStatus(CaseStatus.UNDER_CONCILIATION);
         endmostCase.setCaseStatusRemarks("Referred to Lupon Tagapamayapa.");
         endmostCase.setCaseUpdatedBy(actor);
         endmostCase.setLuponReferral(referral);
-        caseRepository.save(endmostCase);
+        caseRepository.saveAll(lineage);
 
             List<PangkatMember> memberRequests = request.memberList();
         Set<Long> uniqueOfficerIds = new HashSet<>();

@@ -71,6 +71,7 @@ public class BlotterCaseService {
     private final WitnessRepository witnessRepository;
     private final CaseTimelineService caseTimelineService;
     private final CaseSessionRepository caseSessionRepository;
+    private final com.barangay.cases.shared.repository.CertificateToFileActionRepository certificateToFileActionRepository;
 
     private final ComplainantMapper complainantMapper;
     private final RespondentMapper respondentMapper;
@@ -810,8 +811,35 @@ public class BlotterCaseService {
         User currentUser = SecurityUtils.getCurrentUser();
         aCase.setCaseUpdatedBy(currentUser);
 
-        if (newStatus == CaseStatus.SETTLED || newStatus == CaseStatus.DISMISSED || newStatus == CaseStatus.WITHDRAWN || newStatus == CaseStatus.EXPIRED_UNACTIONED) {
+        if (newStatus == CaseStatus.SETTLED || newStatus == CaseStatus.DISMISSED || newStatus == CaseStatus.WITHDRAWN || newStatus == CaseStatus.EXPIRED_UNACTIONED || newStatus == CaseStatus.CERTIFIED_TO_FILE_ACTION) {
             cancelActiveMediationSessions(aCase.getId(), newStatus);
+        }
+
+        if (newStatus == CaseStatus.CERTIFIED_TO_FILE_ACTION) {
+            aCase.setIsAttested(true);
+            try {
+                com.barangay.cases.shared.model.CertificateToFileAction cfa = certificateToFileActionRepository
+                        .findByCases_Id(aCase.getId())
+                        .orElse(new com.barangay.cases.shared.model.CertificateToFileAction());
+                cfa.setCases(aCase);
+                cfa.setGrounds(request.getRemarks() != null && !request.getRemarks().trim().isEmpty()
+                        ? request.getRemarks().trim()
+                        : "Walang naganap na pagkakasundo sa pagitan ng mga partido sa kabila ng pagsisikap na maayos ang alitan.");
+                String subject = (aCase.getIncidentDetail() != null && aCase.getIncidentDetail().getNatureOfComplaint() != null)
+                        ? aCase.getIncidentDetail().getNatureOfComplaint()
+                        : "Barangay Dispute Settlement";
+                cfa.setSubjectOfLitigation(subject);
+                if (cfa.getControlNumber() == null || cfa.getControlNumber().isBlank()) {
+                    cfa.setControlNumber("CFA-" + aCase.getCaseNumber());
+                }
+                if (cfa.getIssuedBy() == null) {
+                    cfa.setIssuedBy(currentUser);
+                }
+                cfa.setUpdatedBy(currentUser);
+                certificateToFileActionRepository.save(cfa);
+            } catch (Exception ex) {
+                log.warn("Failed to persist CertificateToFileAction entity [caseId={}]: {}", aCase.getId(), ex.getMessage());
+            }
         }
 
         // 2. Persist Case Entity
@@ -820,14 +848,48 @@ public class BlotterCaseService {
         // 3. Log Timeline Event
         try {
             String remarksText = request.getRemarks() != null ? request.getRemarks().trim() : "";
-            String detailsText = remarksText.isBlank()
-                    ? "Case status updated to " + updated.getCaseStatus().name()
-                    : String.format("Case status updated to %s. Remarks: %s", updated.getCaseStatus().name(), remarksText);
+            TimelineEventType eventType = TimelineEventType.STATUS_CHANGED;
+            String eventTitle;
+            String detailsText;
+
+            if (newStatus == CaseStatus.CERTIFIED_TO_FILE_ACTION) {
+                eventType = TimelineEventType.DOCUMENT_GENERATED;
+                eventTitle = "Certificate to File Action (CFA) Issued";
+                detailsText = remarksText.isBlank()
+                        ? "Issued Certificate to File Action (KP Form 20) under Katarungang Pambarangay."
+                        : "Issued Certificate to File Action (KP Form 20). Grounds: " + remarksText;
+            } else if (newStatus == CaseStatus.SETTLED) {
+                eventTitle = "Case Settled";
+                detailsText = remarksText.isBlank()
+                        ? "Case marked as settled with agreement."
+                        : "Case settled. Agreement terms: " + remarksText;
+            } else if (newStatus == CaseStatus.DISMISSED) {
+                eventTitle = "Case Dismissed";
+                detailsText = remarksText.isBlank()
+                        ? "Case dismissed."
+                        : "Case dismissed. Remarks: " + remarksText;
+            } else if (newStatus == CaseStatus.WITHDRAWN) {
+                eventTitle = "Complaint Withdrawn";
+                detailsText = remarksText.isBlank()
+                        ? "Complaint withdrawn by complainant."
+                        : "Complaint withdrawn. Remarks: " + remarksText;
+            } else if (newStatus == CaseStatus.REOPENED) {
+                eventTitle = "Case Reopened";
+                detailsText = remarksText.isBlank()
+                        ? "Case reopened for new proceedings."
+                        : "Case reopened. Reason: " + remarksText;
+            } else {
+                String statusName = updated.getCaseStatus() != null ? updated.getCaseStatus().name().replace('_', ' ') : "Updated";
+                eventTitle = "Case Status Updated to " + statusName;
+                detailsText = remarksText.isBlank()
+                        ? "Case status updated to " + statusName + "."
+                        : String.format("Case status updated to %s. Remarks: %s", statusName, remarksText);
+            }
 
             caseTimelineService.logEvent(
                     updated,
-                    TimelineEventType.STATUS_CHANGED,
-                    "Case Status Updated to " + updated.getCaseStatus().name(),
+                    eventType,
+                    eventTitle,
                     detailsText,
                     currentUser
             );
