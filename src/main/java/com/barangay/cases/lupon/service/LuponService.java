@@ -227,11 +227,19 @@ public class LuponService {
         // 4. CFA Issued
         long cfaIssued = caseRepository.countCfaIssuedLuponCases();
 
+        // 5. Settlement Rate (%)
+        double settlementRate = 0.0;
+        if (totalReferred > 0) {
+            double rate = ((double) successfullySettled / totalReferred) * 100.0;
+            settlementRate = Math.round(rate * 100.0) / 100.0;
+        }
+
         return new com.barangay.cases.lupon.dto.LuponStatsResponse(
                 totalReferred,
                 totalReferredTrend,
                 activeConciliation,
                 successfullySettled,
+                settlementRate,
                 cfaIssued
         );
     }

@@ -23,6 +23,83 @@ public class LuponController {
 
     private final LuponService luponService;
     private final ConciliationService conciliationService;
+    private final com.barangay.cases.lupon.service.LuponReports luponReports;
+
+    /**
+     * Retrieves analytics KPI metrics for Lupong Tagapamayapa reports within a date range.
+     *
+     * @param startDate the inclusive starting date (defaults to 1st of month)
+     * @param endDate   the inclusive ending date (defaults to today)
+     * @return {@link ResponseEntity} of {@link LuponReportKpiResponse}
+     */
+    @GetMapping("/report-kpi")
+    public ResponseEntity<LuponReportKpiResponse> getReportKpi(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate startDate,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate endDate
+    ) {
+        java.time.LocalDate effectiveEndDate = (endDate != null) ? endDate : java.time.LocalDate.now();
+        java.time.LocalDate effectiveStartDate = (startDate != null) ? startDate : effectiveEndDate.withDayOfMonth(1);
+
+        LuponReportKpiResponse report = luponReports.getReportKpi(effectiveStartDate, effectiveEndDate);
+        return ResponseEntity.ok(report);
+    }
+
+    /**
+     * Retrieves monthly conciliation case trend for Lupon reports within a date range.
+     *
+     * @param startDate inclusive start date
+     * @param endDate   inclusive end date
+     * @return list of {@link com.barangay.cases.blotter.dto.MonthlyCaseTrendResponse}
+     */
+    @GetMapping("/reports/monthly-trend")
+    public ResponseEntity<List<com.barangay.cases.blotter.dto.MonthlyCaseTrendResponse>> getMonthlyTrend(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate startDate,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate endDate
+    ) {
+        java.time.LocalDate effectiveEndDate = (endDate != null) ? endDate : java.time.LocalDate.now();
+        java.time.LocalDate effectiveStartDate = (startDate != null) ? startDate : effectiveEndDate.minusMonths(5).withDayOfMonth(1);
+
+        List<com.barangay.cases.blotter.dto.MonthlyCaseTrendResponse> list = luponReports.getMonthlyTrendReport(effectiveStartDate, effectiveEndDate);
+        return ResponseEntity.ok(list);
+    }
+
+    /**
+     * Retrieves daily conciliation case trend for Lupon reports within a date range.
+     *
+     * @param startDate inclusive start date
+     * @param endDate   inclusive end date
+     * @return list of {@link com.barangay.cases.blotter.dto.DailyCaseTrendResponse}
+     */
+    @GetMapping("/reports/daily-trend")
+    public ResponseEntity<List<com.barangay.cases.blotter.dto.DailyCaseTrendResponse>> getDailyTrend(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate startDate,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate endDate
+    ) {
+        java.time.LocalDate effectiveEndDate = (endDate != null) ? endDate : java.time.LocalDate.now();
+        java.time.LocalDate effectiveStartDate = (startDate != null) ? startDate : effectiveEndDate.minusDays(29);
+
+        List<com.barangay.cases.blotter.dto.DailyCaseTrendResponse> list = luponReports.getDailyTrendReport(effectiveStartDate, effectiveEndDate);
+        return ResponseEntity.ok(list);
+    }
+
+    /**
+     * Retrieves case status breakdown distribution for Lupon reports within a date range.
+     *
+     * @param startDate inclusive start date
+     * @param endDate   inclusive end date
+     * @return {@link com.barangay.cases.blotter.dto.CaseStatusBreakdownResponse}
+     */
+    @GetMapping("/reports/status-breakdown")
+    public ResponseEntity<com.barangay.cases.blotter.dto.CaseStatusBreakdownResponse> getStatusBreakdown(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate startDate,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate endDate
+    ) {
+        java.time.LocalDate effectiveEndDate = (endDate != null) ? endDate : java.time.LocalDate.now();
+        java.time.LocalDate effectiveStartDate = (startDate != null) ? startDate : effectiveEndDate.minusMonths(5).withDayOfMonth(1);
+
+        com.barangay.cases.blotter.dto.CaseStatusBreakdownResponse response = luponReports.getStatusBreakdownReport(effectiveStartDate, effectiveEndDate);
+        return ResponseEntity.ok(response);
+    }
 
     /**
      * Retrieves paginated and filtered Lupong Tagapamayapa cases (referred/escalated only).

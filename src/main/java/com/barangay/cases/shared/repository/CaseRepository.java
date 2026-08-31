@@ -582,4 +582,95 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
           AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
     """)
     long countCfaIssuedLuponCases();
+
+    /**
+     * Aggregates KPI metrics (Total Referred, Settled Cases, Active Conciliations, CFA Issued) for Lupon reports.
+     */
+    @Query("""
+        SELECT
+            SUM(CASE WHEN (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') AND (c.luponReferral IS NOT NULL OR c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION OR (c.department IS NOT NULL AND UPPER(c.department.name) = 'LUPON') OR EXISTS (SELECT 1 FROM Case child WHERE child.previousCaseNumber = c.caseNumber AND (child.luponReferral IS NOT NULL OR child.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION OR (child.department IS NOT NULL AND UPPER(child.department.name) = 'LUPON')))) THEN 1L ELSE 0L END) AS totalReferred,
+            SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '') AND c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.SETTLED AND (c.luponReferral IS NOT NULL OR (c.department IS NOT NULL AND UPPER(c.department.name) = 'LUPON') OR EXISTS (SELECT 1 FROM Case parent WHERE parent.caseNumber = c.previousCaseNumber AND (parent.luponReferral IS NOT NULL OR (parent.department IS NOT NULL AND UPPER(parent.department.name) = 'LUPON')))) THEN 1L ELSE 0L END) AS settledCases,
+            SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '') AND c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION THEN 1L ELSE 0L END) AS activeConciliations,
+            SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '') AND (c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.CERTIFIED_TO_FILE_ACTION OR c.certificateToFileAction IS NOT NULL) AND (c.luponReferral IS NOT NULL OR (c.department IS NOT NULL AND UPPER(c.department.name) = 'LUPON') OR c.certificateToFileAction IS NOT NULL OR EXISTS (SELECT 1 FROM Case parent WHERE parent.caseNumber = c.previousCaseNumber AND (parent.luponReferral IS NOT NULL OR (parent.department IS NOT NULL AND UPPER(parent.department.name) = 'LUPON')))) THEN 1L ELSE 0L END) AS cfaIssued
+        FROM Case c
+        WHERE (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.createdAt >= :startDate
+          AND c.createdAt <= :endDate
+    """)
+    com.barangay.cases.shared.projection.LuponReportKpiProjection getLuponReportKpiMetrics(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    /**
+     * Aggregates total Lupon-referred root cases grouped by year and month.
+     */
+    @Query("""
+        SELECT
+            EXTRACT(YEAR FROM c.createdAt) AS year,
+            EXTRACT(MONTH FROM c.createdAt) AS month,
+            COUNT(c.id) AS count
+        FROM Case c
+        WHERE (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND (c.luponReferral IS NOT NULL OR c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION OR (c.department IS NOT NULL AND UPPER(c.department.name) = 'LUPON') OR EXISTS (SELECT 1 FROM Case child WHERE child.previousCaseNumber = c.caseNumber AND (child.luponReferral IS NOT NULL OR child.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION OR (child.department IS NOT NULL AND UPPER(child.department.name) = 'LUPON'))))
+          AND c.createdAt >= :startDate
+          AND c.createdAt <= :endDate
+        GROUP BY EXTRACT(YEAR FROM c.createdAt), EXTRACT(MONTH FROM c.createdAt)
+        ORDER BY EXTRACT(YEAR FROM c.createdAt) ASC, EXTRACT(MONTH FROM c.createdAt) ASC
+    """)
+    List<CaseCountByMonthProjection> getMonthlyLuponCaseCount(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    /**
+     * Aggregates total Lupon-referred root cases grouped by individual calendar day.
+     */
+    @Query("""
+        SELECT
+            CAST(c.createdAt AS LocalDate) AS date,
+            COUNT(c.id) AS count
+        FROM Case c
+        WHERE (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND (c.luponReferral IS NOT NULL OR c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION OR (c.department IS NOT NULL AND UPPER(c.department.name) = 'LUPON') OR EXISTS (SELECT 1 FROM Case child WHERE child.previousCaseNumber = c.caseNumber AND (child.luponReferral IS NOT NULL OR child.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION OR (child.department IS NOT NULL AND UPPER(child.department.name) = 'LUPON'))))
+          AND c.createdAt >= :startDate
+          AND c.createdAt <= :endDate
+        GROUP BY CAST(c.createdAt AS LocalDate)
+        ORDER BY CAST(c.createdAt AS LocalDate) ASC
+    """)
+    List<CaseCountByDayProjection> getDailyLuponCaseCounts(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    /**
+     * Aggregates case counts grouped by case status for latest active cycles referred to Lupon.
+     */
+    @Query("""
+        SELECT
+            c.caseStatus AS status,
+            COUNT(c.id) AS count
+        FROM Case c
+        WHERE (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND (c.luponReferral IS NOT NULL OR c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION OR (c.department IS NOT NULL AND UPPER(c.department.name) = 'LUPON') OR EXISTS (SELECT 1 FROM Case parent WHERE parent.caseNumber = c.previousCaseNumber AND (parent.luponReferral IS NOT NULL OR (parent.department IS NOT NULL AND UPPER(parent.department.name) = 'LUPON'))))
+          AND c.createdAt >= :startDate
+          AND c.createdAt <= :endDate
+          AND c.caseStatus IS NOT NULL
+        GROUP BY c.caseStatus
+    """)
+    List<CaseStatusCountProjection> getLuponCaseStatusCounts(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
 }

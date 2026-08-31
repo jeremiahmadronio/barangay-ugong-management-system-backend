@@ -10,5 +10,6 @@ public record LuponStatsResponse(
         String totalReferredTrend,
         long activeConciliation,
         long successfullySettled,
+        double settlementRate,
         long cfaIssued
 ) {}
