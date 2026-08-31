@@ -673,4 +673,25 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );
+
+    /**
+     * Aggregates Lupon Lifecycle KPIs (Archived and Trash counts for Lupon-referred cases).
+     */
+    @Query("""
+        SELECT
+            SUM(CASE WHEN c.isArchived = true AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') THEN 1L ELSE 0L END) AS totalArchived,
+            SUM(CASE WHEN c.isArchived = true AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+                     AND ((c.archivedAt IS NOT NULL AND c.archivedAt >= :startOfMonth AND c.archivedAt <= :endOfMonth) OR (c.archivedAt IS NULL AND c.updatedAt >= :startOfMonth AND c.updatedAt <= :endOfMonth)) THEN 1L ELSE 0L END) AS totalArchivedThisMonth,
+            SUM(CASE WHEN c.isDeleted = true AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') THEN 1L ELSE 0L END) AS totalRecentlyDeleted,
+            SUM(CASE WHEN (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+                     AND ((c.isDeleted = true AND c.deletedAt IS NOT NULL AND c.deletedAt >= :startOfMonth AND c.deletedAt <= :endOfMonth)
+                          OR (c.isPermanentDeleted = true AND c.permanentDeletedAt IS NOT NULL AND c.permanentDeletedAt >= :startOfMonth AND c.permanentDeletedAt <= :endOfMonth)
+                          OR ((c.isDeleted = true OR c.isPermanentDeleted = true) AND c.updatedAt >= :startOfMonth AND c.updatedAt <= :endOfMonth)) THEN 1L ELSE 0L END) AS totalRecentlyDeletedThisMonth
+        FROM Case c
+        WHERE (c.luponReferral IS NOT NULL OR c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION OR (c.department IS NOT NULL AND UPPER(c.department.name) = 'LUPON') OR EXISTS (SELECT 1 FROM Case child WHERE child.previousCaseNumber = c.caseNumber AND (child.luponReferral IS NOT NULL OR child.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION OR (child.department IS NOT NULL AND UPPER(child.department.name) = 'LUPON'))))
+    """)
+    com.barangay.cases.shared.projection.BlotterLifecycleKpiProjection getLuponLifecycleKpiMetrics(
+            @Param("startOfMonth") LocalDateTime startOfMonth,
+            @Param("endOfMonth") LocalDateTime endOfMonth
+    );
 }

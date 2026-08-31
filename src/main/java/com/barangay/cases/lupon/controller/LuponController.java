@@ -24,6 +24,7 @@ public class LuponController {
     private final LuponService luponService;
     private final ConciliationService conciliationService;
     private final com.barangay.cases.lupon.service.LuponReports luponReports;
+    private final com.barangay.cases.lupon.service.LuponArchive luponArchive;
 
     /**
      * Retrieves analytics KPI metrics for Lupong Tagapamayapa reports within a date range.
@@ -264,5 +265,100 @@ public class LuponController {
             @Valid @RequestBody com.barangay.cases.blotter.dto.ExtendCaseRequest request) {
         com.barangay.cases.blotter.dto.BlotterCaseDetailResponse response = luponService.extendLuponCase(caseId, request);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Retrieves summary KPI metrics for Lupon Archive and Trash Vault.
+     *
+     * @return {@link ResponseEntity} of {@link com.barangay.cases.blotter.dto.BlotterLifecycleKpiResponse}
+     */
+    @GetMapping("/archive-kpi")
+    public ResponseEntity<com.barangay.cases.blotter.dto.BlotterLifecycleKpiResponse> getLuponLifecycleKpi() {
+        com.barangay.cases.blotter.dto.BlotterLifecycleKpiResponse response = luponArchive.getLuponLifecycleKpi();
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Retrieves paginated archived Lupon cases for the Archive Table.
+     *
+     * @param filter filter request
+     * @return {@link PageResponse} of {@link com.barangay.cases.blotter.dto.BlotterArchiveItemResponse}
+     */
+    @GetMapping("/archive-table")
+    public ResponseEntity<PageResponse<com.barangay.cases.blotter.dto.BlotterArchiveItemResponse>> getArchivedLuponCases(
+            @ModelAttribute com.barangay.cases.blotter.dto.BlotterArchiveFilterRequest filter) {
+        PageResponse<com.barangay.cases.blotter.dto.BlotterArchiveItemResponse> response = luponArchive.getArchivedLuponCases(filter);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Retrieves paginated soft-deleted Lupon cases for the Recycle Bin / Trash Table.
+     *
+     * @param filter filter request
+     * @return {@link PageResponse} of {@link com.barangay.cases.blotter.dto.BlotterRecentDeleteItemResponse}
+     */
+    @GetMapping("/recent-delete-table")
+    public ResponseEntity<PageResponse<com.barangay.cases.blotter.dto.BlotterRecentDeleteItemResponse>> getRecentDeletedLuponCases(
+            @ModelAttribute com.barangay.cases.blotter.dto.BlotterArchiveFilterRequest filter) {
+        PageResponse<com.barangay.cases.blotter.dto.BlotterRecentDeleteItemResponse> response = luponArchive.getRecentDeletedLuponCases(filter);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Archives a resolved or completed Lupon case.
+     *
+     * @param caseId  the case ID
+     * @param request archive remarks payload
+     */
+    @PatchMapping("/archive-case/{caseId}")
+    public ResponseEntity<Void> archiveCase(
+            @PathVariable Long caseId,
+            @Valid @RequestBody com.barangay.cases.blotter.dto.ArchiveCaseRequest request) {
+        luponArchive.archiveCase(caseId, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Restores an archived Lupon case back to active records.
+     *
+     * @param caseId the case ID
+     */
+    @PatchMapping("/{caseId}/restore-archive")
+    public ResponseEntity<Void> restoreArchivedCase(@PathVariable Long caseId) {
+        luponArchive.restoreArchivedCase(caseId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Moves a Lupon case to the recycle bin (soft delete).
+     *
+     * @param caseId the case ID
+     */
+    @PatchMapping("/{caseId}/soft-delete")
+    public ResponseEntity<Void> softDeleteCase(@PathVariable Long caseId) {
+        luponArchive.softDelete(caseId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Restores a soft-deleted Lupon case from recycle bin back to active records.
+     *
+     * @param caseId the case ID
+     */
+    @PatchMapping("/{caseId}/restore-trash")
+    public ResponseEntity<Void> restoreDeletedCase(@PathVariable Long caseId) {
+        luponArchive.restoreArchivedCase(caseId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Permanently purges a Lupon case from trash (audit-safe flag).
+     *
+     * @param caseId the case ID
+     */
+    @DeleteMapping("/{caseId}/permanent-delete")
+    public ResponseEntity<Void> permanentDeleteCase(@PathVariable Long caseId) {
+        luponArchive.permanentDeleteCaseByFlag(caseId);
+        return ResponseEntity.noContent().build();
     }
 }
