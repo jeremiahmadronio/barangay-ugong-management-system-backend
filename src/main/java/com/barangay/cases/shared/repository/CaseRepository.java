@@ -23,11 +23,39 @@ import com.barangay.zshared.enumerated.FilingType;
 public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositoryCustom {
 
     /**
-     * Efficient JPQL query to retrieve all cases where a person is involved as Complainant, Respondent, or Witness.
-     * Uses indexes on person_id. Zero findAll() operations.
+     * Efficient JPQL query to retrieve all active cases where a person is involved as Complainant, Respondent, or Witness.
+     * Matches by person ID or by normalized first name and last name.
+     * Excludes soft-deleted, permanently-deleted, and archived cases.
      */
-    @Query("SELECT DISTINCT c FROM Case c LEFT JOIN c.witnesses w WHERE (c.complainant IS NOT NULL AND c.complainant.person.id = :personId) OR (c.respondent IS NOT NULL AND c.respondent.person.id = :personId) OR (w.person IS NOT NULL AND w.person.id = :personId) ORDER BY c.createdAt DESC")
-    List<Case> findByPersonIdInCaseRoles(@Param("personId") Long personId);
+    @Query("""
+        SELECT DISTINCT c FROM Case c
+        LEFT JOIN c.complainant comp
+        LEFT JOIN comp.person compP
+        LEFT JOIN c.respondent resp
+        LEFT JOIN resp.person respP
+        LEFT JOIN c.witnesses w
+        LEFT JOIN w.person wP
+        WHERE (
+            (compP.id = :personId OR (:firstName IS NOT NULL AND :lastName IS NOT NULL AND LOWER(TRIM(compP.firstName)) = LOWER(TRIM(:firstName)) AND LOWER(TRIM(compP.lastName)) = LOWER(TRIM(:lastName))))
+            OR
+            (respP.id = :personId OR (:firstName IS NOT NULL AND :lastName IS NOT NULL AND LOWER(TRIM(respP.firstName)) = LOWER(TRIM(:firstName)) AND LOWER(TRIM(respP.lastName)) = LOWER(TRIM(:lastName))))
+            OR
+            (wP.id = :personId OR (:firstName IS NOT NULL AND :lastName IS NOT NULL AND LOWER(TRIM(wP.firstName)) = LOWER(TRIM(:firstName)) AND LOWER(TRIM(wP.lastName)) = LOWER(TRIM(:lastName))))
+        )
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+        ORDER BY c.createdAt DESC
+    """)
+    List<Case> findByPersonInCaseRoles(
+            @Param("personId") Long personId,
+            @Param("firstName") String firstName,
+            @Param("lastName") String lastName
+    );
+
+    default List<Case> findByPersonIdInCaseRoles(Long personId) {
+        return findByPersonInCaseRoles(personId, null, null);
+    }
 
     /**
      * Checks whether a case with the given case number already exists in the database.
@@ -488,6 +516,27 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             @Param("endOfDay") LocalDateTime endOfDay
     );
 
+    @Query("""
+        SELECT c
+        FROM Case c
+        LEFT JOIN FETCH c.complainant comp
+        LEFT JOIN FETCH comp.person compPerson
+        LEFT JOIN FETCH c.respondent resp
+        LEFT JOIN FETCH resp.person respPerson
+        WHERE (c.luponReferral IS NOT NULL OR c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION OR (c.department IS NOT NULL AND UPPER(c.department.name) = 'LUPON') OR EXISTS (SELECT 1 FROM Case child WHERE child.previousCaseNumber = c.caseNumber AND (child.luponReferral IS NOT NULL OR child.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION OR (child.department IS NOT NULL AND UPPER(child.department.name) = 'LUPON'))))
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND ((c.luponReferral IS NOT NULL AND c.luponReferral.referredAt >= :startOfDay AND c.luponReferral.referredAt <= :endOfDay)
+               OR (c.createdAt >= :startOfDay AND c.createdAt <= :endOfDay)
+               OR (c.updatedAt >= :startOfDay AND c.updatedAt <= :endOfDay))
+        ORDER BY c.createdAt DESC
+    """)
+    List<Case> findRecentLuponCasesToday(
+            @Param("startOfDay") LocalDateTime startOfDay,
+            @Param("endOfDay") LocalDateTime endOfDay
+    );
+
     /**
      * Counts all distinct root cases referred to Lupon (excluding archived and deleted).
      */
@@ -693,5 +742,32 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
     com.barangay.cases.shared.projection.BlotterLifecycleKpiProjection getLuponLifecycleKpiMetrics(
             @Param("startOfMonth") LocalDateTime startOfMonth,
             @Param("endOfMonth") LocalDateTime endOfMonth
+    );
+
+    /**
+     * Aggregates Lupon Operational Dashboard Case KPIs:
+     * 1. Total cases referred to Lupon this week (Monday to Sunday)
+     * 2. Active cases currently under conciliation
+     * 3. Total Certificate to File Action (CFA) issued this week
+     */
+    @Query("""
+        SELECT
+            SUM(CASE WHEN (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+                     AND ((c.luponReferral IS NOT NULL AND c.luponReferral.referredAt >= :startOfWeek AND c.luponReferral.referredAt <= :endOfWeek)
+                          OR (c.createdAt >= :startOfWeek AND c.createdAt <= :endOfWeek AND (c.luponReferral IS NOT NULL OR c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION OR (c.department IS NOT NULL AND UPPER(c.department.name) = 'LUPON')))) THEN 1L ELSE 0L END) AS totalReferredThisWeek,
+            SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
+                     AND c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION THEN 1L ELSE 0L END) AS totalUnderConciliation,
+            SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
+                     AND ((c.certificateToFileAction IS NOT NULL AND c.certificateToFileAction.createdAt >= :startOfWeek AND c.certificateToFileAction.createdAt <= :endOfWeek)
+                          OR (c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.CERTIFIED_TO_FILE_ACTION AND c.updatedAt >= :startOfWeek AND c.updatedAt <= :endOfWeek)) THEN 1L ELSE 0L END) AS totalCfaIssuedThisWeek
+        FROM Case c
+        WHERE (c.luponReferral IS NOT NULL OR c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION OR (c.department IS NOT NULL AND UPPER(c.department.name) = 'LUPON') OR EXISTS (SELECT 1 FROM Case child WHERE child.previousCaseNumber = c.caseNumber AND (child.luponReferral IS NOT NULL OR child.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_CONCILIATION OR (child.department IS NOT NULL AND UPPER(child.department.name) = 'LUPON'))))
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+    """)
+    com.barangay.cases.lupon.projection.LuponDashboardKpiProjection getLuponDashboardCaseKpis(
+            @Param("startOfWeek") LocalDateTime startOfWeek,
+            @Param("endOfWeek") LocalDateTime endOfWeek
     );
 }

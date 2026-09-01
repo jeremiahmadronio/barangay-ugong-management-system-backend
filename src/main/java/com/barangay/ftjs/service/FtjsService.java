@@ -2,14 +2,13 @@ package com.barangay.ftjs.service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Period;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
-import com.barangay.ftjs.dto.*;
-import com.barangay.ftjs.projection.FtjsDashboardStatsProjection;
-import com.barangay.zshared.dto.ResidentDetailDto;
-import com.barangay.zshared.mapper.PersonMapper;
-import com.barangay.zshared.mapper.ResidentMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -17,8 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.barangay.cases.shared.model.Case;
 import com.barangay.cases.shared.repository.CaseRepository;
+import com.barangay.ftjs.dto.*;
 import com.barangay.ftjs.model.FirstTimeJobSeeker;
 import com.barangay.ftjs.model.FirstTimeJobSeekerTimeLine;
+import com.barangay.ftjs.projection.FtjsDashboardStatsProjection;
 import com.barangay.ftjs.repository.FirstTimeJobSeekerRepository;
 import com.barangay.ftjs.repository.FirstTimeJobSeekerTimeLineRepository;
 import com.barangay.people.person.model.Person;
@@ -26,9 +27,12 @@ import com.barangay.people.resident.model.Resident;
 import com.barangay.people.resident.repository.ResidentRepository;
 import com.barangay.usermanagement.user.model.User;
 import com.barangay.usermanagement.user.repository.UserRepository;
+import com.barangay.zshared.dto.ResidentDetailDto;
 import com.barangay.zshared.enumerated.FtjsStatus;
 import com.barangay.zshared.enumerated.TimeLineType;
 import com.barangay.zshared.exception.ResourceNotFoundException;
+import com.barangay.zshared.mapper.PersonMapper;
+import com.barangay.zshared.mapper.ResidentMapper;
 import com.barangay.zshared.security.SecurityUtils;
 
 import lombok.RequiredArgsConstructor;
@@ -51,12 +55,9 @@ public class FtjsService {
     private final PersonMapper personMapper;
 
     /**
-     * Calculates FTJS stats: total issued, issued this month (with trend vs last month), originals, re-issuances.
-     */
-    @Transactional(readOnly = true)
-    /**
      * Calculates total certificate issuances, monthly counts, and percentage trends.
      */
+    @Transactional(readOnly = true)
     public FtjsStatsResponse getStats() {
         LocalDate now = LocalDate.now();
         LocalDate firstOfThisMonth = now.withDayOfMonth(1);
@@ -92,9 +93,6 @@ public class FtjsService {
      * Paginated + filtered FTJS summary table.
      */
     @Transactional(readOnly = true)
-    /**
-     * Retrieves paginated FTJS summary records with optional search and filter parameters.
-     */
     public Page<FtjsSummaryResponse> getSummaryTable(
             String search, FtjsStatus status, String purpose, Integer issuanceCount, Pageable pageable) {
         return ftjsRepository.findSummaryFiltered(search, status, purpose, issuanceCount, pageable);
@@ -137,9 +135,6 @@ public class FtjsService {
      * Retrieves unified FtjsResidentSearchResponse data for a specific resident by ID.
      */
     @Transactional(readOnly = true)
-    /**
-     * Fetches resident FTJS profile, previous issuances, and barangay case history.
-     */
     public FtjsResidentSearchResponse getResidentFtjsProfile(Long residentId) {
         Resident resident = residentRepository.findById(residentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Resident not found with id: " + residentId));
@@ -159,8 +154,13 @@ public class FtjsService {
 
         if (person != null) {
             fullName = buildFullName(person.getFirstName(), person.getMiddleName(), person.getLastName(), person.getSuffix());
-            if (person.getAge() != null) {
+            int calcAge = person.getCalculatedAge();
+            if (calcAge > 0) {
+                age = calcAge;
+            } else if (person.getAge() != null) {
                 age = (int) person.getAge();
+            } else if (person.getBirthDate() != null) {
+                age = Period.between(person.getBirthDate(), LocalDate.now()).getYears();
             }
             gender = person.getGender();
             civilStatus = person.getCivilStatus();
@@ -191,32 +191,59 @@ public class FtjsService {
                     (latest.getCreatedAt() != null ? latest.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) : null);
         }
 
-        // 2. Barangay Case History
-        List<FtjsBarangayCaseHistoryResponse> caseHistoryList = List.of();
+        // 2. Barangay Case History (Excludes deleted/archived and deduplicates reopened case chains)
+        List<FtjsBarangayCaseHistoryResponse> caseHistoryList = new ArrayList<>();
         if (person != null) {
             Long personId = person.getId();
-            List<Case> cases = caseRepository.findByPersonIdInCaseRoles(personId);
-            caseHistoryList = cases.stream().map(c -> {
+            String pFirst = person.getFirstName() != null ? person.getFirstName().trim() : null;
+            String pLast = person.getLastName() != null ? person.getLastName().trim() : null;
+
+            List<Case> rawCases = caseRepository.findByPersonInCaseRoles(personId, pFirst, pLast);
+
+            // Deduplicate reopened case chains: Superseded cases have their reOpenedCaseNumber in the active cases
+            Set<String> supersededCaseNumbers = new HashSet<>();
+            for (Case c : rawCases) {
+                if (c.getReOpenedCaseNumber() != null && !c.getReOpenedCaseNumber().trim().isEmpty()) {
+                    supersededCaseNumbers.add(c.getCaseNumber());
+                }
+            }
+
+            for (Case c : rawCases) {
+                if (supersededCaseNumbers.contains(c.getCaseNumber())) {
+                    continue;
+                }
+
                 String role = "OTHER";
-                if (c.getComplainant() != null && c.getComplainant().getPerson() != null && c.getComplainant().getPerson().getId().equals(personId)) {
+                boolean isComp = c.getComplainant() != null && isSamePerson(person, c.getComplainant().getPerson());
+                boolean isResp = c.getRespondent() != null && isSamePerson(person, c.getRespondent().getPerson());
+                boolean isWitness = c.getWitnesses() != null && c.getWitnesses().stream().anyMatch(w -> isSamePerson(person, w.getPerson()));
+
+                // If not matched directly or with middle name, skip this case
+                if (!isComp && !isResp && !isWitness) {
+                    continue;
+                }
+
+                if (isComp) {
                     role = "COMPLAINANT";
-                } else if (c.getRespondent() != null && c.getRespondent().getPerson() != null && c.getRespondent().getPerson().getId().equals(personId)) {
+                } else if (isResp) {
                     role = "RESPONDENT";
-                } else if (c.getWitnesses() != null && c.getWitnesses().stream().anyMatch(w -> w.getPerson() != null && w.getPerson().getId().equals(personId))) {
+                } else if (isWitness) {
                     role = "WITNESS";
                 }
 
-                String incidentNature = c.getIncidentDetail() != null && c.getIncidentDetail().getNatureOfComplaint() != null ?
-                        c.getIncidentDetail().getNatureOfComplaint() : "N/A";
+                String incidentNature = "General Complaint";
+                if (c.getIncidentDetail() != null && c.getIncidentDetail().getNatureOfComplaint() != null && !c.getIncidentDetail().getNatureOfComplaint().trim().isEmpty()) {
+                    incidentNature = c.getIncidentDetail().getNatureOfComplaint();
+                }
 
-                return new FtjsBarangayCaseHistoryResponse(
+                caseHistoryList.add(new FtjsBarangayCaseHistoryResponse(
                         c.getCaseNumber() != null ? c.getCaseNumber() : "CASE-" + c.getId(),
                         incidentNature,
                         role,
                         c.getCreatedAt(),
                         c.getCaseStatus() != null ? c.getCaseStatus().name() : "PENDING"
-                );
-            }).toList();
+                ));
+            }
         }
 
         return new FtjsResidentSearchResponse(
@@ -234,6 +261,49 @@ public class FtjsService {
                 issuanceHistories,
                 caseHistoryList
         );
+    }
+
+    private boolean isSamePerson(Person target, Person candidate) {
+        if (target == null || candidate == null) return false;
+
+        // 1. Direct ID match
+        if (target.getId() != null && candidate.getId() != null && target.getId().equals(candidate.getId())) {
+            return true;
+        }
+
+        // 2. First Name & Last Name check (case-insensitive, trimmed)
+        if (target.getFirstName() == null || target.getLastName() == null ||
+                candidate.getFirstName() == null || candidate.getLastName() == null) {
+            return false;
+        }
+
+        boolean firstMatches = target.getFirstName().trim().equalsIgnoreCase(candidate.getFirstName().trim());
+        boolean lastMatches = target.getLastName().trim().equalsIgnoreCase(candidate.getLastName().trim());
+        if (!firstMatches || !lastMatches) {
+            return false;
+        }
+
+        // 3. Middle Name check for high accuracy (matches exact middle name, or middle initial, e.g. "Dragon" matches "D." or "Dragon")
+        String tMid = target.getMiddleName() != null ? target.getMiddleName().trim().toLowerCase().replaceAll("[^a-z]", "") : "";
+        String cMid = candidate.getMiddleName() != null ? candidate.getMiddleName().trim().toLowerCase().replaceAll("[^a-z]", "") : "";
+
+        if (!tMid.isEmpty() && !cMid.isEmpty()) {
+            boolean exactMid = tMid.equalsIgnoreCase(cMid);
+            boolean initialMatches = tMid.startsWith(cMid) || cMid.startsWith(tMid);
+            if (!exactMid && !initialMatches) {
+                // Different middle names (e.g. "Dragon" vs "Santos"), reject to prevent false positives
+                return false;
+            }
+        }
+
+        // 4. Suffix check if present (e.g. "Jr." vs "Sr.")
+        String tSuffix = target.getSuffix() != null ? target.getSuffix().trim().toLowerCase().replaceAll("[^a-z0-9]", "") : "";
+        String cSuffix = candidate.getSuffix() != null ? candidate.getSuffix().trim().toLowerCase().replaceAll("[^a-z0-9]", "") : "";
+        if (!tSuffix.isEmpty() && !cSuffix.isEmpty() && !tSuffix.equalsIgnoreCase(cSuffix)) {
+            return false;
+        }
+
+        return true;
     }
 
     private String buildFullName(String first, String middle, String last, String suffix) {
@@ -313,7 +383,6 @@ public class FtjsService {
 
         FirstTimeJobSeeker savedFtjs = ftjsRepository.saveAndFlush(ftjs);
 
-
         FirstTimeJobSeekerTimeLine timeline = new FirstTimeJobSeekerTimeLine();
         timeline.setFtjs(savedFtjs);
         timeline.setTimelineType(isFirstIssuance ? TimeLineType.SUBMITTED : TimeLineType.RE_ISSUANCE);
@@ -336,21 +405,16 @@ public class FtjsService {
         return buildFtjsResponse(resident);
     }
 
-
     /**
      * Retrieves FTJS Application detail by ID.
      */
     @Transactional
-    /**
-     * Fetches detailed information for a specific FTJS applicant record.
-     */
     public FtjsDetailResponse getFtjsApplicantDetail(Long id){
         FirstTimeJobSeeker ftjs = ftjsRepository.findById(id).orElseThrow(() ->
                 new RuntimeException("Ftjs not found!"));
 
         return mapToFtjsResponse(ftjs);
     }
-
 
     private FtjsDetailResponse mapToFtjsResponse(FirstTimeJobSeeker ftjs){
         if(ftjs == null) return null;
@@ -392,10 +456,6 @@ public class FtjsService {
         );
     }
 
-
-
-
-
     @Transactional(readOnly = true)
     public FtjsDashboardSummaryDto getDashboardSummary() {
         FtjsDashboardStatsProjection stats = ftjsRepository.getDashboardSummaryMetrics();
@@ -423,6 +483,4 @@ public class FtjsService {
                 total
         );
     }
-
-
 }

@@ -2,22 +2,28 @@ package com.barangay.cases.lupon.service;
 
 import com.barangay.cases.blotter.dto.DailyCaseTrendResponse;
 import com.barangay.cases.blotter.dto.MonthlyCaseTrendResponse;
+import com.barangay.cases.lupon.dto.LuponDashboardKpiResponse;
 import com.barangay.cases.lupon.dto.LuponReportKpiResponse;
+import com.barangay.cases.lupon.projection.LuponDashboardKpiProjection;
 import com.barangay.cases.shared.projection.CaseCountByDayProjection;
 import com.barangay.cases.shared.projection.CaseCountByMonthProjection;
 import com.barangay.cases.shared.projection.LuponReportKpiProjection;
 import com.barangay.cases.shared.repository.CaseRepository;
+import com.barangay.cases.shared.repository.CaseSessionRepository;
+import com.barangay.zshared.enumerated.SessionStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -32,6 +38,7 @@ public class LuponReports {
     private static final DateTimeFormatter DAY_LABEL_FORMATTER = DateTimeFormatter.ofPattern("MMM dd");
 
     private final CaseRepository caseRepository;
+    private final CaseSessionRepository caseSessionRepository;
 
     /**
      * Calculates Lupon KPI statistics (Total Referred, Settled, Settlement Rate, Active Conciliations, CFA Issued)
@@ -253,6 +260,163 @@ public class LuponReports {
                 totalCases,
                 breakdownList
         );
+    }
+
+    /**
+     * Calculates the 4 core Lupon Operational Dashboard KPI metrics:
+     * 1. Total Cases Referred to Lupon this week (Monday to Sunday)
+     * 2. Active cases currently under conciliation
+     * 3. Upcoming Scheduled Conciliation Hearings this week
+     * 4. Total Certificate to File Action (CFA) issued this week
+     *
+     * Excludes archived, soft-deleted, and permanently deleted cases.
+     * Deduplicates child cycles appropriately.
+     *
+     * @return {@link LuponDashboardKpiResponse}
+     */
+    @Transactional(readOnly = true)
+    public LuponDashboardKpiResponse getDashboardKpis() {
+        LocalDate today = LocalDate.now();
+        LocalDate mondayDate = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate sundayDate = today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+
+        LocalDateTime startOfWeek = mondayDate.atStartOfDay();
+        LocalDateTime endOfWeek = sundayDate.atTime(LocalTime.MAX);
+
+        LuponDashboardKpiProjection caseMetrics = caseRepository.getLuponDashboardCaseKpis(
+                startOfWeek,
+                endOfWeek
+        );
+
+        long totalReferred = (caseMetrics != null && caseMetrics.getTotalReferredThisWeek() != null)
+                ? caseMetrics.getTotalReferredThisWeek().longValue() : 0L;
+        long totalUnderConciliation = (caseMetrics != null && caseMetrics.getTotalUnderConciliation() != null)
+                ? caseMetrics.getTotalUnderConciliation().longValue() : 0L;
+        long totalCfaIssued = (caseMetrics != null && caseMetrics.getTotalCfaIssuedThisWeek() != null)
+                ? caseMetrics.getTotalCfaIssuedThisWeek().longValue() : 0L;
+
+        long upcomingHearings = caseSessionRepository.countUpcomingLuponSessionsThisWeek(
+                startOfWeek,
+                endOfWeek,
+                SessionStatus.SCHEDULED
+        );
+
+        return new LuponDashboardKpiResponse(
+                mondayDate,
+                sundayDate,
+                totalReferred,
+                totalUnderConciliation,
+                upcomingHearings,
+                totalCfaIssued
+        );
+    }
+
+    /**
+     * Retrieves up to 5 of the most recently referred Lupon cases processed today.
+     * Deduplicates reopened cycles to show only distinct root cases with their endmost child case status.
+     *
+     * @return list of recent cases (empty if none, up to max 5)
+     */
+    @Transactional(readOnly = true)
+    public List<com.barangay.cases.blotter.dto.RecentBlotterCaseResponse> getRecentCasesToday() {
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
+
+        List<com.barangay.cases.shared.model.Case> casesToday = caseRepository.findRecentLuponCasesToday(
+                startOfDay,
+                endOfDay
+        );
+
+        Map<Long, com.barangay.cases.blotter.dto.RecentBlotterCaseResponse> distinctRootCasesMap = new LinkedHashMap<>();
+
+        for (com.barangay.cases.shared.model.Case c : casesToday) {
+            com.barangay.cases.shared.model.Case rootCase = findRootCase(c);
+            if (distinctRootCasesMap.containsKey(rootCase.getId())) {
+                continue;
+            }
+
+            List<com.barangay.cases.shared.model.Case> lineage = getCaseLineage(rootCase);
+            com.barangay.cases.shared.model.Case endmostCase = lineage.get(lineage.size() - 1);
+
+            String complainantName = "—";
+            if (rootCase.getComplainant() != null && rootCase.getComplainant().getPerson() != null) {
+                String fn = rootCase.getComplainant().getPerson().getFirstName() != null ? rootCase.getComplainant().getPerson().getFirstName() : "";
+                String ln = rootCase.getComplainant().getPerson().getLastName() != null ? rootCase.getComplainant().getPerson().getLastName() : "";
+                complainantName = (fn + " " + ln).trim();
+                if (complainantName.isEmpty()) complainantName = "—";
+            }
+
+            String respondentName = "—";
+            if (rootCase.getRespondent() != null && rootCase.getRespondent().getPerson() != null) {
+                String fn = rootCase.getRespondent().getPerson().getFirstName() != null ? rootCase.getRespondent().getPerson().getFirstName() : "";
+                String ln = rootCase.getRespondent().getPerson().getLastName() != null ? rootCase.getRespondent().getPerson().getLastName() : "";
+                respondentName = (fn + " " + ln).trim();
+                if (respondentName.isEmpty()) respondentName = "—";
+            }
+
+            com.barangay.cases.blotter.dto.RecentBlotterCaseResponse resp = new com.barangay.cases.blotter.dto.RecentBlotterCaseResponse(
+                    rootCase.getId(),
+                    rootCase.getCaseNumber(),
+                    complainantName,
+                    respondentName,
+                    rootCase.getFilingType(),
+                    endmostCase.getCaseStatus(),
+                    rootCase.getCreatedAt()
+            );
+
+            distinctRootCasesMap.put(rootCase.getId(), resp);
+
+            if (distinctRootCasesMap.size() >= 5) {
+                break;
+            }
+        }
+
+        return new ArrayList<>(distinctRootCasesMap.values());
+    }
+
+    /**
+     * Retrieves up to 5 of today's scheduled conciliation hearings for Lupon cases.
+     *
+     * @return list of {@link com.barangay.cases.blotter.dto.QuickMediationSummaryDto}
+     */
+    @Transactional(readOnly = true)
+    public List<com.barangay.cases.blotter.dto.QuickMediationSummaryDto> getQuickTodayConciliations() {
+        LocalDate today = LocalDate.now();
+        return caseSessionRepository.findQuickTodayLuponConciliations(
+                today.atStartOfDay(),
+                today.atTime(LocalTime.MAX),
+                org.springframework.data.domain.PageRequest.of(0, 5)
+        );
+    }
+
+    private com.barangay.cases.shared.model.Case findRootCase(com.barangay.cases.shared.model.Case targetCase) {
+        com.barangay.cases.shared.model.Case root = targetCase;
+        while (root.getPreviousCaseNumber() != null && !root.getPreviousCaseNumber().trim().isEmpty()) {
+            Optional<com.barangay.cases.shared.model.Case> prevOpt = caseRepository.findByCaseNumber(root.getPreviousCaseNumber().trim());
+            if (prevOpt.isPresent()) {
+                root = prevOpt.get();
+            } else {
+                break;
+            }
+        }
+        return root;
+    }
+
+    private List<com.barangay.cases.shared.model.Case> getCaseLineage(com.barangay.cases.shared.model.Case rootCase) {
+        List<com.barangay.cases.shared.model.Case> lineage = new ArrayList<>();
+        com.barangay.cases.shared.model.Case curr = rootCase;
+        lineage.add(curr);
+        while (curr.getReOpenedCaseNumber() != null && !curr.getReOpenedCaseNumber().trim().isEmpty()) {
+            Optional<com.barangay.cases.shared.model.Case> nextOpt = caseRepository.findByCaseNumber(curr.getReOpenedCaseNumber().trim());
+            if (nextOpt.isPresent()) {
+                curr = nextOpt.get();
+                lineage.add(curr);
+            } else {
+                break;
+            }
+        }
+        return lineage;
     }
 
     private String formatEnumLabel(String enumName) {

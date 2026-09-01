@@ -27,6 +27,40 @@ public class LuponController {
     private final com.barangay.cases.lupon.service.LuponArchive luponArchive;
 
     /**
+     * Retrieves the 4 core Operational Dashboard KPI metrics for Lupong Tagapamayapa.
+     * (Total Referred This Week, Under Conciliation, Upcoming Hearings This Week, Total CFA Issued This Week).
+     *
+     * @return {@link ResponseEntity} of {@link LuponDashboardKpiResponse}
+     */
+    @GetMapping("/dashboard-kpi")
+    public ResponseEntity<LuponDashboardKpiResponse> getDashboardKpis() {
+        LuponDashboardKpiResponse response = luponReports.getDashboardKpis();
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Retrieves up to 5 recently referred Lupon cases processed today.
+     *
+     * @return {@link ResponseEntity} of list of {@link com.barangay.cases.blotter.dto.RecentBlotterCaseResponse}
+     */
+    @GetMapping("/recent-cases-today")
+    public ResponseEntity<List<com.barangay.cases.blotter.dto.RecentBlotterCaseResponse>> getRecentCasesToday() {
+        List<com.barangay.cases.blotter.dto.RecentBlotterCaseResponse> response = luponReports.getRecentCasesToday();
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Retrieves up to 5 of today's scheduled conciliation hearings for Lupon cases.
+     *
+     * @return {@link ResponseEntity} of list of {@link com.barangay.cases.blotter.dto.QuickMediationSummaryDto}
+     */
+    @GetMapping("/quick-today-conciliations")
+    public ResponseEntity<List<com.barangay.cases.blotter.dto.QuickMediationSummaryDto>> getQuickTodayConciliations() {
+        List<com.barangay.cases.blotter.dto.QuickMediationSummaryDto> response = luponReports.getQuickTodayConciliations();
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Retrieves analytics KPI metrics for Lupong Tagapamayapa reports within a date range.
      *
      * @param startDate the inclusive starting date (defaults to 1st of month)
