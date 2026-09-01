@@ -13,5 +13,5 @@ public class ClearanceService {
     private final IssuedCertificateRepository issuedCertificateRepository;
 
 
-    
+
 }
