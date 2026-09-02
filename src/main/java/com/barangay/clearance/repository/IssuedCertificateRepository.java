@@ -224,5 +224,114 @@ public interface IssuedCertificateRepository extends JpaRepository<IssuedCertifi
         @Param("startDate") LocalDateTime startDate,
         @Param("endDate") LocalDateTime endDate
     );
+
+    /**
+     * Aggregates lifecycle counts for Clearance records (Archived and Recently Deleted).
+     *
+     * @param startOfMonth start timestamp of the current month
+     * @param endOfMonth   end timestamp of the current month
+     * @return {@link com.barangay.clearance.projection.ClearanceLifecycleKpiProjection}
+     */
+    @Query("""
+        SELECT
+            COALESCE(SUM(CASE WHEN ic.isArchived = true AND (ic.isDeleted IS NULL OR ic.isDeleted = false) THEN 1L ELSE 0L END), 0L) AS totalArchived,
+            COALESCE(SUM(CASE WHEN ic.isArchived = true AND (ic.isDeleted IS NULL OR ic.isDeleted = false)
+                     AND ((ic.archivedAt IS NOT NULL AND ic.archivedAt >= :startOfMonth AND ic.archivedAt <= :endOfMonth)
+                          OR (ic.archivedAt IS NULL AND ic.updatedAt >= :startOfMonth AND ic.updatedAt <= :endOfMonth)) THEN 1L ELSE 0L END), 0L) AS totalArchivedThisMonth,
+            COALESCE(SUM(CASE WHEN ic.isDeleted = true AND (ic.isPermanentDeleted IS NULL OR ic.isPermanentDeleted = false) THEN 1L ELSE 0L END), 0L) AS totalRecentlyDeleted,
+            COALESCE(SUM(CASE WHEN ((ic.isDeleted = true AND ic.deletedAt IS NOT NULL AND ic.deletedAt >= :startOfMonth AND ic.deletedAt <= :endOfMonth)
+                          OR (ic.isPermanentDeleted = true AND ic.permanentDeletedAt IS NOT NULL AND ic.permanentDeletedAt >= :startOfMonth AND ic.permanentDeletedAt <= :endOfMonth)
+                          OR ((ic.isDeleted = true OR ic.isPermanentDeleted = true) AND ic.updatedAt >= :startOfMonth AND ic.updatedAt <= :endOfMonth)) THEN 1L ELSE 0L END), 0L) AS totalRecentlyDeletedThisMonth
+        FROM IssuedCertificate ic
+    """)
+    com.barangay.clearance.projection.ClearanceLifecycleKpiProjection getClearanceLifecycleKpiMetrics(
+        @Param("startOfMonth") LocalDateTime startOfMonth,
+        @Param("endOfMonth") LocalDateTime endOfMonth
+    );
+
+    /**
+     * Retrieves paginated active archived certificates with optional search filter.
+     */
+    @Query(
+        value = """
+            SELECT ic FROM IssuedCertificate ic
+            LEFT JOIN FETCH ic.template t
+            LEFT JOIN FETCH ic.person p
+            WHERE ic.isArchived = true
+              AND (ic.isDeleted IS NULL OR ic.isDeleted = false)
+              AND (ic.isPermanentDeleted IS NULL OR ic.isPermanentDeleted = false)
+              AND (:search IS NULL OR :search = ''
+                   OR LOWER(ic.certNumber) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(ic.requestorName) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(t.certTitle) LIKE LOWER(CONCAT('%', :search, '%')))
+            ORDER BY ic.archivedAt DESC, ic.updatedAt DESC
+        """,
+        countQuery = """
+            SELECT COUNT(ic) FROM IssuedCertificate ic
+            LEFT JOIN ic.template t
+            LEFT JOIN ic.person p
+            WHERE ic.isArchived = true
+              AND (ic.isDeleted IS NULL OR ic.isDeleted = false)
+              AND (ic.isPermanentDeleted IS NULL OR ic.isPermanentDeleted = false)
+              AND (:search IS NULL OR :search = ''
+                   OR LOWER(ic.certNumber) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(ic.requestorName) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(t.certTitle) LIKE LOWER(CONCAT('%', :search, '%')))
+        """
+    )
+    org.springframework.data.domain.Page<IssuedCertificate> findArchivedCertificates(
+        @Param("search") String search,
+        org.springframework.data.domain.Pageable pageable
+    );
+
+    /**
+     * Retrieves paginated soft-deleted certificates in trash with optional search filter.
+     */
+    @Query(
+        value = """
+            SELECT ic FROM IssuedCertificate ic
+            LEFT JOIN FETCH ic.template t
+            LEFT JOIN FETCH ic.person p
+            WHERE ic.isDeleted = true
+              AND (ic.isPermanentDeleted IS NULL OR ic.isPermanentDeleted = false)
+              AND (:search IS NULL OR :search = ''
+                   OR LOWER(ic.certNumber) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(ic.requestorName) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(t.certTitle) LIKE LOWER(CONCAT('%', :search, '%')))
+            ORDER BY ic.deletedAt DESC, ic.updatedAt DESC
+        """,
+        countQuery = """
+            SELECT COUNT(ic) FROM IssuedCertificate ic
+            LEFT JOIN ic.template t
+            LEFT JOIN ic.person p
+            WHERE ic.isDeleted = true
+              AND (ic.isPermanentDeleted IS NULL OR ic.isPermanentDeleted = false)
+              AND (:search IS NULL OR :search = ''
+                   OR LOWER(ic.certNumber) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(ic.requestorName) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(t.certTitle) LIKE LOWER(CONCAT('%', :search, '%')))
+        """
+    )
+    org.springframework.data.domain.Page<IssuedCertificate> findRecentDeletedCertificates(
+        @Param("search") String search,
+        org.springframework.data.domain.Pageable pageable
+    );
+
+    /**
+     * Finds all soft-deleted certificates that have exceeded the retention threshold.
+     *
+     * @param cutoff Date threshold before which soft-deleted records should be permanently deleted.
+     * @return List of expired soft-deleted certificates
+     */
+    @Query("""
+        SELECT ic FROM IssuedCertificate ic
+        WHERE ic.isDeleted = true
+          AND (ic.isPermanentDeleted IS NULL OR ic.isPermanentDeleted = false)
+          AND (
+              (ic.deletedAt IS NOT NULL AND ic.deletedAt <= :cutoff)
+              OR (ic.deletedAt IS NULL AND ic.updatedAt <= :cutoff)
+          )
+    """)
+    List<IssuedCertificate> findExpiredSoftDeletedCertificates(@Param("cutoff") LocalDateTime cutoff);
 }
 
