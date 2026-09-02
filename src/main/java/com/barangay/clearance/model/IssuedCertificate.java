@@ -59,10 +59,6 @@ public class IssuedCertificate extends BaseEntity implements Archivable {
     private JsonNode fieldValues;
 
 
-    /** Amount paid for this certificate issuance. */
-    @Column(precision = 12, scale = 2)
-    private BigDecimal amountPaid = BigDecimal.ZERO;
-
     /** Official Receipt (OR) Number issued for the transaction. */
     @Column(length = 50)
     private String orNumber;
@@ -71,7 +67,12 @@ public class IssuedCertificate extends BaseEntity implements Archivable {
     @Column(length = 50)
     private String ctnNumber;
 
-    /** Indicates whether the certificate fee was waived (e.g., Senior Citizen, Indigent, FTJS). */
+    /** Amount paid for this certificate issuance (defaults to ZERO). */
+    @Column(precision = 12, scale = 2)
+    private BigDecimal amountPaid = BigDecimal.ZERO;
+
+    /** Indicates whether the certificate fee was waived (defaults to false). */
+    @Column(name = "is_free", nullable = false)
     private boolean isFree = false;
 
 

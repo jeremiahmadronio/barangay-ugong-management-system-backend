@@ -52,8 +52,8 @@ public class CertificateTemplate extends BaseEntity implements Archivable {
     /** Whether the printed certificate requires an applicant thumbmark box. */
     private boolean requiresThumbmark = false;
 
-    /** Standard issuance fee for this certificate type. */
-    @Column(precision = 12, scale = 2)
+    /** Standard issuance fee (defaults to ZERO). */
+    @Column(name = "cert_fee", precision = 12, scale = 2)
     private BigDecimal certFee = BigDecimal.ZERO;
 
     /** Validity duration in months (defaults to 6 months). */

@@ -79,11 +79,11 @@ public class ResidentDataSeeder implements CommandLineRunner {
                 "Tricycle Driver", "Construction Worker", "Technician", "Accountant"
         };
         String[] houseNumbers = {
-                "12A", "55 S", "102", "8B", "24-A", "143", "77", "9", "305", "18",
-                "42", "88", "15-C", "230", "64", "99", "120", "33", "5B", "71"
+                "12A", "Unit 3B", "55-S", "8B", "24-A", "143", "77", "9", "305", "18",
+                "42", "88", "15-C", "230", "64", "99", "120", "33", "5B", "71", "Building 4"
         };
         String[] streetNames = {
-                "Francisco st", "F. Legaspi Street", "M. De Leon St.", "Mabini St.",
+                "F. Legaspi Street", "Francisco Street", "M. De Leon St.", "Mabini St.",
                 "Rizal St.", "P. Valenzuela St.", "San Diego St.", "Del Pilar St.",
                 "Servando St.", "Kagitingan St.", "Katipunan St.", "Bonifacio St."
         };
