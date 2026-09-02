@@ -119,5 +119,80 @@ public interface IssuedCertificateRepository extends JpaRepository<IssuedCertifi
           AND (ic.isPermanentDeleted IS NULL OR ic.isPermanentDeleted = false)
     """)
     Optional<IssuedCertificate> findDetailById(@Param("id") Long id);
+
+    /** Aggregate KPI metrics for Clearance Reports */
+    @Query("""
+        SELECT
+            COUNT(ic.id) AS totalIssued,
+            SUM(CASE WHEN (ic.expiryDate IS NOT NULL AND ic.expiryDate < CURRENT_DATE) OR ic.status = com.barangay.zshared.enumerated.ClearanceStatus.EXPIRED THEN 1L ELSE 0L END) AS totalExpired,
+            SUM(CASE WHEN (p IS NOT NULL AND LOWER(p.gender) LIKE 'm%') THEN 1L ELSE 0L END) AS maleCount,
+            SUM(CASE WHEN (p IS NOT NULL AND LOWER(p.gender) LIKE 'f%') THEN 1L ELSE 0L END) AS femaleCount
+        FROM IssuedCertificate ic
+        LEFT JOIN ic.person p
+        WHERE ic.createdAt >= :startDate AND ic.createdAt <= :endDate
+          AND (ic.isDeleted IS NULL OR ic.isDeleted = false)
+          AND (ic.isPermanentDeleted IS NULL OR ic.isPermanentDeleted = false)
+          AND (:templateId IS NULL OR ic.template.id = :templateId)
+    """)
+    com.barangay.clearance.projection.ClearanceReportKpiProjection getClearanceReportKpiMetrics(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate,
+        @Param("templateId") Long templateId
+    );
+
+    /** Most issued certificate template in date range */
+    @Query("""
+        SELECT t.certTitle AS certTitle, COUNT(ic.id) AS count
+        FROM IssuedCertificate ic
+        JOIN ic.template t
+        WHERE ic.createdAt >= :startDate AND ic.createdAt <= :endDate
+          AND (ic.isDeleted IS NULL OR ic.isDeleted = false)
+          AND (ic.isPermanentDeleted IS NULL OR ic.isPermanentDeleted = false)
+          AND (:templateId IS NULL OR t.id = :templateId)
+        GROUP BY t.certTitle
+        ORDER BY COUNT(ic.id) DESC
+    """)
+    List<com.barangay.clearance.projection.MostIssuedCertProjection> getMostIssuedTemplate(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate,
+        @Param("templateId") Long templateId
+    );
+
+    /** Daily issuance counts for trend charts */
+    @Query("""
+        SELECT CAST(ic.createdAt AS LocalDate) AS date, COUNT(ic.id) AS count
+        FROM IssuedCertificate ic
+        WHERE ic.createdAt >= :startDate AND ic.createdAt <= :endDate
+          AND (ic.isDeleted IS NULL OR ic.isDeleted = false)
+          AND (ic.isPermanentDeleted IS NULL OR ic.isPermanentDeleted = false)
+          AND (:templateId IS NULL OR ic.template.id = :templateId)
+        GROUP BY CAST(ic.createdAt AS LocalDate)
+        ORDER BY CAST(ic.createdAt AS LocalDate) ASC
+    """)
+    List<com.barangay.clearance.projection.ClearanceDailyTrendProjection> getDailyIssuanceCounts(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate,
+        @Param("templateId") Long templateId
+    );
+
+    /** Monthly issuance counts for trend charts */
+    @Query("""
+        SELECT
+            EXTRACT(YEAR FROM ic.createdAt) AS year,
+            EXTRACT(MONTH FROM ic.createdAt) AS month,
+            COUNT(ic.id) AS count
+        FROM IssuedCertificate ic
+        WHERE ic.createdAt >= :startDate AND ic.createdAt <= :endDate
+          AND (ic.isDeleted IS NULL OR ic.isDeleted = false)
+          AND (ic.isPermanentDeleted IS NULL OR ic.isPermanentDeleted = false)
+          AND (:templateId IS NULL OR ic.template.id = :templateId)
+        GROUP BY EXTRACT(YEAR FROM ic.createdAt), EXTRACT(MONTH FROM ic.createdAt)
+        ORDER BY EXTRACT(YEAR FROM ic.createdAt) ASC, EXTRACT(MONTH FROM ic.createdAt) ASC
+    """)
+    List<com.barangay.clearance.projection.ClearanceMonthlyTrendProjection> getMonthlyIssuanceCounts(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate,
+        @Param("templateId") Long templateId
+    );
 }
 

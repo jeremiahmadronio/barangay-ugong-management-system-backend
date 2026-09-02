@@ -1,0 +1,216 @@
+package com.barangay.clearance.service;
+
+import com.barangay.clearance.dto.*;
+import com.barangay.clearance.projection.*;
+import com.barangay.clearance.repository.IssuedCertificateRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class ClearanceReportService {
+
+    private final IssuedCertificateRepository issuedCertificateRepository;
+    private static final DateTimeFormatter DAY_LABEL_FORMATTER = DateTimeFormatter.ofPattern("MMM d");
+
+    /**
+     * Calculates date-filtered KPI statistics for Clearance reports.
+     *
+     * @param startDate  Start date filter (inclusive)
+     * @param endDate    End date filter (inclusive)
+     * @param templateId Optional Certificate Template ID filter
+     * @return {@link ClearanceReportKpiResponse}
+     */
+    @Transactional(readOnly = true)
+    public ClearanceReportKpiResponse getReportKpis(
+            LocalDate startDate,
+            LocalDate endDate,
+            Long templateId
+    ) {
+        if (startDate.isAfter(endDate)) {
+            LocalDate temp = startDate;
+            startDate = endDate;
+            endDate = temp;
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        ClearanceReportKpiProjection kpi = issuedCertificateRepository.getClearanceReportKpiMetrics(
+                startDateTime,
+                endDateTime,
+                templateId
+        );
+
+        long totalIssued = (kpi != null && kpi.getTotalIssued() != null) ? kpi.getTotalIssued() : 0L;
+        long totalExpired = (kpi != null && kpi.getTotalExpired() != null) ? kpi.getTotalExpired() : 0L;
+        long maleCount = (kpi != null && kpi.getMaleCount() != null) ? kpi.getMaleCount() : 0L;
+        long femaleCount = (kpi != null && kpi.getFemaleCount() != null) ? kpi.getFemaleCount() : 0L;
+
+        double malePct = calculatePercentage(maleCount, totalIssued);
+        double femalePct = calculatePercentage(femaleCount, totalIssued);
+
+        // Most Issued Certificate Template
+        List<MostIssuedCertProjection> mostIssuedList = issuedCertificateRepository.getMostIssuedTemplate(
+                startDateTime,
+                endDateTime,
+                templateId
+        );
+
+        String mostIssuedName = "—";
+        long mostIssuedCount = 0L;
+
+        if (mostIssuedList != null && !mostIssuedList.isEmpty()) {
+            MostIssuedCertProjection top = mostIssuedList.get(0);
+            mostIssuedName = top.getCertTitle() != null ? top.getCertTitle() : "Barangay Clearance";
+            mostIssuedCount = top.getCount() != null ? top.getCount() : 0L;
+        }
+
+        return new ClearanceReportKpiResponse(
+                startDate,
+                endDate,
+                templateId,
+                totalIssued,
+                mostIssuedName,
+                mostIssuedCount,
+                totalExpired,
+                maleCount,
+                femaleCount,
+                malePct,
+                femalePct
+        );
+    }
+
+    /**
+     * Generates daily issuance trend report with zero-fill handling.
+     *
+     * @param startDate  Start date
+     * @param endDate    End date
+     * @param templateId Optional Template filter
+     * @return List of {@link ClearanceDailyTrendResponse}
+     */
+    @Transactional(readOnly = true)
+    public List<ClearanceDailyTrendResponse> getDailyTrendReport(
+            LocalDate startDate,
+            LocalDate endDate,
+            Long templateId
+    ) {
+        if (startDate.isAfter(endDate)) {
+            LocalDate temp = startDate;
+            startDate = endDate;
+            endDate = temp;
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        List<ClearanceDailyTrendProjection> dbResults = issuedCertificateRepository.getDailyIssuanceCounts(
+                startDateTime,
+                endDateTime,
+                templateId
+        );
+
+        Map<LocalDate, Long> countMap = new HashMap<>();
+        if (dbResults != null) {
+            for (ClearanceDailyTrendProjection p : dbResults) {
+                if (p.getDate() != null) {
+                    countMap.put(p.getDate(), p.getCount() != null ? p.getCount() : 0L);
+                }
+            }
+        }
+
+        List<ClearanceDailyTrendResponse> responseList = new ArrayList<>();
+        LocalDate current = startDate;
+
+        while (!current.isAfter(endDate)) {
+            long count = countMap.getOrDefault(current, 0L);
+            responseList.add(new ClearanceDailyTrendResponse(
+                    current,
+                    current.format(DAY_LABEL_FORMATTER),
+                    current.getDayOfMonth(),
+                    count
+            ));
+            current = current.plusDays(1);
+        }
+
+        return responseList;
+    }
+
+    /**
+     * Generates monthly issuance trend report with zero-fill handling.
+     *
+     * @param startDate  Start date
+     * @param endDate    End date
+     * @param templateId Optional Template filter
+     * @return List of {@link ClearanceMonthlyTrendResponse}
+     */
+    @Transactional(readOnly = true)
+    public List<ClearanceMonthlyTrendResponse> getMonthlyTrendReport(
+            LocalDate startDate,
+            LocalDate endDate,
+            Long templateId
+    ) {
+        if (startDate.isAfter(endDate)) {
+            LocalDate temp = startDate;
+            startDate = endDate;
+            endDate = temp;
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        List<ClearanceMonthlyTrendProjection> dbResults = issuedCertificateRepository.getMonthlyIssuanceCounts(
+                startDateTime,
+                endDateTime,
+                templateId
+        );
+
+        Map<YearMonth, Long> countMap = new HashMap<>();
+        if (dbResults != null) {
+            for (ClearanceMonthlyTrendProjection p : dbResults) {
+                if (p.getYear() != null && p.getMonth() != null) {
+                    countMap.put(YearMonth.of(p.getYear().intValue(), p.getMonth().intValue()), p.getCount() != null ? p.getCount() : 0L);
+                }
+            }
+        }
+
+        List<ClearanceMonthlyTrendResponse> responseList = new ArrayList<>();
+        YearMonth current = YearMonth.from(startDate);
+        YearMonth targetEnd = YearMonth.from(endDate);
+
+        while (!current.isAfter(targetEnd)) {
+            long count = countMap.getOrDefault(current, 0L);
+            String monthLabel = current.getMonth().getDisplayName(TextStyle.SHORT, Locale.ENGLISH)
+                    + " " + current.getYear();
+
+            responseList.add(new ClearanceMonthlyTrendResponse(
+                    monthLabel,
+                    current.getYear(),
+                    current.getMonthValue(),
+                    count
+            ));
+            current = current.plusMonths(1);
+        }
+
+        return responseList;
+    }
+
+    private double calculatePercentage(long count, long total) {
+        if (total == 0 || count == 0) {
+            return 0.0;
+        }
+        double raw = ((double) count / total) * 100.0;
+        return BigDecimal.valueOf(raw)
+                .setScale(2, RoundingMode.HALF_UP)
+                .doubleValue();
+    }
+}
