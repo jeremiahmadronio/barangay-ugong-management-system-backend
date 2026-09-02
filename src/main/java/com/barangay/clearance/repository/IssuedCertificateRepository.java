@@ -107,4 +107,17 @@ public interface IssuedCertificateRepository extends JpaRepository<IssuedCertifi
         @Param("search") String search,
         @Param("templateTitle") String templateTitle
     );
+
+    /** Find complete issued certificate detail by ID with all relations fetched */
+    @Query("""
+        SELECT ic FROM IssuedCertificate ic
+        LEFT JOIN FETCH ic.template t
+        LEFT JOIN FETCH ic.person p
+        LEFT JOIN FETCH ic.issuedBy u
+        WHERE ic.id = :id
+          AND (ic.isDeleted IS NULL OR ic.isDeleted = false)
+          AND (ic.isPermanentDeleted IS NULL OR ic.isPermanentDeleted = false)
+    """)
+    Optional<IssuedCertificate> findDetailById(@Param("id") Long id);
 }
+

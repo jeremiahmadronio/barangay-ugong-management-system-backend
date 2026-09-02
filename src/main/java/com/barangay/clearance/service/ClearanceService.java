@@ -196,6 +196,15 @@ public class ClearanceService {
     }
 
     private IssuedCertificateHistoryItem toHistoryItem(IssuedCertificate ic) {
+        String officerName = "Barangay Staff";
+        if (ic.getIssuedBy() != null) {
+            if (ic.getIssuedBy().getPerson() != null) {
+                officerName = formatPersonDirect(ic.getIssuedBy().getPerson());
+            } else if (ic.getIssuedBy().getUsername() != null) {
+                officerName = ic.getIssuedBy().getUsername();
+            }
+        }
+
         return new IssuedCertificateHistoryItem(
                 ic.getId(),
                 ic.getCertNumber(),
@@ -207,6 +216,7 @@ public class ClearanceService {
                 ic.getStatus(),
                 ic.getExpiryDate(),
                 ic.getCreatedAt(),
+                officerName,
                 ic.getFieldValues()
         );
     }
@@ -273,5 +283,176 @@ public class ClearanceService {
             return last + ", " + first + " " + Character.toUpperCase(middle.charAt(0)) + ".";
         }
         return raw;
+    }
+
+    /**
+     * Retrieves full, exhaustive details of an issued certificate by ID.
+     *
+     * @param id Issued Certificate primary key ID
+     * @return {@link com.barangay.clearance.dto.IssuedCertificateDetailResponse}
+     */
+    @Transactional(readOnly = true)
+    public com.barangay.clearance.dto.IssuedCertificateDetailResponse getIssuedCertificateDetail(Long id) {
+        IssuedCertificate ic = issuedCertificateRepository.findDetailById(id)
+                .orElseThrow(() -> new com.barangay.zshared.exception.ResourceNotFoundException(
+                        "Issued Certificate with ID " + id + " not found."
+                ));
+
+        // 1. Build Issuing Officer Summary
+        com.barangay.clearance.dto.IssuedCertificateDetailResponse.ClearanceOfficerSummary officerSummary = null;
+        if (ic.getIssuedBy() != null) {
+            com.barangay.usermanagement.user.model.User u = ic.getIssuedBy();
+            String officerName = null;
+            if (u.getPerson() != null) {
+                officerName = formatPersonDirect(u.getPerson());
+            }
+            if (officerName == null || officerName.isBlank()) {
+                officerName = u.getUsername();
+            }
+
+            String roleName = u.getRole() != null ? u.getRole().getRoleName() : "Officer";
+            String empId = (u.getPerson() != null && u.getPerson().getResident() != null)
+                    ? u.getPerson().getResident().getBarangayIdNumber()
+                    : null;
+
+            officerSummary = new com.barangay.clearance.dto.IssuedCertificateDetailResponse.ClearanceOfficerSummary(
+                    u.getId(),
+                    officerName,
+                    u.getUsername(),
+                    roleName,
+                    empId
+            );
+        }
+
+        // 2. Build Applicant Demographics Summary
+        com.barangay.clearance.dto.IssuedCertificateDetailResponse.ClearanceApplicantSummary applicantSummary;
+        if (ic.getPerson() != null) {
+            com.barangay.people.person.model.Person p = ic.getPerson();
+            com.barangay.people.resident.model.Resident r = p.getResident();
+
+            String fullName = formatPersonDirect(p);
+            Integer age = p.getAge() != null ? p.getAge().intValue() : null;
+            String brgyId = r != null ? r.getBarangayIdNumber() : null;
+            Long residentId = r != null ? r.getResidentId() : null;
+            String citizenship = r != null ? r.getCitizenship() : "Filipino";
+
+            applicantSummary = new com.barangay.clearance.dto.IssuedCertificateDetailResponse.ClearanceApplicantSummary(
+                    p.getId(),
+                    residentId,
+                    p.getFirstName(),
+                    p.getMiddleName(),
+                    p.getLastName(),
+                    p.getSuffix(),
+                    fullName,
+                    age,
+                    p.getGender(),
+                    p.getCivilStatus(),
+                    p.getContactNumber(),
+                    p.getEmail(),
+                    p.getCompleteAddress(),
+                    p.getBirthDate(),
+                    null,
+                    citizenship,
+                    p.getOccupation(),
+                    brgyId,
+                    Boolean.TRUE.equals(p.getIsResident())
+            );
+        } else {
+            // Walk-in / non-resident without person entity link
+            JsonNode fields = ic.getFieldValues();
+            String contact = (fields != null && fields.hasNonNull("contactNumber")) ? fields.get("contactNumber").asText() : null;
+            String address = (fields != null && fields.hasNonNull("address")) ? fields.get("address").asText() : null;
+            String gender = (fields != null && fields.hasNonNull("gender")) ? fields.get("gender").asText() : null;
+            String civilStatus = (fields != null && fields.hasNonNull("civilStatus")) ? fields.get("civilStatus").asText() : null;
+            String occupation = (fields != null && fields.hasNonNull("occupation")) ? fields.get("occupation").asText() : null;
+
+            applicantSummary = new com.barangay.clearance.dto.IssuedCertificateDetailResponse.ClearanceApplicantSummary(
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    ic.getRequestorName() != null ? ic.getRequestorName().trim() : "Unknown Requestor",
+                    null,
+                    gender,
+                    civilStatus,
+                    contact,
+                    null,
+                    address,
+                    null,
+                    null,
+                    "Filipino",
+                    occupation,
+                    null,
+                    false
+            );
+        }
+
+        // 3. Build Past Issuance History (excluding currently viewed certificate)
+        List<IssuedCertificateHistoryItem> history = new ArrayList<>();
+        List<IssuedCertificate> pastCerts = new ArrayList<>();
+        if (ic.getPerson() != null && ic.getPerson().getId() != null) {
+            pastCerts = issuedCertificateRepository.findActiveCertificatesByPersonId(ic.getPerson().getId());
+        } else if (ic.getRequestorName() != null && !ic.getRequestorName().isBlank()) {
+            pastCerts = issuedCertificateRepository.findActiveCertificatesByPersonOrName(null, ic.getRequestorName().trim());
+        }
+
+        for (IssuedCertificate past : pastCerts) {
+            if (!past.getId().equals(ic.getId())) {
+                history.add(toHistoryItem(past));
+            }
+        }
+
+        String templateTitle = ic.getTemplate() != null ? ic.getTemplate().getCertTitle() : "Barangay Clearance";
+        Long templateId = ic.getTemplate() != null ? ic.getTemplate().getId() : null;
+
+        return new com.barangay.clearance.dto.IssuedCertificateDetailResponse(
+                ic.getId(),
+                ic.getCertNumber(),
+                templateId,
+                templateTitle,
+                templateTitle,
+                extractPurpose(ic),
+                ic.getOrNumber(),
+                ic.getCtnNumber(),
+                ic.getAmountPaid() != null ? ic.getAmountPaid() : java.math.BigDecimal.ZERO,
+                ic.isFree(),
+                ic.getSignatoryName(),
+                ic.getSignatoryPosition(),
+                ic.getStatus() != null ? ic.getStatus().name() : "ACTIVE",
+                ic.getExpiryDate(),
+                ic.getCreatedAt(),
+                ic.getUpdatedAt(),
+                ic.getFieldValues(),
+                ic.getIsArchived(),
+                ic.getArchivedAt(),
+                ic.getArchiveRemarks(),
+                officerSummary,
+                applicantSummary,
+                history.size(),
+                history
+        );
+    }
+
+    private String formatPersonDirect(com.barangay.people.person.model.Person person) {
+        if (person == null) return null;
+        StringBuilder sb = new StringBuilder();
+        if (person.getFirstName() != null && !person.getFirstName().isBlank()) {
+            sb.append(person.getFirstName().trim());
+        }
+        if (person.getMiddleName() != null && !person.getMiddleName().isBlank()) {
+            if (sb.length() > 0) sb.append(" ");
+            sb.append(person.getMiddleName().trim());
+        }
+        if (person.getLastName() != null && !person.getLastName().isBlank()) {
+            if (sb.length() > 0) sb.append(" ");
+            sb.append(person.getLastName().trim());
+        }
+        if (person.getSuffix() != null && !person.getSuffix().isBlank()) {
+            if (sb.length() > 0) sb.append(" ");
+            sb.append(person.getSuffix().trim());
+        }
+        return sb.length() > 0 ? sb.toString() : null;
     }
 }

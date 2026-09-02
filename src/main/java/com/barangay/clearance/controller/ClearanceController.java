@@ -79,6 +79,17 @@ public class ClearanceController {
     }
 
     /**
+     * Endpoint to fetch full, exhaustive details of a single issued certificate by ID.
+     *
+     * @param id Issued certificate ID
+     * @return 200 OK with {@link com.barangay.clearance.dto.IssuedCertificateDetailResponse}
+     */
+    @GetMapping({"/issued-certificates/{id}", "/{id}"})
+    public ResponseEntity<com.barangay.clearance.dto.IssuedCertificateDetailResponse> getIssuedCertificateDetail(@PathVariable Long id) {
+        return ResponseEntity.ok(clearanceService.getIssuedCertificateDetail(id));
+    }
+
+    /**
      * Issues a new certificate or clearance, logs audit entry, and saves the record.
      *
      * @param request {@link IssueClearanceRequest}

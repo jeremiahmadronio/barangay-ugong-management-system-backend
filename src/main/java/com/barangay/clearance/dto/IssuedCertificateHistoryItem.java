@@ -20,6 +20,7 @@ public record IssuedCertificateHistoryItem(
         ClearanceStatus status,
         LocalDate expiryDate,
         LocalDateTime createdAt,
+        String issuingOfficerName,
         JsonNode fieldValues
 ) {
 }
