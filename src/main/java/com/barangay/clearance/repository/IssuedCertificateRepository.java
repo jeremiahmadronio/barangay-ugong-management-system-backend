@@ -194,5 +194,35 @@ public interface IssuedCertificateRepository extends JpaRepository<IssuedCertifi
         @Param("endDate") LocalDateTime endDate,
         @Param("templateId") Long templateId
     );
+
+    /** Aggregate certificate count breakdown per template */
+    @Query("""
+        SELECT t.certTitle AS certTitle, COUNT(ic.id) AS count
+        FROM IssuedCertificate ic
+        JOIN ic.template t
+        WHERE ic.createdAt >= :startDate AND ic.createdAt <= :endDate
+          AND (ic.isDeleted IS NULL OR ic.isDeleted = false)
+          AND (ic.isPermanentDeleted IS NULL OR ic.isPermanentDeleted = false)
+        GROUP BY t.certTitle
+        ORDER BY COUNT(ic.id) DESC
+    """)
+    List<com.barangay.clearance.projection.ClearanceTypeCountProjection> getTypeBreakdownCounts(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate
+    );
+
+    /** Fetch active certificates within date range for purpose aggregation */
+    @Query("""
+        SELECT ic FROM IssuedCertificate ic
+        LEFT JOIN FETCH ic.template t
+        WHERE ic.createdAt >= :startDate AND ic.createdAt <= :endDate
+          AND (ic.isDeleted IS NULL OR ic.isDeleted = false)
+          AND (ic.isPermanentDeleted IS NULL OR ic.isPermanentDeleted = false)
+        ORDER BY ic.createdAt DESC
+    """)
+    List<IssuedCertificate> findCertificatesInDateRange(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate
+    );
 }
 

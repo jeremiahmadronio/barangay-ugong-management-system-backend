@@ -66,4 +66,32 @@ public class ClearanceReportController {
 
         return ResponseEntity.ok(clearanceReportService.getMonthlyTrendReport(start, end, templateId));
     }
+
+    /**
+     * Get Certificate Template type breakdown and distribution.
+     */
+    @GetMapping("/breakdown/types")
+    public ResponseEntity<com.barangay.clearance.dto.ClearanceTypeBreakdownResponse> getTypeBreakdown(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        LocalDate end = endDate != null ? endDate : LocalDate.now();
+        LocalDate start = startDate != null ? startDate : end.minusMonths(6);
+
+        return ResponseEntity.ok(clearanceReportService.getTypeBreakdownReport(start, end));
+    }
+
+    /**
+     * Get Application Purpose distribution breakdown.
+     */
+    @GetMapping("/breakdown/purposes")
+    public ResponseEntity<com.barangay.clearance.dto.ClearancePurposeBreakdownResponse> getPurposeBreakdown(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        LocalDate end = endDate != null ? endDate : LocalDate.now();
+        LocalDate start = startDate != null ? startDate : end.minusMonths(6);
+
+        return ResponseEntity.ok(clearanceReportService.getPurposeBreakdownReport(start, end));
+    }
 }

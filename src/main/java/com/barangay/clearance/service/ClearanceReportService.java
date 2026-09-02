@@ -204,6 +204,149 @@ public class ClearanceReportService {
         return responseList;
     }
 
+    /**
+     * Generates Certificate Template Type breakdown and distribution report.
+     *
+     * @param startDate Start date
+     * @param endDate   End date
+     * @return {@link ClearanceTypeBreakdownResponse}
+     */
+    @Transactional(readOnly = true)
+    public ClearanceTypeBreakdownResponse getTypeBreakdownReport(
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        if (startDate.isAfter(endDate)) {
+            LocalDate temp = startDate;
+            startDate = endDate;
+            endDate = temp;
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        List<ClearanceTypeCountProjection> dbResults = issuedCertificateRepository.getTypeBreakdownCounts(
+                startDateTime,
+                endDateTime
+        );
+
+        long totalVolume = 0L;
+        if (dbResults != null) {
+            for (ClearanceTypeCountProjection p : dbResults) {
+                if (p.getCount() != null) {
+                    totalVolume += p.getCount();
+                }
+            }
+        }
+
+        List<ClearanceTypeBreakdownItem> breakdownList = new ArrayList<>();
+        if (dbResults != null) {
+            for (ClearanceTypeCountProjection p : dbResults) {
+                long count = p.getCount() != null ? p.getCount() : 0L;
+                String title = p.getCertTitle() != null ? p.getCertTitle() : "Barangay Clearance";
+                double pct = calculatePercentage(count, totalVolume);
+
+                breakdownList.add(new ClearanceTypeBreakdownItem(
+                        title,
+                        count,
+                        pct
+                ));
+            }
+        }
+
+        return new ClearanceTypeBreakdownResponse(
+                startDate,
+                endDate,
+                totalVolume,
+                breakdownList
+        );
+    }
+
+    /**
+     * Generates Application Purpose distribution breakdown report.
+     *
+     * @param startDate Start date
+     * @param endDate   End date
+     * @return {@link ClearancePurposeBreakdownResponse}
+     */
+    @Transactional(readOnly = true)
+    public ClearancePurposeBreakdownResponse getPurposeBreakdownReport(
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        if (startDate.isAfter(endDate)) {
+            LocalDate temp = startDate;
+            startDate = endDate;
+            endDate = temp;
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        List<com.barangay.clearance.model.IssuedCertificate> certs = issuedCertificateRepository.findCertificatesInDateRange(
+                startDateTime,
+                endDateTime
+        );
+
+        Map<String, Long> purposeCountMap = new LinkedHashMap<>();
+        for (com.barangay.clearance.model.IssuedCertificate ic : certs) {
+            String purpose = extractPurpose(ic);
+            purposeCountMap.put(purpose, purposeCountMap.getOrDefault(purpose, 0L) + 1L);
+        }
+
+        // Sort descending by count
+        List<Map.Entry<String, Long>> sortedList = purposeCountMap.entrySet().stream()
+                .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
+                .toList();
+
+        long totalVolume = certs.size();
+        String highestPurpose = "—";
+        long highestCount = 0L;
+
+        if (!sortedList.isEmpty()) {
+            highestPurpose = sortedList.get(0).getKey();
+            highestCount = sortedList.get(0).getValue();
+        }
+
+        List<ClearancePurposeBreakdownItem> breakdownList = new ArrayList<>();
+        for (Map.Entry<String, Long> entry : sortedList) {
+            double pct = calculatePercentage(entry.getValue(), totalVolume);
+            breakdownList.add(new ClearancePurposeBreakdownItem(
+                    entry.getKey(),
+                    entry.getValue(),
+                    pct
+            ));
+        }
+
+        return new ClearancePurposeBreakdownResponse(
+                startDate,
+                endDate,
+                totalVolume,
+                highestPurpose,
+                highestCount,
+                breakdownList
+        );
+    }
+
+    private String extractPurpose(com.barangay.clearance.model.IssuedCertificate ic) {
+        String purpose = null;
+        com.fasterxml.jackson.databind.JsonNode fields = ic.getFieldValues();
+        if (fields != null && fields.hasNonNull("purpose")) {
+            purpose = fields.get("purpose").asText();
+        }
+        if ((purpose == null || purpose.trim().isEmpty() || purpose.equalsIgnoreCase("Others") || purpose.equalsIgnoreCase("OTHER"))
+                && fields != null && fields.hasNonNull("customPurpose")) {
+            purpose = fields.get("customPurpose").asText();
+        }
+        if ((purpose == null || purpose.trim().isEmpty()) && ic.getArchiveRemarks() != null) {
+            purpose = ic.getArchiveRemarks();
+        }
+        if (purpose == null || purpose.trim().isEmpty()) {
+            return "General Purpose";
+        }
+        return purpose.trim();
+    }
+
     private double calculatePercentage(long count, long total) {
         if (total == 0 || count == 0) {
             return 0.0;
