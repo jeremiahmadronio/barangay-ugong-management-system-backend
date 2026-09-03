@@ -23,6 +23,14 @@ public class ClearanceReportController {
     private final ClearanceReportService clearanceReportService;
 
     /**
+     * Get real-time Operational Dashboard KPIs (Today, Month, Active, Top Cert).
+     */
+    @GetMapping("/dashboard/kpi")
+    public ResponseEntity<com.barangay.clearance.dto.ClearanceDashboardKpiResponse> getDashboardKpis() {
+        return ResponseEntity.ok(clearanceReportService.getDashboardKpis());
+    }
+
+    /**
      * Get aggregate KPI report statistics for Clearances in date range.
      */
     @GetMapping("/kpi")

@@ -175,6 +175,29 @@ public interface IssuedCertificateRepository extends JpaRepository<IssuedCertifi
         @Param("templateId") Long templateId
     );
 
+    /** Counts all currently active, valid, non-expired, and non-deleted clearances */
+    @Query("""
+        SELECT COUNT(ic) FROM IssuedCertificate ic
+        WHERE (ic.status IS NULL OR ic.status = com.barangay.zshared.enumerated.ClearanceStatus.ACTIVE)
+          AND (ic.isArchived IS NULL OR ic.isArchived = false)
+          AND (ic.isDeleted IS NULL OR ic.isDeleted = false)
+          AND (ic.isPermanentDeleted IS NULL OR ic.isPermanentDeleted = false)
+          AND (ic.expiryDate IS NULL OR ic.expiryDate >= CURRENT_DATE)
+    """)
+    long countActiveValidClearances();
+
+    /** Counts issued certificates within a date-time window */
+    @Query("""
+        SELECT COUNT(ic) FROM IssuedCertificate ic
+        WHERE ic.createdAt >= :startDate AND ic.createdAt <= :endDate
+          AND (ic.isDeleted IS NULL OR ic.isDeleted = false)
+          AND (ic.isPermanentDeleted IS NULL OR ic.isPermanentDeleted = false)
+    """)
+    long countIssuedInRange(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate
+    );
+
     /** Monthly issuance counts for trend charts */
     @Query("""
         SELECT

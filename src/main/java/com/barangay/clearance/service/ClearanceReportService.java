@@ -1,6 +1,7 @@
 package com.barangay.clearance.service;
 
 import com.barangay.clearance.dto.*;
+import com.barangay.clearance.model.IssuedCertificate;
 import com.barangay.clearance.projection.*;
 import com.barangay.clearance.repository.IssuedCertificateRepository;
 import lombok.RequiredArgsConstructor;
@@ -325,6 +326,77 @@ public class ClearanceReportService {
                 highestPurpose,
                 highestCount,
                 breakdownList
+        );
+    }
+
+    /**
+     * Calculates real-time 4 core KPIs for Clearance Operational Dashboard:
+     * 1. Total Issued Today
+     * 2. Total Issued This Week (Monday to Sunday)
+     * 3. Total Active Clearances
+     * 4. Most Issued Certificate (This Week)
+     */
+    @Transactional(readOnly = true)
+    public ClearanceDashboardKpiResponse getDashboardKpis() {
+        LocalDate today = LocalDate.now();
+        LocalDateTime todayStart = today.atStartOfDay();
+        LocalDateTime todayEnd = today.atTime(LocalTime.MAX);
+
+        LocalDate weekStart = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekEnd = today.with(java.time.temporal.TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+        LocalDateTime weekStartDateTime = weekStart.atStartOfDay();
+        LocalDateTime weekEndDateTime = weekEnd.atTime(LocalTime.MAX);
+
+        // 1. Total Issued Today
+        long totalIssuedToday = issuedCertificateRepository.countActiveCertificatesBetween(todayStart, todayEnd);
+
+        // 2. Total Issued This Week
+        long totalIssuedThisWeek = issuedCertificateRepository.countActiveCertificatesBetween(weekStartDateTime, weekEndDateTime);
+
+        // 3. Total Active Clearances (All active in circulation)
+        long totalActiveClearances = issuedCertificateRepository.countActiveCertificates();
+
+        // 4. Most Issued Certificate Template This Week (with fallback to all-time active)
+        List<MostIssuedCertProjection> mostIssuedList = issuedCertificateRepository.getMostIssuedTemplate(
+                weekStartDateTime,
+                weekEndDateTime,
+                null
+        );
+
+        String mostIssuedCertThisWeek = "—";
+        long mostIssuedCertCountThisWeek = 0L;
+
+        if (mostIssuedList != null && !mostIssuedList.isEmpty()) {
+            MostIssuedCertProjection top = mostIssuedList.get(0);
+            mostIssuedCertThisWeek = top.getCertTitle() != null ? top.getCertTitle() : "Barangay Clearance";
+            mostIssuedCertCountThisWeek = top.getCount() != null ? top.getCount() : 0L;
+        } else {
+            List<IssuedCertificate> allActive = issuedCertificateRepository.findAllActiveCertificates();
+            if (!allActive.isEmpty()) {
+                Map<String, Long> certCounts = new HashMap<>();
+                for (IssuedCertificate c : allActive) {
+                    String title = (c.getTemplate() != null && c.getTemplate().getCertTitle() != null)
+                            ? c.getTemplate().getCertTitle()
+                            : "Barangay Clearance";
+                    certCounts.merge(title, 1L, Long::sum);
+                }
+                var topEntry = certCounts.entrySet().stream().max(Map.Entry.comparingByValue());
+                if (topEntry.isPresent()) {
+                    mostIssuedCertThisWeek = topEntry.get().getKey();
+                    mostIssuedCertCountThisWeek = topEntry.get().getValue();
+                }
+            }
+        }
+
+        return new ClearanceDashboardKpiResponse(
+                today,
+                weekStart,
+                weekEnd,
+                totalIssuedToday,
+                totalIssuedThisWeek,
+                totalActiveClearances,
+                mostIssuedCertThisWeek,
+                mostIssuedCertCountThisWeek
         );
     }
 
