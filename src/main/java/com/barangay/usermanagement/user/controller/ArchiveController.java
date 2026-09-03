@@ -49,6 +49,13 @@ public class ArchiveController {
         return ResponseEntity.ok("Resident restored successfully");
     }
 
+    @DeleteMapping("/residents/{id}")
+    @LogAudit(module = AuditModule.RESIDENTS, action = "SOFT_DELETE_RESIDENT", severity = Severity.INFO)
+    public ResponseEntity<String> softDeleteResident(@PathVariable Long id) {
+        archiveService.softDeleteResident(id);
+        return ResponseEntity.ok("Resident moved to trash");
+    }
+
     @DeleteMapping("/residents/{id}/permanent")
     @LogAudit(module = AuditModule.RESIDENTS, action = "DELETE_RESIDENT_PERMANENT", severity = Severity.WARNING)
     public ResponseEntity<String> deleteResidentPermanent(@PathVariable Long id) {
@@ -67,6 +74,13 @@ public class ArchiveController {
     public ResponseEntity<String> restoreUser(@PathVariable Long id) {
         archiveService.restoreUser(id);
         return ResponseEntity.ok("User restored successfully");
+    }
+
+    @DeleteMapping("/users/{id}")
+    @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "SOFT_DELETE_USER", severity = Severity.INFO)
+    public ResponseEntity<String> softDeleteUser(@PathVariable Long id) {
+        archiveService.softDeleteUser(id);
+        return ResponseEntity.ok("User moved to trash");
     }
 
     @DeleteMapping("/users/{id}/permanent")
@@ -89,10 +103,33 @@ public class ArchiveController {
         return ResponseEntity.ok("Officer restored successfully");
     }
 
+    @DeleteMapping("/officers/{id}")
+    @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "SOFT_DELETE_OFFICER", severity = Severity.INFO)
+    public ResponseEntity<String> softDeleteOfficer(@PathVariable Long id) {
+        archiveService.softDeleteOfficer(id);
+        return ResponseEntity.ok("Officer moved to trash");
+    }
+
     @DeleteMapping("/officers/{id}/permanent")
     @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "DELETE_OFFICER_PERMANENT", severity = Severity.WARNING)
     public ResponseEntity<String> deleteOfficerPermanent(@PathVariable Long id) {
         archiveService.deleteOfficerPermanent(id);
         return ResponseEntity.ok("Officer deleted permanently");
+    }
+
+    // --- Trash / Soft-Deleted Lists ---
+    @GetMapping("/trash/residents")
+    public ResponseEntity<List<Map<String, Object>>> getTrashResidents(@RequestParam(required = false) String search) {
+        return ResponseEntity.ok(archiveService.getTrashResidents(search));
+    }
+
+    @GetMapping("/trash/users")
+    public ResponseEntity<List<Map<String, Object>>> getTrashUsers(@RequestParam(required = false) String search) {
+        return ResponseEntity.ok(archiveService.getTrashUsers(search));
+    }
+
+    @GetMapping("/trash/officers")
+    public ResponseEntity<List<Map<String, Object>>> getTrashOfficers(@RequestParam(required = false) String search) {
+        return ResponseEntity.ok(archiveService.getTrashOfficers(search));
     }
 }

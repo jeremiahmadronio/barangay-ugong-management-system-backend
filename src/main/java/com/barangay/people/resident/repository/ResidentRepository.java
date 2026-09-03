@@ -35,6 +35,7 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
     long countSeniorCitizensByStatusesBetween(@Param("seniorCutoff") LocalDate seniorCutoff, @Param("statuses") Collection<ResidentStatus> statuses, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     @Query("SELECT r FROM Resident r JOIN r.person p WHERE " +
+           "(r.isDeleted = false OR r.isDeleted IS NULL) AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND " +
            "(:searchPattern IS NULL OR LOWER(p.firstName) LIKE :searchPattern OR LOWER(p.lastName) LIKE :searchPattern OR LOWER(r.barangayIdNumber) LIKE :searchPattern) AND " +
            "((:status IS NULL AND r.status IN (com.barangay.zshared.enumerated.ResidentStatus.ACTIVE, com.barangay.zshared.enumerated.ResidentStatus.INACTIVE)) OR r.status = :status) AND " +
            "(:gender IS NULL OR p.gender = :gender)")
@@ -50,7 +51,7 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
 
     /** Finds residents matching search term for Blotter/Officer/FTJS selection, excluding archived records.
      * Prioritizes prefix matches (starts with) on First Name, Last Name, or Full Name. */
-    @Query("SELECT r FROM Resident r LEFT JOIN r.person p WHERE (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED) AND (" +
+    @Query("SELECT r FROM Resident r LEFT JOIN r.person p WHERE (r.isDeleted = false OR r.isDeleted IS NULL) AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED) AND (" +
            ":search IS NULL OR TRIM(:search) = '' OR " +
            "LOWER(p.firstName) LIKE LOWER(CONCAT(TRIM(:search), '%')) OR " +
            "LOWER(p.lastName) LIKE LOWER(CONCAT(TRIM(:search), '%')) OR " +

@@ -265,6 +265,7 @@ public class ResidentServiceImpl implements ResidentService {
                 .orElseThrow(() -> new RuntimeException("Resident not found with id: " + id));
         resident.setStatus(ResidentStatus.ARCHIVED);
         resident.setStatusRemarks("Archived from table action");
+        resident.restoreDelete();
         resident = residentRepository.save(resident);
         return mapToTableResponse(resident);
     }
@@ -276,6 +277,7 @@ public class ResidentServiceImpl implements ResidentService {
                 .orElseThrow(() -> new RuntimeException("Resident not found with id: " + id));
         resident.setStatus(ResidentStatus.ACTIVE);
         resident.setStatusRemarks("Restored to active status");
+        resident.restoreDelete();
         resident = residentRepository.save(resident);
         return mapToTableResponse(resident);
     }
@@ -285,6 +287,7 @@ public class ResidentServiceImpl implements ResidentService {
     public void deleteResident(Long id) {
         Resident resident = residentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Resident not found with id: " + id));
+        resident.softDelete();
         resident.setStatus(ResidentStatus.INACTIVE);
         residentRepository.save(resident);
     }

@@ -288,7 +288,7 @@ public class UserService {
     }
 
     /**
-     * Archives a user account (Soft delete).
+     * Archives a user account.
      */
     @Transactional
     public UserResponse archiveUser(Long userId, UserArchiveRequest request) {
@@ -298,16 +298,21 @@ public class UserService {
         user.setIsArchived(true);
         user.setArchivedAt(LocalDateTime.now());
         if (request != null && request.remarks() != null && !request.remarks().isBlank()) {
-            user.setArchiveRemarks(request.remarks());
+            user.setArchiveRemarks(request.remarks().trim());
         }
         user.setStatus(UserStatus.ARCHIVED);
+        user.setIsDeleted(false);
+        user.setDeletedAt(null);
+        user.setIsPermanentDeleted(false);
+        user.setPermanentDeletedAt(null);
 
         User archivedUser = userRepository.save(user);
         return mapToResponse(archivedUser);
     }
 
     /**
-     * Restores an archived user account.
+     * Restores an archived or soft-deleted user account back to active status.
+     * Clears all archive, soft-delete, and permanent-delete flags.
      */
     @Transactional
     public UserResponse restoreUser(Long userId) {
@@ -317,31 +322,61 @@ public class UserService {
         user.setIsArchived(false);
         user.setArchivedAt(null);
         user.setArchiveRemarks(null);
+        user.setIsDeleted(false);
+        user.setDeletedAt(null);
+        user.setIsPermanentDeleted(false);
+        user.setPermanentDeletedAt(null);
         user.setStatus(UserStatus.ACTIVE);
         user.setIsLocked(false);
         user.setLockUntil(null);
+        user.setFailedAttempts(0);
 
         User restoredUser = userRepository.save(user);
         return mapToResponse(restoredUser);
     }
 
     /**
-     * Permanently deletes a user account.
-     * Prevents deletion of System Root Admin accounts.
+     * Moves a user account to the trash (Soft Delete).
+     * Disables account login and excludes from active directory without breaking audit or case history foreign keys.
      */
     @Transactional
-    public void deleteUser(Long userId) {
+    public void softDeleteUser(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
 
         validateNonSystemUser(user, "System root accounts cannot be deleted from the system.");
 
-        // Clear relationships to prevent FK constraint issues
-        user.getDepartments().clear();
-        user.getCustomPermissions().clear();
+        user.softDelete();
+        user.setStatus(UserStatus.INACTIVE);
+        user.setIsLocked(true);
+        userRepository.save(user);
+        log.info("User account with ID: {} soft-deleted (moved to trash).", userId);
+    }
 
-        userRepository.delete(user);
-        log.info("User account with ID: {} deleted successfully.", userId);
+    /**
+     * Permanently flags a user account as deleted (Audit-safe purge).
+     * Prevents deletion of System Root Admin accounts.
+     */
+    @Transactional
+    public void permanentDeleteUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
+
+        validateNonSystemUser(user, "System root accounts cannot be deleted from the system.");
+
+        user.permanentDelete();
+        user.setStatus(UserStatus.INACTIVE);
+        user.setIsLocked(true);
+        userRepository.save(user);
+        log.info("User account with ID: {} flagged as permanently deleted.", userId);
+    }
+
+    /**
+     * Default removal from User Management table performs soft delete.
+     */
+    @Transactional
+    public void deleteUser(Long userId) {
+        softDeleteUser(userId);
     }
 
     private User findUserById(Long userId) {

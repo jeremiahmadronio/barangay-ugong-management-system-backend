@@ -32,6 +32,9 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
                 LEFT JOIN FETCH u.departments
                 WHERE LOWER(u.systemEmail) = LOWER(:email)
                 AND (u.isArchived = false OR u.isArchived IS NULL)
+                AND (u.status IS NULL OR u.status <> com.barangay.zshared.enumerated.UserStatus.ARCHIVED)
+                AND (u.isDeleted = false OR u.isDeleted IS NULL)
+                AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)
                 """;
         TypedQuery<User> query = entityManager.createQuery(jpql, User.class);
         query.setParameter("email", cleanEmail);
@@ -44,17 +47,22 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
         LocalDateTime startOfPrevMonth = startOfCurrentMonth.minusMonths(1);
         LocalDateTime endOfPrevMonth = startOfCurrentMonth.minusNanos(1);
 
-        String jpqlTotal = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false";
-        String jpqlTotalPrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.createdAt >= :startOfPrevMonth AND u.createdAt <= :endOfPrevMonth";
+        String baseFilter = " WHERE (u.isArchived = false OR u.isArchived IS NULL) " +
+                "AND (u.status IS NULL OR u.status <> com.barangay.zshared.enumerated.UserStatus.ARCHIVED) " +
+                "AND (u.isDeleted = false OR u.isDeleted IS NULL) " +
+                "AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) ";
 
-        String jpqlActive = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.status = com.barangay.zshared.enumerated.UserStatus.ACTIVE";
-        String jpqlActivePrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.status = com.barangay.zshared.enumerated.UserStatus.ACTIVE AND u.createdAt >= :startOfPrevMonth AND u.createdAt <= :endOfPrevMonth";
+        String jpqlTotal = "SELECT COUNT(u) FROM User u " + baseFilter;
+        String jpqlTotalPrev = "SELECT COUNT(u) FROM User u " + baseFilter + " AND u.createdAt >= :startOfPrevMonth AND u.createdAt <= :endOfPrevMonth";
 
-        String jpqlLocked = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.isLocked = true";
-        String jpqlLockedPrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.isLocked = true AND u.createdAt >= :startOfPrevMonth AND u.createdAt <= :endOfPrevMonth";
+        String jpqlActive = "SELECT COUNT(u) FROM User u " + baseFilter + " AND u.status = com.barangay.zshared.enumerated.UserStatus.ACTIVE";
+        String jpqlActivePrev = "SELECT COUNT(u) FROM User u " + baseFilter + " AND u.status = com.barangay.zshared.enumerated.UserStatus.ACTIVE AND u.createdAt >= :startOfPrevMonth AND u.createdAt <= :endOfPrevMonth";
 
-        String jpqlInactive = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.status = com.barangay.zshared.enumerated.UserStatus.INACTIVE";
-        String jpqlInactivePrev = "SELECT COUNT(u) FROM User u WHERE u.isArchived = false AND u.status = com.barangay.zshared.enumerated.UserStatus.INACTIVE AND u.createdAt >= :startOfPrevMonth AND u.createdAt <= :endOfPrevMonth";
+        String jpqlLocked = "SELECT COUNT(u) FROM User u " + baseFilter + " AND u.isLocked = true";
+        String jpqlLockedPrev = "SELECT COUNT(u) FROM User u " + baseFilter + " AND u.isLocked = true AND u.createdAt >= :startOfPrevMonth AND u.createdAt <= :endOfPrevMonth";
+
+        String jpqlInactive = "SELECT COUNT(u) FROM User u " + baseFilter + " AND u.status = com.barangay.zshared.enumerated.UserStatus.INACTIVE";
+        String jpqlInactivePrev = "SELECT COUNT(u) FROM User u " + baseFilter + " AND u.status = com.barangay.zshared.enumerated.UserStatus.INACTIVE AND u.createdAt >= :startOfPrevMonth AND u.createdAt <= :endOfPrevMonth";
 
         long currentTotal = entityManager.createQuery(jpqlTotal, Long.class).getSingleResult();
         long previousTotal = entityManager.createQuery(jpqlTotalPrev, Long.class)
@@ -95,7 +103,10 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
                 LEFT JOIN FETCH u.person p
                 LEFT JOIN FETCH u.role r
                 LEFT JOIN FETCH u.departments d
-                WHERE u.isArchived = false
+                WHERE (u.isArchived = false OR u.isArchived IS NULL)
+                  AND (u.status IS NULL OR u.status <> com.barangay.zshared.enumerated.UserStatus.ARCHIVED)
+                  AND (u.isDeleted = false OR u.isDeleted IS NULL)
+                  AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)
                 """);
 
         Map<String, Object> params = new HashMap<>();

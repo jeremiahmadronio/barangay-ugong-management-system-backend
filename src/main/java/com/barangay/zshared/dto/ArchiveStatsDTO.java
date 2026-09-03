@@ -4,5 +4,9 @@ public record ArchiveStatsDTO(
         long totalArchived,
         long totalArchivedResidents,
         long totalArchivedOfficers,
-        long totalArchivedUsers
+        long totalArchivedUsers,
+        long totalDeleted,
+        long totalDeletedResidents,
+        long totalDeletedOfficers,
+        long totalDeletedUsers
 ) {}
