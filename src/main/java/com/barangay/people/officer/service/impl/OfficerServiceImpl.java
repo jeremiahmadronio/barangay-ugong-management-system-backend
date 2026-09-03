@@ -156,13 +156,12 @@ public class OfficerServiceImpl implements OfficerService {
         Officer officer = officerRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Officer not found with ID: " + id));
         officer.setStatus(request.status());
+        if (request.status() == OfficerStatus.ACTIVE || request.status() == OfficerStatus.ARCHIVED) {
+            officer.restoreDelete();
+        }
         Officer updated = officerRepository.save(officer);
         return mapToTableResponse(updated);
     }
-
-
-
-
 
     @Override
     @Transactional
@@ -175,8 +174,8 @@ public class OfficerServiceImpl implements OfficerService {
     public void softDeleteOfficer(Long id) {
         Officer officer = officerRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Officer not found with ID: " + id));
-        officer.setStatus(OfficerStatus.ARCHIVED);
-        officer.setIsDeleted(true);
+        officer.softDelete();
+        officer.setStatus(OfficerStatus.INACTIVE);
         officerRepository.save(officer);
     }
 
@@ -185,7 +184,8 @@ public class OfficerServiceImpl implements OfficerService {
     public void permanentDeleteOfficer(Long id) {
         Officer officer = officerRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Officer not found with ID: " + id));
-        officer.setIsPermanentDeleted(true);
+        officer.permanentDelete();
+        officer.setStatus(OfficerStatus.INACTIVE);
         officerRepository.save(officer);
     }
 
@@ -195,8 +195,7 @@ public class OfficerServiceImpl implements OfficerService {
         Officer officer = officerRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Officer not found with ID: " + id));
         officer.setStatus(OfficerStatus.ACTIVE);
-        officer.setIsDeleted(false);
-        officer.setIsPermanentDeleted(false);
+        officer.restoreDelete();
         Officer saved = officerRepository.save(officer);
         return mapToTableResponse(saved);
     }
