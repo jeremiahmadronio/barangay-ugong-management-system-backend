@@ -33,4 +33,7 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
 
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(u) FROM User u WHERE (u.isArchived = false OR u.isArchived IS NULL) AND (u.status IS NULL OR u.status <> com.barangay.zshared.enumerated.UserStatus.ARCHIVED) AND (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) AND u.createdAt <= :cutoff AND (u.role IS NULL OR UPPER(u.role.roleName) NOT IN ('SYSTEM_ADMIN', 'ROOTADMIN', 'ROOT_ADMIN', 'ROLE_SYSTEM_ADMIN', 'ROLE_ROOT_ADMIN'))")
     long countNonAdminUsersCreatedOnOrBefore(@org.springframework.data.repository.query.Param("cutoff") java.time.LocalDateTime cutoff);
+
+    @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE u.isDeleted = true AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) AND u.deletedAt <= :cutoff")
+    java.util.List<User> findExpiredSoftDeletedUsers(@org.springframework.data.repository.query.Param("cutoff") java.time.LocalDateTime cutoff);
 }

@@ -82,4 +82,7 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
 
     @Query("SELECT COUNT(r) FROM Resident r WHERE r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED AND r.createdAt <= :cutoff")
     long countResidentsCreatedOnOrBefore(@Param("cutoff") LocalDateTime cutoff);
+
+    @Query("SELECT r FROM Resident r WHERE r.isDeleted = true AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND r.deletedAt <= :cutoff")
+    List<Resident> findExpiredSoftDeletedResidents(@Param("cutoff") LocalDateTime cutoff);
 }

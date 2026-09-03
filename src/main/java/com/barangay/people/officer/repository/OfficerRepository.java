@@ -60,4 +60,7 @@ public interface OfficerRepository extends JpaRepository<Officer, Long> {
            ORDER BY p.lastName ASC, p.firstName ASC
            """)
     List<LuponOfficerResponse> findLuponOfficer();
+
+    @Query("SELECT o FROM Officer o WHERE o.isDeleted = true AND (o.isPermanentDeleted = false OR o.isPermanentDeleted IS NULL) AND o.deletedAt <= :cutoff")
+    List<Officer> findExpiredSoftDeletedOfficers(@Param("cutoff") LocalDateTime cutoff);
 }
