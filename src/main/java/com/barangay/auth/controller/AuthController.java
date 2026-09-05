@@ -27,6 +27,7 @@ public class AuthController {
         return ResponseEntity.ok(authService.verifyMfa(request, NetworkUtil.getClientIp()));
     }
 
+
     @PostMapping("/send-backup-otp")
     public ResponseEntity<Void> sendBackupOtp(@RequestParam String email) {
         authService.sendBackupOtp(email,NetworkUtil.getClientIp());

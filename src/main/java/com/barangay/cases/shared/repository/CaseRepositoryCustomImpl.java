@@ -39,7 +39,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         CriteriaQuery<Case> cq = cb.createQuery(Case.class);
         Root<Case> root = cq.from(Case.class);
 
-        List<Predicate> predicates = buildPredicates(filter, cb, root);
+        List<Predicate> predicates = buildPredicates(filter, cb, cq, root);
         cq.where(predicates.toArray(new Predicate[0]));
         cq.orderBy(cb.desc(root.get("createdAt")));
 
@@ -53,7 +53,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
         Root<Case> countRoot = countCq.from(Case.class);
 
-        List<Predicate> countPredicates = buildPredicates(filter, cb, countRoot);
+        List<Predicate> countPredicates = buildPredicates(filter, cb, countCq, countRoot);
         countCq.select(cb.count(countRoot));
         countCq.where(countPredicates.toArray(new Predicate[0]));
 
@@ -91,6 +91,109 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         Long totalCount = entityManager.createQuery(countCq).getSingleResult();
 
         return new PageImpl<>(resultList, pageable, totalCount);
+    }
+
+    @Override
+    public Page<Case> findVawcCasesFiltered(com.barangay.cases.vawc.dto.VawcFilterRequest filter, Pageable pageable) {
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+
+        // 1. Data Query
+        CriteriaQuery<Case> cq = cb.createQuery(Case.class);
+        Root<Case> root = cq.from(Case.class);
+
+        List<Predicate> predicates = buildVawcPredicates(filter, cb, root);
+        cq.where(predicates.toArray(new Predicate[0]));
+        cq.orderBy(cb.desc(root.get("createdAt")));
+
+        TypedQuery<Case> query = entityManager.createQuery(cq);
+        query.setFirstResult((int) pageable.getOffset());
+        query.setMaxResults(pageable.getPageSize());
+
+        List<Case> resultList = query.getResultList();
+
+        // 2. Count Query
+        CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
+        Root<Case> countRoot = countCq.from(Case.class);
+
+        List<Predicate> countPredicates = buildVawcPredicates(filter, cb, countRoot);
+        countCq.select(cb.count(countRoot));
+        countCq.where(countPredicates.toArray(new Predicate[0]));
+
+        Long totalCount = entityManager.createQuery(countCq).getSingleResult();
+
+        return new PageImpl<>(resultList, pageable, totalCount);
+    }
+
+    private List<Predicate> buildVawcPredicates(com.barangay.cases.vawc.dto.VawcFilterRequest filter, CriteriaBuilder cb, Root<Case> root) {
+        List<Predicate> predicates = new ArrayList<>();
+
+        // Base criteria: non-deleted, non-permanently-deleted, non-archived & main VAWC root cases
+        predicates.add(cb.or(cb.isNull(root.get("isDeleted")), cb.equal(root.get("isDeleted"), false)));
+        predicates.add(cb.or(cb.isNull(root.get("isPermanentDeleted")), cb.equal(root.get("isPermanentDeleted"), false)));
+        predicates.add(cb.or(cb.isNull(root.get("isArchived")), cb.equal(root.get("isArchived"), false)));
+        predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
+
+        // Department filter: VAWC
+        Join<Case, com.barangay.usermanagement.department.model.Department> deptJoin = root.join("department", JoinType.LEFT);
+        Predicate vawcDept = cb.equal(cb.upper(deptJoin.get("name")), "VAWC");
+        Predicate vawcCaseNumber = cb.like(cb.upper(root.get("caseNumber")), "%VAWC%");
+        predicates.add(cb.or(vawcDept, cb.and(cb.isNull(root.get("department")), vawcCaseNumber)));
+
+        if (filter == null) {
+            return predicates;
+        }
+
+        // Search text (Case Number, Complainant First/Last Name, Respondent First/Last Name)
+        if (filter.search() != null && !filter.search().isBlank()) {
+            String searchPattern = "%" + filter.search().trim().toLowerCase() + "%";
+
+            Join<Case, Complainant> compJoin = root.join("complainant", JoinType.LEFT);
+            Join<Complainant, Person> compPersonJoin = compJoin.join("person", JoinType.LEFT);
+
+            Join<Case, Respondent> respJoin = root.join("respondent", JoinType.LEFT);
+            Join<Respondent, Person> respPersonJoin = respJoin.join("person", JoinType.LEFT);
+
+            Predicate caseNumberLike = cb.like(cb.lower(root.get("caseNumber")), searchPattern);
+            Predicate compFirstNameLike = cb.like(cb.lower(compPersonJoin.get("firstName")), searchPattern);
+            Predicate compLastNameLike = cb.like(cb.lower(compPersonJoin.get("lastName")), searchPattern);
+            Predicate respFirstNameLike = cb.like(cb.lower(respPersonJoin.get("firstName")), searchPattern);
+            Predicate respLastNameLike = cb.like(cb.lower(respPersonJoin.get("lastName")), searchPattern);
+
+            predicates.add(cb.or(caseNumberLike, compFirstNameLike, compLastNameLike, respFirstNameLike, respLastNameLike));
+        }
+
+        // Status Filter
+        if (filter.status() != null && !filter.status().isBlank() && !"all".equalsIgnoreCase(filter.status())) {
+            String rawStatus = filter.status().trim().toUpperCase();
+            List<CaseStatus> matchedStatuses = new ArrayList<>();
+            if (rawStatus.contains("REFER")) {
+                matchedStatuses.add(CaseStatus.ISSUED_REFERRAL);
+            } else if (rawStatus.contains("SETTLE") || rawStatus.contains("RESOLV")) {
+                matchedStatuses.add(CaseStatus.SETTLED);
+            } else if (rawStatus.contains("DISMISS")) {
+                matchedStatuses.add(CaseStatus.DISMISSED);
+            } else if (rawStatus.contains("WITHDRAW")) {
+                matchedStatuses.add(CaseStatus.WITHDRAWN);
+            } else if (rawStatus.contains("PENDING")) {
+                matchedStatuses.add(CaseStatus.PENDING);
+            } else {
+                try {
+                    matchedStatuses.add(CaseStatus.valueOf(rawStatus));
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+            if (!matchedStatuses.isEmpty()) {
+                predicates.add(root.get("caseStatus").in(matchedStatuses));
+            }
+        }
+
+        // Risk Level Filter
+        if (filter.riskLevel() != null && !filter.riskLevel().isBlank() && !"all".equalsIgnoreCase(filter.riskLevel())) {
+            String riskPattern = "%" + filter.riskLevel().trim().toUpperCase() + "%";
+            predicates.add(cb.like(cb.upper(root.get("riskLevel")), riskPattern));
+        }
+
+        return predicates;
     }
 
     @Override
@@ -241,7 +344,12 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         return curr;
     }
 
-    private List<Predicate> buildPredicates(BlotterFilterRequest filter, CriteriaBuilder cb, Root<Case> root) {
+    private List<Predicate> buildPredicates(
+            BlotterFilterRequest filter,
+            CriteriaBuilder cb,
+            CommonAbstractCriteria query,
+            Root<Case> root
+    ) {
         List<Predicate> predicates = new ArrayList<>();
 
         // Base criteria: non-deleted cases, non-permanently-deleted cases, non-archived cases & root cases only (main cases without previousCaseNumber)
@@ -250,11 +358,17 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         predicates.add(cb.or(cb.isNull(root.get("isArchived")), cb.equal(root.get("isArchived"), false)));
         predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
 
+        // Exclude VAWC department cases from Blotter table
+        Join<Case, com.barangay.usermanagement.department.model.Department> deptJoin = root.join("department", JoinType.LEFT);
+        Predicate notVawcDept = cb.or(cb.isNull(deptJoin.get("name")), cb.notEqual(cb.upper(deptJoin.get("name")), "VAWC"));
+        Predicate notVawcCaseNumber = cb.notLike(cb.upper(root.get("caseNumber")), "%VAWC%");
+        predicates.add(cb.and(notVawcDept, notVawcCaseNumber));
+
         if (filter == null) {
             return predicates;
         }
 
-        // Search text (Case Number, Complainant First/Last Name, Respondent First/Last Name)
+        // Search text (Case Number, Complainant First/Last Name, Respondent First/Last Name, Child case numbers)
         if (filter.search() != null && !filter.search().isBlank()) {
             String searchPattern = "%" + filter.search().trim().toLowerCase() + "%";
 
@@ -272,15 +386,76 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
             Predicate respFirstNameLike = cb.like(cb.lower(respPersonJoin.get("firstName")), searchPattern);
             Predicate respLastNameLike = cb.like(cb.lower(respPersonJoin.get("lastName")), searchPattern);
 
-            predicates.add(cb.or(caseNumberLike, compFirstNameLike, compLastNameLike, respFirstNameLike, respLastNameLike));
+            Subquery<Long> childSearchSq = query.subquery(Long.class);
+            Root<Case> childSearchRoot = childSearchSq.from(Case.class);
+            childSearchSq.select(cb.literal(1L));
+            childSearchSq.where(
+                    cb.equal(childSearchRoot.get("previousCaseNumber"), root.get("caseNumber")),
+                    cb.like(cb.lower(childSearchRoot.get("caseNumber")), searchPattern)
+            );
+
+            predicates.add(cb.or(caseNumberLike, compFirstNameLike, compLastNameLike, respFirstNameLike, respLastNameLike, cb.exists(childSearchSq)));
         }
 
-        // Status Filter
+        // Status Filter (Supporting root case status, reopened child case status, and CFA entity)
         if (filter.status() != null && !filter.status().isBlank() && !"all".equalsIgnoreCase(filter.status())) {
-            try {
-                CaseStatus statusEnum = CaseStatus.valueOf(filter.status().toUpperCase());
-                predicates.add(cb.equal(root.get("caseStatus"), statusEnum));
-            } catch (IllegalArgumentException ignored) {
+            String rawStatus = filter.status().trim().toUpperCase();
+            List<CaseStatus> matchedStatuses = new ArrayList<>();
+
+            if (rawStatus.contains("CERTIFIED") || rawStatus.contains("CFA")) {
+                matchedStatuses.add(CaseStatus.CERTIFIED_TO_FILE_ACTION);
+            } else if (rawStatus.contains("SETTLE") || rawStatus.contains("RESOLV")) {
+                matchedStatuses.add(CaseStatus.SETTLED);
+            } else if (rawStatus.contains("MEDIAT")) {
+                matchedStatuses.add(CaseStatus.UNDER_MEDIATION);
+            } else if (rawStatus.contains("CONCILIAT")) {
+                matchedStatuses.add(CaseStatus.UNDER_CONCILIATION);
+            } else if (rawStatus.contains("EXPIRE")) {
+                matchedStatuses.add(CaseStatus.EXPIRED_UNACTIONED);
+            } else if (rawStatus.contains("DISMISS")) {
+                matchedStatuses.add(CaseStatus.DISMISSED);
+            } else if (rawStatus.contains("WITHDRAW")) {
+                matchedStatuses.add(CaseStatus.WITHDRAWN);
+            } else if (rawStatus.contains("RECORD")) {
+                matchedStatuses.add(CaseStatus.RECORDED);
+            } else if (rawStatus.contains("PENDING")) {
+                matchedStatuses.add(CaseStatus.PENDING);
+            } else {
+                try {
+                    matchedStatuses.add(CaseStatus.valueOf(rawStatus));
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+
+            if (!matchedStatuses.isEmpty()) {
+                Predicate rootStatusMatch = root.get("caseStatus").in(matchedStatuses);
+
+                Subquery<Long> childStatusSq = query.subquery(Long.class);
+                Root<Case> childStatusRoot = childStatusSq.from(Case.class);
+                childStatusSq.select(cb.literal(1L));
+                childStatusSq.where(
+                        cb.equal(childStatusRoot.get("previousCaseNumber"), root.get("caseNumber")),
+                        childStatusRoot.get("caseStatus").in(matchedStatuses)
+                );
+
+                List<Predicate> statusPredicates = new ArrayList<>();
+                statusPredicates.add(rootStatusMatch);
+                statusPredicates.add(cb.exists(childStatusSq));
+
+                if (matchedStatuses.contains(CaseStatus.CERTIFIED_TO_FILE_ACTION)) {
+                    Predicate rootCfa = cb.isNotNull(root.get("certificateToFileAction"));
+                    Subquery<Long> childCfaSq = query.subquery(Long.class);
+                    Root<Case> childCfaRoot = childCfaSq.from(Case.class);
+                    childCfaSq.select(cb.literal(1L));
+                    childCfaSq.where(
+                            cb.equal(childCfaRoot.get("previousCaseNumber"), root.get("caseNumber")),
+                            cb.isNotNull(childCfaRoot.get("certificateToFileAction"))
+                    );
+                    statusPredicates.add(rootCfa);
+                    statusPredicates.add(cb.exists(childCfaSq));
+                }
+
+                predicates.add(cb.or(statusPredicates.toArray(new Predicate[0])));
             }
         }
 
@@ -324,6 +499,12 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         predicates.add(cb.or(cb.isNull(root.get("isPermanentDeleted")), cb.equal(root.get("isPermanentDeleted"), false)));
         predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
 
+        // Exclude VAWC department cases from Blotter archive table
+        Join<Case, com.barangay.usermanagement.department.model.Department> deptJoin = root.join("department", JoinType.LEFT);
+        Predicate notVawcDept = cb.or(cb.isNull(deptJoin.get("name")), cb.notEqual(cb.upper(deptJoin.get("name")), "VAWC"));
+        Predicate notVawcCaseNumber = cb.notLike(cb.upper(root.get("caseNumber")), "%VAWC%");
+        predicates.add(cb.and(notVawcDept, notVawcCaseNumber));
+
         if (filter == null) {
             return predicates;
         }
@@ -366,6 +547,12 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         predicates.add(cb.equal(root.get("isDeleted"), true));
         predicates.add(cb.or(cb.isNull(root.get("isPermanentDeleted")), cb.equal(root.get("isPermanentDeleted"), false)));
         predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
+
+        // Exclude VAWC department cases from Blotter recent delete table
+        Join<Case, com.barangay.usermanagement.department.model.Department> deptJoin = root.join("department", JoinType.LEFT);
+        Predicate notVawcDept = cb.or(cb.isNull(deptJoin.get("name")), cb.notEqual(cb.upper(deptJoin.get("name")), "VAWC"));
+        Predicate notVawcCaseNumber = cb.notLike(cb.upper(root.get("caseNumber")), "%VAWC%");
+        predicates.add(cb.and(notVawcDept, notVawcCaseNumber));
 
         if (filter == null) {
             return predicates;
@@ -482,20 +669,61 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
 
         // Status Filter
         if (filter.status() != null && !filter.status().isBlank() && !"all".equalsIgnoreCase(filter.status())) {
-            try {
-                CaseStatus statusEnum = CaseStatus.valueOf(filter.status().toUpperCase());
-                Predicate rootStatusMatch = cb.equal(root.get("caseStatus"), statusEnum);
+            String rawStatus = filter.status().trim().toUpperCase();
+            List<CaseStatus> matchedStatuses = new ArrayList<>();
+
+            if (rawStatus.contains("CERTIFIED") || rawStatus.contains("CFA")) {
+                matchedStatuses.add(CaseStatus.CERTIFIED_TO_FILE_ACTION);
+            } else if (rawStatus.contains("SETTLE") || rawStatus.contains("RESOLV")) {
+                matchedStatuses.add(CaseStatus.SETTLED);
+            } else if (rawStatus.contains("CONCILIAT")) {
+                matchedStatuses.add(CaseStatus.UNDER_CONCILIATION);
+            } else if (rawStatus.contains("MEDIAT")) {
+                matchedStatuses.add(CaseStatus.UNDER_MEDIATION);
+            } else if (rawStatus.contains("EXPIRE")) {
+                matchedStatuses.add(CaseStatus.EXPIRED_UNACTIONED);
+            } else if (rawStatus.contains("DISMISS")) {
+                matchedStatuses.add(CaseStatus.DISMISSED);
+            } else if (rawStatus.contains("WITHDRAW")) {
+                matchedStatuses.add(CaseStatus.WITHDRAWN);
+            } else if (rawStatus.contains("PENDING")) {
+                matchedStatuses.add(CaseStatus.PENDING);
+            } else {
+                try {
+                    matchedStatuses.add(CaseStatus.valueOf(rawStatus));
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+
+            if (!matchedStatuses.isEmpty()) {
+                Predicate rootStatusMatch = root.get("caseStatus").in(matchedStatuses);
 
                 Subquery<Long> childStatusSq = query.subquery(Long.class);
                 Root<Case> childStatusRoot = childStatusSq.from(Case.class);
                 childStatusSq.select(cb.literal(1L));
                 childStatusSq.where(
                         cb.equal(childStatusRoot.get("previousCaseNumber"), root.get("caseNumber")),
-                        cb.equal(childStatusRoot.get("caseStatus"), statusEnum)
+                        childStatusRoot.get("caseStatus").in(matchedStatuses)
                 );
 
-                predicates.add(cb.or(rootStatusMatch, cb.exists(childStatusSq)));
-            } catch (IllegalArgumentException ignored) {
+                List<Predicate> statusPredicates = new ArrayList<>();
+                statusPredicates.add(rootStatusMatch);
+                statusPredicates.add(cb.exists(childStatusSq));
+
+                if (matchedStatuses.contains(CaseStatus.CERTIFIED_TO_FILE_ACTION)) {
+                    Predicate rootCfa = cb.isNotNull(root.get("certificateToFileAction"));
+                    Subquery<Long> childCfaSq = query.subquery(Long.class);
+                    Root<Case> childCfaRoot = childCfaSq.from(Case.class);
+                    childCfaSq.select(cb.literal(1L));
+                    childCfaSq.where(
+                            cb.equal(childCfaRoot.get("previousCaseNumber"), root.get("caseNumber")),
+                            cb.isNotNull(childCfaRoot.get("certificateToFileAction"))
+                    );
+                    statusPredicates.add(rootCfa);
+                    statusPredicates.add(cb.exists(childCfaSq));
+                }
+
+                predicates.add(cb.or(statusPredicates.toArray(new Predicate[0])));
             }
         }
 

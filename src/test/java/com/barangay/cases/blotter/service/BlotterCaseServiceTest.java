@@ -43,10 +43,28 @@ class BlotterCaseServiceTest {
     private CaseRepository caseRepository;
 
     @Mock
+    private com.barangay.people.person.repository.PersonRepository personRepository;
+
+    @Mock
+    private com.barangay.people.officer.repository.OfficerRepository officerRepository;
+
+    @Mock
+    private com.barangay.usermanagement.department.repository.DepartmentRepository departmentRepository;
+
+    @Mock
     private CaseEvidenceRepository caseEvidenceRepository;
 
     @Mock
+    private com.barangay.people.witness.repository.WitnessRepository witnessRepository;
+
+    @Mock
     private CaseTimelineService caseTimelineService;
+
+    @Mock
+    private com.barangay.cases.shared.repository.CaseSessionRepository caseSessionRepository;
+
+    @Mock
+    private com.barangay.cases.shared.repository.CertificateToFileActionRepository certificateToFileActionRepository;
 
     @Mock
     private ComplainantMapper complainantMapper;
@@ -96,8 +114,8 @@ class BlotterCaseServiceTest {
         verify(caseTimelineService).logEvent(
                 eq(existingCase),
                 eq(TimelineEventType.STATUS_CHANGED),
-                eq("Case Status Updated to DISMISSED"),
-                eq("Complainant withdrew the complaint."),
+                eq("Case Dismissed"),
+                eq("Case dismissed. Remarks: Complainant withdrew the complaint."),
                 any()
         );
     }

@@ -77,6 +77,8 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
         SELECT COUNT(c) FROM Case c
         LEFT JOIN c.department d
         WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (d IS NULL OR UPPER(d.name) != 'VAWC')
+          AND UPPER(c.caseNumber) NOT LIKE '%VAWC%'
           AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
           AND (c.isArchived IS NULL OR c.isArchived = false)
           AND (c.isDeleted IS NULL OR c.isDeleted = false)
@@ -88,6 +90,8 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
         SELECT COUNT(c) FROM Case c
         LEFT JOIN c.department d
         WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (d IS NULL OR UPPER(d.name) != 'VAWC')
+          AND UPPER(c.caseNumber) NOT LIKE '%VAWC%'
           AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
           AND (c.isArchived IS NULL OR c.isArchived = false)
           AND (c.isDeleted IS NULL OR c.isDeleted = false)
@@ -100,6 +104,8 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
         SELECT COUNT(c) FROM Case c
         LEFT JOIN c.department d
         WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (d IS NULL OR UPPER(d.name) != 'VAWC')
+          AND UPPER(c.caseNumber) NOT LIKE '%VAWC%'
           AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
           AND (c.isArchived IS NULL OR c.isArchived = false)
           AND (c.isDeleted IS NULL OR c.isDeleted = false)
@@ -112,6 +118,8 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
         SELECT COUNT(c) FROM Case c
         LEFT JOIN c.department d
         WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (d IS NULL OR UPPER(d.name) != 'VAWC')
+          AND UPPER(c.caseNumber) NOT LIKE '%VAWC%'
           AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
           AND (c.isArchived IS NULL OR c.isArchived = false)
           AND (c.isDeleted IS NULL OR c.isDeleted = false)
@@ -124,6 +132,8 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
         SELECT COUNT(c) FROM Case c
         LEFT JOIN c.department d
         WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (d IS NULL OR UPPER(d.name) != 'VAWC')
+          AND UPPER(c.caseNumber) NOT LIKE '%VAWC%'
           AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
           AND (c.isArchived IS NULL OR c.isArchived = false)
           AND (c.isDeleted IS NULL OR c.isDeleted = false)
@@ -140,6 +150,8 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
         SELECT COUNT(c) FROM Case c
         LEFT JOIN c.department d
         WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (d IS NULL OR UPPER(d.name) != 'VAWC')
+          AND UPPER(c.caseNumber) NOT LIKE '%VAWC%'
           AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
           AND (c.isArchived IS NULL OR c.isArchived = false)
           AND (c.isDeleted IS NULL OR c.isDeleted = false)
@@ -157,6 +169,8 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
         SELECT COUNT(c) FROM Case c
         LEFT JOIN c.department d
         WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (d IS NULL OR UPPER(d.name) != 'VAWC')
+          AND UPPER(c.caseNumber) NOT LIKE '%VAWC%'
           AND (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
           AND (c.isArchived IS NULL OR c.isArchived = false)
           AND (c.isDeleted IS NULL OR c.isDeleted = false)
@@ -169,6 +183,8 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
         SELECT COUNT(c) FROM Case c
         LEFT JOIN c.department d
         WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (d IS NULL OR UPPER(d.name) != 'VAWC')
+          AND UPPER(c.caseNumber) NOT LIKE '%VAWC%'
           AND (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
           AND (c.isArchived IS NULL OR c.isArchived = false)
           AND (c.isDeleted IS NULL OR c.isDeleted = false)
@@ -181,6 +197,8 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
         SELECT COUNT(c) FROM Case c
         LEFT JOIN c.department d
         WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (d IS NULL OR UPPER(d.name) != 'VAWC')
+          AND UPPER(c.caseNumber) NOT LIKE '%VAWC%'
           AND (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
           AND (c.isArchived IS NULL OR c.isArchived = false)
           AND (c.isDeleted IS NULL OR c.isDeleted = false)
@@ -197,6 +215,8 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
         SELECT COUNT(c) FROM Case c
         LEFT JOIN c.department d
         WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+          AND (d IS NULL OR UPPER(d.name) != 'VAWC')
+          AND UPPER(c.caseNumber) NOT LIKE '%VAWC%'
           AND (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
           AND (c.isArchived IS NULL OR c.isArchived = false)
           AND (c.isDeleted IS NULL OR c.isDeleted = false)
@@ -249,6 +269,69 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
            @Param("endDate") LocalDateTime endDate,
            @Param("departmentId") Long departmentId
     );
+
+    // ==========================================
+    // VAWC KPI STATISTICAL QUERIES
+    // ==========================================
+
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (UPPER(d.name) = 'VAWC' OR (d IS NULL AND UPPER(c.caseNumber) LIKE '%VAWC%'))
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+    """)
+    long countRootVawcCases();
+
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (UPPER(d.name) = 'VAWC' OR (d IS NULL AND UPPER(c.caseNumber) LIKE '%VAWC%'))
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.createdAt >= :start
+    """)
+    long countRootVawcCasesByCreatedAtGreaterThanEqual(@Param("start") LocalDateTime start);
+
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (UPPER(d.name) = 'VAWC' OR (d IS NULL AND UPPER(c.caseNumber) LIKE '%VAWC%'))
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.createdAt BETWEEN :start AND :end
+    """)
+    long countRootVawcCasesByCreatedAtBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (UPPER(d.name) = 'VAWC' OR (d IS NULL AND UPPER(c.caseNumber) LIKE '%VAWC%'))
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.caseStatus IN :statuses
+    """)
+    long countVawcCasesByCaseStatusIn(@Param("statuses") Collection<CaseStatus> statuses);
+
+    @Query("""
+        SELECT c FROM Case c
+        LEFT JOIN c.department d
+        WHERE (UPPER(d.name) = 'VAWC' OR (d IS NULL AND UPPER(c.caseNumber) LIKE '%VAWC%'))
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+        ORDER BY c.createdAt DESC
+    """)
+    List<Case> findRootVawcCases();
+
 
     /**
      * Aggregates total non-deleted root cases grouped by individual calendar day within a date range.

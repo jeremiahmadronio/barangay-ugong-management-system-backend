@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.barangay.cases.lupon.model.LuponReferral;
+import com.barangay.cases.vawc.model.BarangayProtectionOrder;
 import com.barangay.cases.vawc.model.ChildInvolved;
 import com.barangay.people.complainant.model.Complainant;
 import com.barangay.people.officer.model.Officer;
@@ -144,6 +145,9 @@ public class Case extends BaseEntity implements Archivable {
 
     @OneToOne(mappedBy = "cases", cascade = CascadeType.ALL)
     private LuponReferral luponReferral;
+
+    @OneToOne(mappedBy = "cases", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private BarangayProtectionOrder barangayProtectionOrder;
 
     @OneToMany(mappedBy = "cases", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private List<ChildInvolved> children = new ArrayList<>();

@@ -9,11 +9,15 @@ import com.barangay.cases.lupon.dto.LuponFilterRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import com.barangay.cases.vawc.dto.VawcFilterRequest;
+
 public interface CaseRepositoryCustom {
 
     Page<Case> findBlotterCasesFiltered(BlotterFilterRequest filter, Pageable pageable);
 
     Page<Case> findLuponCasesFiltered(LuponFilterRequest filter, Pageable pageable);
+
+    Page<Case> findVawcCasesFiltered(VawcFilterRequest filter, Pageable pageable);
 
     Page<BlotterArchiveItemResponse> findArchivedBlotterCases(BlotterArchiveFilterRequest filter, Pageable pageable);
 

@@ -41,7 +41,7 @@ public class NarrativeStatementMapper {
         if (dto == null) return null;
 
         NarrativeStatement narrative = new NarrativeStatement();
-        narrative.setFileName(dto.fileName());
+        narrative.setFileName(dto.fileName() != null && !dto.fileName().isBlank() ? dto.fileName() : "narrative_statement.txt");
         narrative.setStatementSummary(dto.statementSummary());
         narrative.setFileData(dto.fileData());
         return narrative;
