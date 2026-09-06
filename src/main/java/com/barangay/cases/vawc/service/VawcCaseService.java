@@ -622,8 +622,8 @@ public class VawcCaseService {
 
         referral = vawcReferralRepository.save(referral);
 
-        // Update case status to PENDING_REFERRAL
-        aCase.setCaseStatus(CaseStatus.PENDING_REFERRAL);
+        // Update case status to ISSUED_REFERRAL
+        aCase.setCaseStatus(CaseStatus.ISSUED_REFERRAL);
         aCase.setCaseStatusRemarks("Referral pending endorsement / feedback from " + referral.getReferredTo() + " under Referral #" + referralControlNumber);
         caseRepository.save(aCase);
 
@@ -635,6 +635,18 @@ public class VawcCaseService {
                 "Referral #" + referralControlNumber + " was officially issued to " + referral.getReferredTo() + " by " + referral.getReferredBy() + ". Awaiting agency feedback.",
                 currentUser
         );
+
+        // Close/Terminate BPO upon inter-agency referral escalation
+        BarangayProtectionOrder bpo = aCase.getBarangayProtectionOrder();
+        if (bpo == null) {
+            bpo = barangayProtectionOrderRepository.findByCasesId(caseId).orElse(null);
+        }
+        if (bpo != null && (bpo.getStatus() == BpoStatus.ISSUED || bpo.getStatus() == BpoStatus.SERVED || bpo.getStatus() == BpoStatus.PENDING)) {
+            bpo.setStatus(BpoStatus.EXPIRED);
+            barangayProtectionOrderRepository.save(bpo);
+            aCase.setBarangayProtectionOrder(bpo);
+            log.info("BPO #{} marked as EXPIRED upon referral of VAWC Case #{}", bpo.getBpoControlNumber(), aCase.getCaseNumber());
+        }
 
         log.info("VAWC Case #{} referred to {} with Control #{}", aCase.getCaseNumber(), referral.getReferredTo(), referralControlNumber);
         return toReferralResponse(referral, null);
@@ -651,7 +663,7 @@ public class VawcCaseService {
         if (!caseRepository.existsById(caseId)) {
             throw new ResourceNotFoundException("VAWC Case not found with ID: " + caseId);
         }
-        List<VawcReferral> referrals = vawcReferralRepository.findByCasesId(caseId);
+        List<VawcReferral> referrals = vawcReferralRepository.findByCasesIdOrderByIdDesc(caseId);
         return referrals.stream()
                 .map(r -> {
                     ReferralFeedback feedback = referralFeedbackRepository.findByVawcReferralId(r.getId()).orElse(null);
@@ -696,28 +708,54 @@ public class VawcCaseService {
 
         ReferralFeedback savedFeedback = referralFeedbackRepository.save(feedback);
 
+        User currentUser = SecurityUtils.getCurrentUser();
+
         if (Boolean.TRUE.equals(savedFeedback.getDeclinedByAgency())) {
             referral.setStatus("Declined");
+            aCase.setCaseStatus(CaseStatus.DECLINED_REFERRAL);
+            String declineReason = savedFeedback.getReasonForDecline() != null && !savedFeedback.getReasonForDecline().isBlank()
+                    ? savedFeedback.getReasonForDecline().trim()
+                    : savedFeedback.getDetails();
+            aCase.setCaseStatusRemarks("Referral declined by " + referral.getReferredTo() + ": " + declineReason);
+            caseRepository.save(aCase);
+
+            caseTimelineService.logEvent(
+                    aCase,
+                    TimelineEventType.STATUS_CHANGED,
+                    "Referral Declined (" + referral.getReferredTo() + ")",
+                    "Referral #" + referral.getReferralControlNumber() + " was declined by " + referral.getReferredTo() + ". Reason: " + declineReason,
+                    currentUser
+            );
         } else if (Boolean.TRUE.equals(savedFeedback.getResolvesCase())) {
             referral.setStatus("Resolved");
             aCase.setCaseStatus(CaseStatus.SETTLED);
             aCase.setCaseStatusRemarks("Case resolved following referral to " + referral.getReferredTo() + ": " + savedFeedback.getDetails());
             caseRepository.save(aCase);
+
+            caseTimelineService.logEvent(
+                    aCase,
+                    TimelineEventType.STATUS_CHANGED,
+                    "Case Resolved via Referral (" + referral.getReferredTo() + ")",
+                    "Case settled and resolved following successful referral endorsement to " + referral.getReferredTo() + ": " + savedFeedback.getDetails(),
+                    currentUser
+            );
         } else {
-            referral.setStatus("Completed");
+            referral.setStatus("Referred");
+            aCase.setCaseStatus(CaseStatus.ISSUED_REFERRAL);
+            aCase.setCaseStatusRemarks("Referral completed and feedback recorded from " + referral.getReferredTo() + ": " + savedFeedback.getDetails());
+            caseRepository.save(aCase);
+
+            caseTimelineService.logEvent(
+                    aCase,
+                    TimelineEventType.STATUS_CHANGED,
+                    "Referral Feedback Recorded (" + referral.getReferredTo() + ")",
+                    "Feedback recorded for Referral #" + referral.getReferralControlNumber() + ": " + savedFeedback.getDetails(),
+                    currentUser
+            );
         }
         VawcReferral updatedReferral = vawcReferralRepository.save(referral);
 
-        User currentUser = SecurityUtils.getCurrentUser();
-        caseTimelineService.logEvent(
-                aCase,
-                TimelineEventType.STATUS_CHANGED,
-                "Referral Feedback Recorded (" + updatedReferral.getReferredTo() + ")",
-                "Feedback recorded for Referral #" + updatedReferral.getReferralControlNumber() + ": " + savedFeedback.getDetails(),
-                currentUser
-        );
-
-        log.info("Feedback recorded for VAWC referral #{}", updatedReferral.getReferralControlNumber());
+        log.info("Feedback recorded for VAWC referral #{} with Case Status {}", updatedReferral.getReferralControlNumber(), aCase.getCaseStatus());
         return toReferralResponse(updatedReferral, savedFeedback);
     }
 
@@ -728,6 +766,7 @@ public class VawcCaseService {
                 feedback.getResolvesCase(),
                 feedback.getResolutionType(),
                 feedback.getProofFileName(),
+                feedback.getProofFileData(),
                 feedback.getDeclinedByAgency(),
                 feedback.getReasonForDecline(),
                 feedback.getCreatedAt()

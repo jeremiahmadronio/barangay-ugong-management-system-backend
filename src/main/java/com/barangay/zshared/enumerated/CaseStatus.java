@@ -2,12 +2,12 @@ package com.barangay.zshared.enumerated;
 
 public enum CaseStatus {
     PENDING,
-    PENDING_REFERRAL,
     UNDER_MEDIATION,
     UNDER_CONCILIATION,
     SETTLED,
     CERTIFIED_TO_FILE_ACTION,
     ISSUED_REFERRAL,
+    DECLINED_REFERRAL,
     DISMISSED,
     WITHDRAWN,
     EXPIRED_UNACTIONED,

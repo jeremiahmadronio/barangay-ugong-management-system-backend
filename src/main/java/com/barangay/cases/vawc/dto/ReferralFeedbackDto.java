@@ -8,6 +8,7 @@ public record ReferralFeedbackDto(
         Boolean resolvesCase,
         String resolutionType,
         String proofFileName,
+        String proofFileData,
         Boolean declinedByAgency,
         String reasonForDecline,
         LocalDateTime createdAt

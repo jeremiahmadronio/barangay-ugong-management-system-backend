@@ -166,8 +166,11 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         if (filter.status() != null && !filter.status().isBlank() && !"all".equalsIgnoreCase(filter.status())) {
             String rawStatus = filter.status().trim().toUpperCase();
             List<CaseStatus> matchedStatuses = new ArrayList<>();
-            if (rawStatus.contains("REFER")) {
+            if (rawStatus.contains("DECLIN")) {
+                matchedStatuses.add(CaseStatus.DECLINED_REFERRAL);
+            } else if (rawStatus.contains("REFER")) {
                 matchedStatuses.add(CaseStatus.ISSUED_REFERRAL);
+                matchedStatuses.add(CaseStatus.DECLINED_REFERRAL);
             } else if (rawStatus.contains("SETTLE") || rawStatus.contains("RESOLV")) {
                 matchedStatuses.add(CaseStatus.SETTLED);
             } else if (rawStatus.contains("DISMISS")) {

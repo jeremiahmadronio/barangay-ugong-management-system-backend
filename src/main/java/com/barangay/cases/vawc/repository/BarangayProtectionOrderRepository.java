@@ -30,4 +30,13 @@ public interface BarangayProtectionOrderRepository extends JpaRepository<Baranga
           ))
     """)
     long countByStatusIn(@Param("statuses") Collection<BpoStatus> statuses);
+
+    @Query("""
+        SELECT b FROM BarangayProtectionOrder b
+        LEFT JOIN FETCH b.cases c
+        WHERE b.status IN :statuses
+          AND (b.isDeleted IS NULL OR b.isDeleted = false)
+          AND (b.isPermanentDeleted IS NULL OR b.isPermanentDeleted = false)
+    """)
+    java.util.List<BarangayProtectionOrder> findActiveBposForExpirationCheck(@Param("statuses") Collection<BpoStatus> statuses);
 }

@@ -10,6 +10,7 @@ import java.util.Optional;
 @Repository
 public interface VawcReferralRepository extends JpaRepository<VawcReferral, Long> {
     List<VawcReferral> findByCasesId(Long caseId);
+    List<VawcReferral> findByCasesIdOrderByIdDesc(Long caseId);
     Optional<VawcReferral> findByReferralControlNumber(String referralControlNumber);
     boolean existsByReferralControlNumber(String referralControlNumber);
 }
