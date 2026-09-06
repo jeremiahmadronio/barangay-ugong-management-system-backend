@@ -7,9 +7,13 @@ import com.barangay.cases.shared.service.CaseTimelineService;
 import com.barangay.cases.vawc.dto.*;
 import com.barangay.cases.vawc.model.BarangayProtectionOrder;
 import com.barangay.cases.vawc.model.ChildInvolved;
+import com.barangay.cases.vawc.model.ReferralFeedback;
+import com.barangay.cases.vawc.model.VawcReferral;
 import com.barangay.cases.vawc.model.ViolenceType;
 import com.barangay.cases.vawc.repository.BarangayProtectionOrderRepository;
 import com.barangay.cases.vawc.repository.ChildInvolvedRepository;
+import com.barangay.cases.vawc.repository.ReferralFeedbackRepository;
+import com.barangay.cases.vawc.repository.VawcReferralRepository;
 import com.barangay.cases.vawc.repository.ViolenceTypeRepository;
 import com.barangay.people.complainant.model.Complainant;
 import com.barangay.people.officer.model.Officer;
@@ -62,6 +66,8 @@ public class VawcCaseService {
     private final ChildInvolvedRepository childInvolvedRepository;
     private final ViolenceTypeRepository violenceTypeRepository;
     private final BarangayProtectionOrderRepository barangayProtectionOrderRepository;
+    private final VawcReferralRepository vawcReferralRepository;
+    private final ReferralFeedbackRepository referralFeedbackRepository;
 
     private final ComplainantMapper complainantMapper;
     private final RespondentMapper respondentMapper;
@@ -587,6 +593,160 @@ public class VawcCaseService {
 
         log.info("BPO for VAWC case #{} marked as served by {}", savedCase.getCaseNumber(), request.servedBy());
         return toDetailResponse(savedCase);
+    }
+
+    /**
+     * Issues a new formal referral for a VAWC case to a partner agency (DSWD, PNP, PAO, Medical, etc.).
+     *
+     * @param caseId the VAWC case ID
+     * @param request referral creation payload
+     * @return created {@link VawcReferralResponse}
+     */
+    @Transactional
+    public VawcReferralResponse createReferral(Long caseId, VawcReferralCreateRequest request) {
+        Case aCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("VAWC Case not found with ID: " + caseId));
+
+        long existingCount = vawcReferralRepository.findByCasesId(caseId).size();
+        String referralControlNumber = String.format("REF-%s-%02d", aCase.getCaseNumber(), existingCount + 1);
+
+        VawcReferral referral = new VawcReferral();
+        referral.setCases(aCase);
+        referral.setReferralControlNumber(referralControlNumber);
+        referral.setReferredTo(request.referredTo().trim());
+        referral.setSubjectOfLitigations(request.subjectOfLitigations() != null ? request.subjectOfLitigations().trim() : null);
+        referral.setGrounds(request.grounds() != null ? request.grounds().trim() : null);
+        referral.setReferredBy(request.referredBy() != null ? request.referredBy().trim() : "VAWC Desk Officer");
+        referral.setReferralDate(request.referralDate() != null ? request.referralDate() : LocalDateTime.now());
+        referral.setStatus("Active");
+
+        referral = vawcReferralRepository.save(referral);
+
+        // Update case status to ISSUED_REFERRAL
+        aCase.setCaseStatus(CaseStatus.ISSUED_REFERRAL);
+        aCase.setCaseStatusRemarks("Referred to " + referral.getReferredTo() + " under Referral #" + referralControlNumber);
+        caseRepository.save(aCase);
+
+        User currentUser = SecurityUtils.getCurrentUser();
+        caseTimelineService.logEvent(
+                aCase,
+                TimelineEventType.STATUS_CHANGED,
+                "Case Referred to " + referral.getReferredTo(),
+                "Referral #" + referralControlNumber + " was officially issued to " + referral.getReferredTo() + " by " + referral.getReferredBy() + ".",
+                currentUser
+        );
+
+        log.info("VAWC Case #{} referred to {} with Control #{}", aCase.getCaseNumber(), referral.getReferredTo(), referralControlNumber);
+        return toReferralResponse(referral, null);
+    }
+
+    /**
+     * Retrieves all referrals for a VAWC case with their feedback history.
+     *
+     * @param caseId the VAWC case ID
+     * @return list of {@link VawcReferralResponse}
+     */
+    @Transactional(readOnly = true)
+    public List<VawcReferralResponse> getReferralsByCaseId(Long caseId) {
+        if (!caseRepository.existsById(caseId)) {
+            throw new ResourceNotFoundException("VAWC Case not found with ID: " + caseId);
+        }
+        List<VawcReferral> referrals = vawcReferralRepository.findByCasesId(caseId);
+        return referrals.stream()
+                .map(r -> {
+                    ReferralFeedback feedback = referralFeedbackRepository.findByVawcReferralId(r.getId()).orElse(null);
+                    return toReferralResponse(r, feedback);
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Records external agency feedback on a VAWC referral.
+     *
+     * @param caseId the VAWC case ID
+     * @param referralId the referral ID
+     * @param request feedback payload
+     * @return updated {@link VawcReferralResponse}
+     */
+    @Transactional
+    public VawcReferralResponse addReferralFeedback(Long caseId, Long referralId, ReferralFeedbackRequest request) {
+        Case aCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("VAWC Case not found with ID: " + caseId));
+
+        VawcReferral referral = vawcReferralRepository.findById(referralId)
+                .orElseThrow(() -> new ResourceNotFoundException("VAWC Referral not found with ID: " + referralId));
+
+        ReferralFeedback feedback = referralFeedbackRepository.findByVawcReferralId(referralId)
+                .orElseGet(() -> {
+                    ReferralFeedback newFb = new ReferralFeedback();
+                    newFb.setCases(aCase);
+                    newFb.setVawcReferral(referral);
+                    return newFb;
+                });
+
+        feedback.setDetails(request.details().trim());
+        feedback.setResolvesCase(request.resolvesCase() != null && request.resolvesCase());
+        feedback.setResolutionType(request.resolutionType());
+        if (request.proofFileData() != null && !request.proofFileData().isBlank()) {
+            feedback.setProofFileData(request.proofFileData());
+            feedback.setProofFileName(request.proofFileName() != null ? request.proofFileName() : "referral_feedback.pdf");
+        }
+        feedback.setDeclinedByAgency(request.declinedByAgency() != null && request.declinedByAgency());
+        feedback.setReasonForDecline(request.reasonForDecline());
+
+        ReferralFeedback savedFeedback = referralFeedbackRepository.save(feedback);
+
+        if (Boolean.TRUE.equals(savedFeedback.getDeclinedByAgency())) {
+            referral.setStatus("Declined");
+        } else if (Boolean.TRUE.equals(savedFeedback.getResolvesCase())) {
+            referral.setStatus("Resolved");
+            aCase.setCaseStatus(CaseStatus.SETTLED);
+            aCase.setCaseStatusRemarks("Case resolved following referral to " + referral.getReferredTo() + ": " + savedFeedback.getDetails());
+            caseRepository.save(aCase);
+        } else {
+            referral.setStatus("Completed");
+        }
+        VawcReferral updatedReferral = vawcReferralRepository.save(referral);
+
+        User currentUser = SecurityUtils.getCurrentUser();
+        caseTimelineService.logEvent(
+                aCase,
+                TimelineEventType.STATUS_CHANGED,
+                "Referral Feedback Recorded (" + updatedReferral.getReferredTo() + ")",
+                "Feedback recorded for Referral #" + updatedReferral.getReferralControlNumber() + ": " + savedFeedback.getDetails(),
+                currentUser
+        );
+
+        log.info("Feedback recorded for VAWC referral #{}", updatedReferral.getReferralControlNumber());
+        return toReferralResponse(updatedReferral, savedFeedback);
+    }
+
+    private VawcReferralResponse toReferralResponse(VawcReferral referral, ReferralFeedback feedback) {
+        ReferralFeedbackDto feedbackDto = feedback != null ? new ReferralFeedbackDto(
+                feedback.getId(),
+                feedback.getDetails(),
+                feedback.getResolvesCase(),
+                feedback.getResolutionType(),
+                feedback.getProofFileName(),
+                feedback.getDeclinedByAgency(),
+                feedback.getReasonForDecline(),
+                feedback.getCreatedAt()
+        ) : null;
+
+        return new VawcReferralResponse(
+                referral.getId(),
+                referral.getCases() != null ? referral.getCases().getId() : null,
+                referral.getCases() != null ? referral.getCases().getCaseNumber() : null,
+                referral.getReferralControlNumber(),
+                referral.getReferredTo(),
+                referral.getSubjectOfLitigations(),
+                referral.getGrounds(),
+                referral.getStatus(),
+                referral.getReferredBy(),
+                referral.getReferralDate(),
+                feedbackDto,
+                referral.getCreatedAt()
+        );
     }
 
     /**

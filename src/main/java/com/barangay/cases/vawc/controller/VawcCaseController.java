@@ -166,4 +166,37 @@ public class VawcCaseController {
             @Valid @RequestBody com.barangay.cases.vawc.dto.BpoServeRequest request) {
         return ResponseEntity.ok(vawcCaseService.serveBpo(caseId, request));
     }
+
+    /**
+     * Issues a formal referral for a VAWC case to a partner agency (DSWD, PNP, PAO, Medical, etc.).
+     */
+    @PostMapping("/{caseId}/referrals")
+    @LogAudit(module = AuditModule.VAWC, action = "ISSUE_VAWC_REFERRAL", severity = Severity.INFO)
+    public ResponseEntity<com.barangay.cases.vawc.dto.VawcReferralResponse> createReferral(
+            @PathVariable Long caseId,
+            @Valid @RequestBody com.barangay.cases.vawc.dto.VawcReferralCreateRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(vawcCaseService.createReferral(caseId, request));
+    }
+
+    /**
+     * Lists all referrals and agency feedback for a VAWC case.
+     */
+    @GetMapping("/{caseId}/referrals")
+    public ResponseEntity<List<com.barangay.cases.vawc.dto.VawcReferralResponse>> getReferrals(
+            @PathVariable Long caseId) {
+        return ResponseEntity.ok(vawcCaseService.getReferralsByCaseId(caseId));
+    }
+
+    /**
+     * Records partner agency feedback and outcome for a VAWC referral.
+     */
+    @PostMapping("/{caseId}/referrals/{referralId}/feedback")
+    @LogAudit(module = AuditModule.VAWC, action = "RECORD_REFERRAL_FEEDBACK", severity = Severity.INFO)
+    public ResponseEntity<com.barangay.cases.vawc.dto.VawcReferralResponse> addReferralFeedback(
+            @PathVariable Long caseId,
+            @PathVariable Long referralId,
+            @Valid @RequestBody com.barangay.cases.vawc.dto.ReferralFeedbackRequest request) {
+        return ResponseEntity.ok(vawcCaseService.addReferralFeedback(caseId, referralId, request));
+    }
 }
