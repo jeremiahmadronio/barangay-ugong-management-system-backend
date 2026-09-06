@@ -97,6 +97,7 @@ class VawcCaseControllerTest {
                 null,
                 null,
                 null,
+                null,
                 null
         );
 

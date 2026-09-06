@@ -146,4 +146,24 @@ public class VawcCaseController {
             @PathVariable Long caseId) {
         return ResponseEntity.ok(vawcCaseService.getCaseTimeline(caseId));
     }
+
+    /**
+     * Activates a Barangay Protection Order (BPO) for the given VAWC case.
+     */
+    @PostMapping("/{caseId}/bpo/activate")
+    @LogAudit(module = AuditModule.VAWC, action = "ACTIVATE_BPO", severity = Severity.INFO)
+    public ResponseEntity<VawcCaseDetailResponse> activateBpo(@PathVariable Long caseId) {
+        return ResponseEntity.ok(vawcCaseService.activateBpo(caseId));
+    }
+
+    /**
+     * Records service of a Barangay Protection Order (BPO) to the respondent.
+     */
+    @PostMapping("/{caseId}/bpo/serve")
+    @LogAudit(module = AuditModule.VAWC, action = "SERVE_BPO", severity = Severity.INFO)
+    public ResponseEntity<VawcCaseDetailResponse> serveBpo(
+            @PathVariable Long caseId,
+            @Valid @RequestBody com.barangay.cases.vawc.dto.BpoServeRequest request) {
+        return ResponseEntity.ok(vawcCaseService.serveBpo(caseId, request));
+    }
 }

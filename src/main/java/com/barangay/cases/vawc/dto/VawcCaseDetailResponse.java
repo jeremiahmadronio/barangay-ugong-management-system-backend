@@ -28,6 +28,7 @@ public record VawcCaseDetailResponse(
         String riskLevel,
         String dangerAssessments,
         String immediateRequests,
+        BpoDetailDto bpo,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {}

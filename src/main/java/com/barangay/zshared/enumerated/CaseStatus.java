@@ -11,5 +11,7 @@ public enum CaseStatus {
     WITHDRAWN,
     EXPIRED_UNACTIONED,
     REOPENED,
-    RECORDED
+    RECORDED,
+    BPO_ISSUED,
+    BPO_SERVED
 }

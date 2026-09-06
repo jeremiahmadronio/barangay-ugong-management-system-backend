@@ -40,6 +40,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -428,6 +429,28 @@ public class VawcCaseService {
             violenceTypeName = c.getBarangayProtectionOrder().getViolenceTypes().iterator().next().getName();
         }
 
+        BpoDetailDto bpoDto = null;
+        BarangayProtectionOrder bpo = c.getBarangayProtectionOrder();
+        if (bpo == null && c.getId() != null) {
+            bpo = barangayProtectionOrderRepository.findByCasesId(c.getId()).orElse(null);
+        }
+        if (bpo != null) {
+            bpoDto = new BpoDetailDto(
+                    bpo.getId(),
+                    bpo.getBpoControlNumber(),
+                    bpo.getStatus(),
+                    bpo.getActivatedAt(),
+                    bpo.getExpiredAt(),
+                    bpo.getServedBy(),
+                    bpo.getDateServed(),
+                    bpo.getServiceMethod(),
+                    bpo.getWitness1Name(),
+                    bpo.getWitness2Name(),
+                    null,
+                    bpo.getCertificationOfServiceFileData()
+            );
+        }
+
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm a");
         String dateFiledFormatted = c.getCreatedAt() != null ? c.getCreatedAt().format(dtf) : "—";
 
@@ -452,9 +475,118 @@ public class VawcCaseService {
                 c.getRiskLevel(),
                 c.getDangerAssessments(),
                 c.getImmediateRequests(),
+                bpoDto,
                 c.getCreatedAt(),
                 c.getUpdatedAt()
         );
+    }
+
+    /**
+     * Activates the Barangay Protection Order (BPO) for a given VAWC case.
+     * Sets status to ISSUED, activates validity period (15 days), and logs timeline event.
+     *
+     * @param caseId the VAWC case ID
+     * @return {@link VawcCaseDetailResponse} with updated BPO state
+     */
+    @Transactional
+    public VawcCaseDetailResponse activateBpo(Long caseId) {
+        Case aCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("VAWC Case not found with ID: " + caseId));
+        final Case targetCase = aCase;
+
+        BarangayProtectionOrder bpo = barangayProtectionOrderRepository.findByCasesId(caseId)
+                .orElseGet(() -> {
+                    BarangayProtectionOrder newBpo = new BarangayProtectionOrder();
+                    newBpo.setCases(targetCase);
+                    return newBpo;
+                });
+
+        if (bpo.getBpoControlNumber() == null || bpo.getBpoControlNumber().isBlank()) {
+            bpo.setBpoControlNumber("BPO-VAWC-" + targetCase.getCaseNumber().replace("VAWC-", ""));
+        }
+
+        bpo.setStatus(BpoStatus.ISSUED);
+        bpo.setActivatedAt(LocalDateTime.now());
+        bpo.setExpiredAt(LocalDate.now().plusDays(15));
+
+        User currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser != null && bpo.getCreatedBy() == null) {
+            bpo.setCreatedBy(currentUser);
+        }
+
+        bpo = barangayProtectionOrderRepository.save(bpo);
+        targetCase.setBarangayProtectionOrder(bpo);
+        targetCase.setCaseStatus(CaseStatus.BPO_ISSUED);
+        targetCase.setCaseStatusRemarks("Barangay Protection Order #" + bpo.getBpoControlNumber() + " issued by Punong Barangay.");
+        Case savedCase = caseRepository.save(targetCase);
+
+        caseTimelineService.logEvent(
+                savedCase,
+                TimelineEventType.BPO_ISSUED,
+                "BPO Activated",
+                "Barangay Protection Order #" + bpo.getBpoControlNumber() + " was officially activated and issued with 15-day validity.",
+                currentUser
+        );
+
+        log.info("BPO for VAWC case #{} activated successfully. Control No: {}", savedCase.getCaseNumber(), bpo.getBpoControlNumber());
+        return toDetailResponse(savedCase);
+    }
+
+    /**
+     * Records the service of the Barangay Protection Order (BPO) to the respondent.
+     * Updates servedBy, dateServed, serviceMethod, and status to SERVED.
+     *
+     * @param caseId the VAWC case ID
+     * @param request the BPO service details
+     * @return {@link VawcCaseDetailResponse} with updated BPO state
+     */
+    @Transactional
+    public VawcCaseDetailResponse serveBpo(Long caseId, BpoServeRequest request) {
+        Case aCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("VAWC Case not found with ID: " + caseId));
+        final Case targetCase = aCase;
+
+        BarangayProtectionOrder bpo = barangayProtectionOrderRepository.findByCasesId(caseId)
+                .orElseGet(() -> {
+                    BarangayProtectionOrder newBpo = new BarangayProtectionOrder();
+                    newBpo.setCases(targetCase);
+                    newBpo.setBpoControlNumber("BPO-VAWC-" + targetCase.getCaseNumber().replace("VAWC-", ""));
+                    newBpo.setActivatedAt(LocalDateTime.now());
+                    newBpo.setExpiredAt(LocalDate.now().plusDays(15));
+                    return newBpo;
+                });
+
+        bpo.setServedBy(request.servedBy());
+        bpo.setDateServed(request.dateServed() != null ? request.dateServed() : LocalDateTime.now());
+        bpo.setServiceMethod(request.serviceMethod());
+        if (request.witness1Name() != null && !request.witness1Name().isBlank()) {
+            bpo.setWitness1Name(request.witness1Name().trim());
+        }
+        if (request.witness2Name() != null && !request.witness2Name().isBlank()) {
+            bpo.setWitness2Name(request.witness2Name().trim());
+        }
+        if (request.certificationFileData() != null && !request.certificationFileData().isBlank()) {
+            bpo.setCertificationOfServiceFileData(request.certificationFileData());
+        }
+        bpo.setStatus(BpoStatus.SERVED);
+
+        User currentUser = SecurityUtils.getCurrentUser();
+        bpo = barangayProtectionOrderRepository.save(bpo);
+        targetCase.setBarangayProtectionOrder(bpo);
+        targetCase.setCaseStatus(CaseStatus.BPO_SERVED);
+        targetCase.setCaseStatusRemarks("Barangay Protection Order #" + bpo.getBpoControlNumber() + " served to respondent by " + request.servedBy() + " via " + request.serviceMethod() + ".");
+        Case savedCase = caseRepository.save(targetCase);
+
+        caseTimelineService.logEvent(
+                savedCase,
+                TimelineEventType.STATUS_CHANGED,
+                "BPO Served to Respondent",
+                "Barangay Protection Order #" + bpo.getBpoControlNumber() + " was served by " + request.servedBy() + " via " + request.serviceMethod() + ".",
+                currentUser
+        );
+
+        log.info("BPO for VAWC case #{} marked as served by {}", savedCase.getCaseNumber(), request.servedBy());
+        return toDetailResponse(savedCase);
     }
 
     /**
