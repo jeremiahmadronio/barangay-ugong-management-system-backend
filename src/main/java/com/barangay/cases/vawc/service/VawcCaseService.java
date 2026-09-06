@@ -618,21 +618,21 @@ public class VawcCaseService {
         referral.setGrounds(request.grounds() != null ? request.grounds().trim() : null);
         referral.setReferredBy(request.referredBy() != null ? request.referredBy().trim() : "VAWC Desk Officer");
         referral.setReferralDate(request.referralDate() != null ? request.referralDate() : LocalDateTime.now());
-        referral.setStatus("Active");
+        referral.setStatus("Referral Pending");
 
         referral = vawcReferralRepository.save(referral);
 
-        // Update case status to ISSUED_REFERRAL
-        aCase.setCaseStatus(CaseStatus.ISSUED_REFERRAL);
-        aCase.setCaseStatusRemarks("Referred to " + referral.getReferredTo() + " under Referral #" + referralControlNumber);
+        // Update case status to PENDING_REFERRAL
+        aCase.setCaseStatus(CaseStatus.PENDING_REFERRAL);
+        aCase.setCaseStatusRemarks("Referral pending endorsement / feedback from " + referral.getReferredTo() + " under Referral #" + referralControlNumber);
         caseRepository.save(aCase);
 
         User currentUser = SecurityUtils.getCurrentUser();
         caseTimelineService.logEvent(
                 aCase,
                 TimelineEventType.STATUS_CHANGED,
-                "Case Referred to " + referral.getReferredTo(),
-                "Referral #" + referralControlNumber + " was officially issued to " + referral.getReferredTo() + " by " + referral.getReferredBy() + ".",
+                "Case Referral Pending (" + referral.getReferredTo() + ")",
+                "Referral #" + referralControlNumber + " was officially issued to " + referral.getReferredTo() + " by " + referral.getReferredBy() + ". Awaiting agency feedback.",
                 currentUser
         );
 
