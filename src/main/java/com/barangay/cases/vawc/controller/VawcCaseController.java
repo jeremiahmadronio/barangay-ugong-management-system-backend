@@ -4,19 +4,23 @@ import com.barangay.cases.shared.service.CaseNoteService;
 import com.barangay.cases.blotter.dto.CaseNoteRequest;
 import com.barangay.cases.blotter.dto.CaseNoteResponse;
 import com.barangay.cases.blotter.service.CaseFileService;
-import com.barangay.cases.vawc.dto.VawcCaseCreateRequest;
-import com.barangay.cases.vawc.dto.VawcCaseDetailResponse;
-import com.barangay.cases.vawc.dto.VawcStatsResponse;
+import com.barangay.cases.blotter.dto.CaseStatusBreakdownResponse;
+import com.barangay.cases.blotter.dto.DailyCaseTrendResponse;
+import com.barangay.cases.blotter.dto.MonthlyCaseTrendResponse;
+import com.barangay.cases.vawc.dto.*;
 import com.barangay.cases.vawc.service.VawcCaseService;
+import com.barangay.cases.vawc.service.VawcReportService;
 import com.barangay.zshared.audit.annotations.LogAudit;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -26,6 +30,7 @@ import java.util.List;
 public class VawcCaseController {
 
     private final VawcCaseService vawcCaseService;
+    private final VawcReportService vawcReportService;
     private final CaseFileService caseFileService;
     private final CaseNoteService caseNoteService;
 
@@ -65,6 +70,82 @@ public class VawcCaseController {
     public ResponseEntity<VawcStatsResponse> getVawcStats() {
         VawcStatsResponse stats = vawcCaseService.getVawcStats();
         return ResponseEntity.ok(stats);
+    }
+
+    // ==========================================
+    // VAWC REPORTS & ANALYTICS ENDPOINTS
+    // ==========================================
+
+    /**
+     * Retrieves date-filtered KPI Statistics for VAWC Reports.
+     */
+    @GetMapping("/reports/kpi")
+    public ResponseEntity<VawcReportKpiResponse> getReportKpi(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        VawcReportKpiResponse response = vawcReportService.getReportKpi(startDate, endDate);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Retrieves Inter-Agency Referral distribution breakdown.
+     */
+    @GetMapping("/reports/agency-referrals")
+    public ResponseEntity<List<VawcAgencyReferralBreakdownResponse>> getAgencyReferralBreakdown(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        List<VawcAgencyReferralBreakdownResponse> response = vawcReportService.getAgencyReferralBreakdown(startDate, endDate);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Retrieves monthly case trend report for VAWC cases.
+     */
+    @GetMapping("/reports/monthly-trend")
+    public ResponseEntity<List<MonthlyCaseTrendResponse>> getMonthlyTrendReport(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        List<MonthlyCaseTrendResponse> response = vawcReportService.getMonthlyTrendReport(startDate, endDate);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Retrieves daily case trend report for VAWC cases.
+     */
+    @GetMapping("/reports/daily-trend")
+    public ResponseEntity<List<DailyCaseTrendResponse>> getDailyTrendReport(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        List<DailyCaseTrendResponse> response = vawcReportService.getDailyTrendReport(startDate, endDate);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Retrieves case status breakdown report for VAWC cases.
+     */
+    @GetMapping("/reports/status-breakdown")
+    public ResponseEntity<CaseStatusBreakdownResponse> getStatusBreakdownReport(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        CaseStatusBreakdownResponse response = vawcReportService.getStatusBreakdownReport(startDate, endDate);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Retrieves table records within date range for VAWC reports.
+     */
+    @GetMapping("/reports/records")
+    public ResponseEntity<List<VawcTableRowResponse>> getVawcReportRecords(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        List<VawcTableRowResponse> response = vawcReportService.getVawcReportRecords(startDate, endDate);
+        return ResponseEntity.ok(response);
     }
 
     /**

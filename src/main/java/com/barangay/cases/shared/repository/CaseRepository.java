@@ -332,6 +332,78 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
     """)
     List<Case> findRootVawcCases();
 
+    @Query("""
+        SELECT c FROM Case c
+        LEFT JOIN c.department d
+        WHERE (UPPER(d.name) = 'VAWC' OR (d IS NULL AND UPPER(c.caseNumber) LIKE '%VAWC%'))
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.createdAt BETWEEN :start AND :end
+        ORDER BY c.createdAt DESC
+    """)
+    List<Case> findRootVawcCasesBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (UPPER(d.name) = 'VAWC' OR (d IS NULL AND UPPER(c.caseNumber) LIKE '%VAWC%'))
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.caseStatus IN :statuses
+          AND c.createdAt BETWEEN :start AND :end
+    """)
+    long countVawcCasesByCaseStatusInBetween(
+            @Param("statuses") Collection<CaseStatus> statuses,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
+
+    @Query("""
+        SELECT
+            EXTRACT(YEAR FROM c.createdAt) AS year,
+            EXTRACT(MONTH FROM c.createdAt) AS month,
+            COUNT(c.id) AS count
+        FROM Case c
+        LEFT JOIN c.department d
+        WHERE (UPPER(d.name) = 'VAWC' OR (d IS NULL AND UPPER(c.caseNumber) LIKE '%VAWC%'))
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.createdAt >= :startDate
+          AND c.createdAt <= :endDate
+        GROUP BY EXTRACT(YEAR FROM c.createdAt), EXTRACT(MONTH FROM c.createdAt)
+        ORDER BY EXTRACT(YEAR FROM c.createdAt) ASC, EXTRACT(MONTH FROM c.createdAt) ASC
+    """)
+    List<CaseCountByMonthProjection> getVawcMonthlyCaseCounts(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    @Query("""
+        SELECT
+            CAST(c.createdAt AS LocalDate) AS date,
+            COUNT(c.id) AS count
+        FROM Case c
+        LEFT JOIN c.department d
+        WHERE (UPPER(d.name) = 'VAWC' OR (d IS NULL AND UPPER(c.caseNumber) LIKE '%VAWC%'))
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.createdAt >= :startDate
+          AND c.createdAt <= :endDate
+        GROUP BY CAST(c.createdAt AS LocalDate)
+        ORDER BY CAST(c.createdAt AS LocalDate) ASC
+    """)
+    List<CaseCountByDayProjection> getVawcDailyCaseCounts(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
 
     /**
      * Aggregates total non-deleted root cases grouped by individual calendar day within a date range.
