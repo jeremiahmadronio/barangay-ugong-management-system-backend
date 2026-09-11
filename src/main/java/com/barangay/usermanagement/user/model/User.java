@@ -40,7 +40,7 @@ public class User extends BaseEntity implements Archivable {
     @Column(nullable = false)
     private String password;
 
-    @Column(unique = true, columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String systemEmail;
 
     @Convert(converter = EncryptedFieldConverter.class)

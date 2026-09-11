@@ -14,7 +14,19 @@ import java.util.Optional;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long>, UserRepositoryCustom {
 
-    Optional<User> findBySystemEmail(String systemEmail);
+    @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE LOWER(TRIM(u.systemEmail)) = LOWER(TRIM(:systemEmail)) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) ORDER BY u.id DESC")
+    java.util.List<User> findAllActiveOrRecentBySystemEmail(@org.springframework.data.repository.query.Param("systemEmail") String systemEmail);
+
+    default Optional<User> findBySystemEmail(String systemEmail) {
+        if (systemEmail == null || systemEmail.isBlank()) return Optional.empty();
+        return findAllActiveOrRecentBySystemEmail(systemEmail.trim()).stream().findFirst();
+    }
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(u) > 0 FROM User u WHERE LOWER(TRIM(u.systemEmail)) = LOWER(TRIM(:systemEmail)) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)")
+    boolean existsActiveOrRecentDeletedBySystemEmail(@org.springframework.data.repository.query.Param("systemEmail") String systemEmail);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(u) > 0 FROM User u WHERE LOWER(TRIM(u.systemEmail)) = LOWER(TRIM(:systemEmail)) AND u.id <> :excludeUserId AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)")
+    boolean existsActiveOrRecentDeletedBySystemEmailExcludingUser(@org.springframework.data.repository.query.Param("systemEmail") String systemEmail, @org.springframework.data.repository.query.Param("excludeUserId") Long excludeUserId);
 
     boolean existsBySystemEmail(String systemEmail);
 

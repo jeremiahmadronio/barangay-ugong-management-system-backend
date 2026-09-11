@@ -54,14 +54,15 @@ public class UserService {
     private final EmailService emailService;
 
     /**
-     * Checks if a system email is already taken by a non-archived user account.
+     * Checks if a system email is already taken by an active or recently deleted (non-permanently-deleted) user account.
+     * Returns true if taken, false if available (or if former accounts with this email are permanently deleted).
      */
     @Transactional(readOnly = true)
     public boolean checkEmailExists(String email) {
         if (email == null || email.isBlank()) {
             return false;
         }
-        return userRepository.existsBySystemEmailAndStatusNot(email.trim(), UserStatus.ARCHIVED);
+        return userRepository.existsActiveOrRecentDeletedBySystemEmail(email.trim());
     }
 
     /**
@@ -174,8 +175,8 @@ public class UserService {
         validateNonSystemUser(user, "System root accounts cannot be modified via standard user update.");
 
         if (!user.getSystemEmail().equalsIgnoreCase(request.systemEmail())) {
-            if (userRepository.existsBySystemEmail(request.systemEmail())) {
-                throw new DuplicateEntryException("System email is already registered to another account: " + request.systemEmail());
+            if (userRepository.existsActiveOrRecentDeletedBySystemEmailExcludingUser(request.systemEmail().trim(), userId)) {
+                throw new DuplicateEntryException("System email is already registered to another active or recently deleted account: " + request.systemEmail());
             }
             user.setSystemEmail(request.systemEmail());
         }
@@ -213,8 +214,8 @@ public class UserService {
         validateNonSystemUser(adminUser, "System root accounts cannot be modified via standard admin update.");
 
         if (!adminUser.getSystemEmail().equalsIgnoreCase(request.systemEmail())) {
-            if (userRepository.existsBySystemEmail(request.systemEmail())) {
-                throw new DuplicateEntryException("System email is already registered to another account: " + request.systemEmail());
+            if (userRepository.existsActiveOrRecentDeletedBySystemEmailExcludingUser(request.systemEmail().trim(), userId)) {
+                throw new DuplicateEntryException("System email is already registered to another active or recently deleted account: " + request.systemEmail());
             }
             adminUser.setSystemEmail(request.systemEmail());
         }
@@ -547,11 +548,11 @@ public class UserService {
     }
 
     private void validateUserUnicity(Long personId, String systemEmail) {
-        if (userRepository.existsByPersonId(personId)) {
+        if (personId != null && userRepository.existsByPersonId(personId)) {
             throw new DuplicateEntryException("User account already exists for this resident/person.");
         }
-        if (userRepository.existsBySystemEmail(systemEmail)) {
-            throw new DuplicateEntryException("System email is already registered: " + systemEmail);
+        if (systemEmail != null && userRepository.existsActiveOrRecentDeletedBySystemEmail(systemEmail.trim())) {
+            throw new DuplicateEntryException("System email is already registered to an active or recently deleted account: " + systemEmail);
         }
     }
 

@@ -60,8 +60,39 @@ public class SystemAdminDataSeeder implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         updateResidentCheckConstraint();
+        dropUserSystemEmailUniqueConstraint();
         seedSystemAdmin();
         seedBarangayAdmin();
+    }
+
+    private void dropUserSystemEmailUniqueConstraint() {
+        try {
+            // Find and drop all unique constraints on users(system_email) dynamically in PostgreSQL
+            String dropConstraintsSql = """
+                DO $$
+                DECLARE
+                    r RECORD;
+                BEGIN
+                    FOR r IN (
+                        SELECT conname
+                        FROM pg_constraint con
+                        JOIN pg_class rel ON rel.oid = con.conrelid
+                        JOIN pg_attribute att ON att.attrelid = rel.oid AND att.attnum = ANY(con.conkey)
+                        WHERE rel.relname = 'users'
+                          AND att.attname = 'system_email'
+                          AND con.contype = 'u'
+                    ) LOOP
+                        EXECUTE 'ALTER TABLE users DROP CONSTRAINT IF EXISTS ' || quote_ident(r.conname);
+                    END LOOP;
+                END $$;
+                """;
+            jdbcTemplate.execute(dropConstraintsSql);
+            jdbcTemplate.execute("DROP INDEX IF EXISTS users_system_email_key;");
+            jdbcTemplate.execute("DROP INDEX IF EXISTS users_system_email_unique;");
+            log.info("Successfully checked/dropped database unique constraint on users(system_email).");
+        } catch (Exception e) {
+            log.warn("Could not drop users(system_email) constraint: {}", e.getMessage());
+        }
     }
 
     private void updateResidentCheckConstraint() {
