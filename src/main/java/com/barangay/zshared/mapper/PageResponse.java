@@ -20,6 +20,14 @@ public class PageResponse<T> {
     private boolean last;
     private boolean first;
 
+    public int getNumber() {
+        return pageNumber;
+    }
+
+    public int getSize() {
+        return pageSize;
+    }
+
     public static <T> PageResponse<T> of(Page<T> page) {
         if (page == null) return null;
 
