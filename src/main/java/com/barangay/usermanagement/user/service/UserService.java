@@ -548,7 +548,7 @@ public class UserService {
     }
 
     private void validateUserUnicity(Long personId, String systemEmail) {
-        if (personId != null && userRepository.existsByPersonId(personId)) {
+        if (personId != null && userRepository.existsActiveOrRecentDeletedByPersonId(personId)) {
             throw new DuplicateEntryException("User account already exists for this resident/person.");
         }
         if (systemEmail != null && userRepository.existsActiveOrRecentDeletedBySystemEmail(systemEmail.trim())) {

@@ -67,7 +67,7 @@ public class SystemAdminDataSeeder implements CommandLineRunner {
 
     private void dropUserSystemEmailUniqueConstraint() {
         try {
-            // Find and drop all unique constraints on users(system_email) dynamically in PostgreSQL
+            // Find and drop all unique constraints on users(system_email) and users(person_id) dynamically in PostgreSQL
             String dropConstraintsSql = """
                 DO $$
                 DECLARE
@@ -79,7 +79,7 @@ public class SystemAdminDataSeeder implements CommandLineRunner {
                         JOIN pg_class rel ON rel.oid = con.conrelid
                         JOIN pg_attribute att ON att.attrelid = rel.oid AND att.attnum = ANY(con.conkey)
                         WHERE rel.relname = 'users'
-                          AND att.attname = 'system_email'
+                          AND att.attname IN ('system_email', 'person_id')
                           AND con.contype = 'u'
                     ) LOOP
                         EXECUTE 'ALTER TABLE users DROP CONSTRAINT IF EXISTS ' || quote_ident(r.conname);
@@ -89,9 +89,10 @@ public class SystemAdminDataSeeder implements CommandLineRunner {
             jdbcTemplate.execute(dropConstraintsSql);
             jdbcTemplate.execute("DROP INDEX IF EXISTS users_system_email_key;");
             jdbcTemplate.execute("DROP INDEX IF EXISTS users_system_email_unique;");
-            log.info("Successfully checked/dropped database unique constraint on users(system_email).");
+            jdbcTemplate.execute("DROP INDEX IF EXISTS users_person_id_key;");
+            log.info("Successfully checked/dropped database unique constraints on users(system_email, person_id).");
         } catch (Exception e) {
-            log.warn("Could not drop users(system_email) constraint: {}", e.getMessage());
+            log.warn("Could not drop users(system_email, person_id) constraint: {}", e.getMessage());
         }
     }
 

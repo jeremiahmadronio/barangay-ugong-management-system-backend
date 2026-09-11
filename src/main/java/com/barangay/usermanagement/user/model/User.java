@@ -107,7 +107,7 @@ public class User extends BaseEntity implements Archivable {
     private Role role;
 
     @OneToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "person_id", referencedColumnName = "id", unique = true)
+    @JoinColumn(name = "person_id", referencedColumnName = "id")
     private Person person;
 
     @ManyToMany(fetch = FetchType.LAZY)

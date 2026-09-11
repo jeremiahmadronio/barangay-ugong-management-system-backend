@@ -36,6 +36,9 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
 
     boolean existsByUsername(String username);
 
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(u) > 0 FROM User u WHERE u.person.id = :personId AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)")
+    boolean existsActiveOrRecentDeletedByPersonId(@org.springframework.data.repository.query.Param("personId") Long personId);
+
     boolean existsByPersonId(Long personId);
 
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(u) FROM User u WHERE u.status = :status AND (u.isArchived = false OR u.isArchived IS NULL) AND (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)")
