@@ -229,7 +229,7 @@ public class VawcCaseService {
         boolean bpoRequested = request.immediateRequests() != null && request.immediateRequests().stream()
                 .anyMatch(r -> r.toLowerCase().contains("protection order") || r.toLowerCase().contains("bpo"));
 
-        if (bpoRequested && ((request.violenceType() != null && !request.violenceType().isBlank()) || request.violenceTypeId() != null)) {
+        if (bpoRequested) {
             ViolenceType vt = null;
             if (request.violenceTypeId() != null) {
                 vt = violenceTypeRepository.findById(request.violenceTypeId()).orElse(null);
@@ -239,16 +239,34 @@ public class VawcCaseService {
                 vt = violenceTypeRepository.findByNameIgnoreCase(vtName)
                         .orElseGet(() -> violenceTypeRepository.save(new ViolenceType(null, vtName, "VAWC Violence Category")));
             }
-            if (vt != null) {
-                BarangayProtectionOrder bpo = new BarangayProtectionOrder();
-                bpo.setCases(savedCase);
-                bpo.setBpoControlNumber("BPO-" + savedCase.getCaseNumber());
-                bpo.setStatus(BpoStatus.PENDING);
-                bpo.getViolenceTypes().add(vt);
-                bpo.setCreatedBy(currentUser);
-                bpo = barangayProtectionOrderRepository.save(bpo);
-                savedCase.setBarangayProtectionOrder(bpo);
+            if (vt == null) {
+                vt = violenceTypeRepository.findByNameIgnoreCase("VAWC Protection Order Request")
+                        .orElseGet(() -> violenceTypeRepository.save(new ViolenceType(null, "VAWC Protection Order Request", "VAWC Violence Category")));
             }
+
+            BarangayProtectionOrder bpo = new BarangayProtectionOrder();
+            bpo.setCases(savedCase);
+            bpo.setBpoControlNumber("BPO-" + savedCase.getCaseNumber());
+            bpo.setStatus(BpoStatus.ISSUED);
+            bpo.setActivatedAt(LocalDateTime.now());
+            bpo.setExpiredAt(LocalDate.now().plusDays(15));
+            if (vt != null) {
+                bpo.getViolenceTypes().add(vt);
+            }
+            bpo.setCreatedBy(currentUser);
+            bpo = barangayProtectionOrderRepository.save(bpo);
+            savedCase.setBarangayProtectionOrder(bpo);
+            savedCase.setCaseStatus(CaseStatus.BPO_ISSUED);
+            savedCase.setCaseStatusRemarks("Barangay Protection Order #" + bpo.getBpoControlNumber() + " issued with 15-day validity upon complaint filing. Pending service to respondent.");
+            savedCase = caseRepository.save(savedCase);
+
+            caseTimelineService.logEvent(
+                    savedCase,
+                    TimelineEventType.BPO_ISSUED,
+                    "BPO Issued (15-Day Validity)",
+                    "Barangay Protection Order #" + bpo.getBpoControlNumber() + " was automatically issued with 15-day validity upon complaint filing. Awaiting service to respondent.",
+                    currentUser
+            );
         }
 
         // 14. Case Timeline Event Logging
@@ -441,12 +459,21 @@ public class VawcCaseService {
             bpo = barangayProtectionOrderRepository.findByCasesId(c.getId()).orElse(null);
         }
         if (bpo != null) {
+            LocalDateTime activatedAt = bpo.getActivatedAt();
+            if (activatedAt == null && (bpo.getStatus() == BpoStatus.ISSUED || bpo.getStatus() == BpoStatus.SERVED || c.getCaseStatus() == CaseStatus.BPO_ISSUED || c.getCaseStatus() == CaseStatus.BPO_SERVED)) {
+                activatedAt = bpo.getDateServed() != null ? bpo.getDateServed() : (bpo.getCreatedAt() != null ? bpo.getCreatedAt() : c.getCreatedAt());
+            }
+            LocalDate expiredAt = bpo.getExpiredAt();
+            if (expiredAt == null && activatedAt != null) {
+                expiredAt = activatedAt.toLocalDate().plusDays(15);
+            }
+
             bpoDto = new BpoDetailDto(
                     bpo.getId(),
                     bpo.getBpoControlNumber(),
                     bpo.getStatus(),
-                    bpo.getActivatedAt(),
-                    bpo.getExpiredAt(),
+                    activatedAt,
+                    expiredAt,
                     bpo.getServedBy(),
                     bpo.getDateServed(),
                     bpo.getServiceMethod(),
@@ -561,6 +588,13 @@ public class VawcCaseService {
                     newBpo.setExpiredAt(LocalDate.now().plusDays(15));
                     return newBpo;
                 });
+
+        if (bpo.getActivatedAt() == null) {
+            bpo.setActivatedAt(bpo.getDateServed() != null ? bpo.getDateServed() : LocalDateTime.now());
+        }
+        if (bpo.getExpiredAt() == null) {
+            bpo.setExpiredAt(bpo.getActivatedAt().toLocalDate().plusDays(15));
+        }
 
         bpo.setServedBy(request.servedBy());
         bpo.setDateServed(request.dateServed() != null ? request.dateServed() : LocalDateTime.now());

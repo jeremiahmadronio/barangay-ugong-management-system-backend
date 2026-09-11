@@ -49,7 +49,7 @@ public class ArchiveAutoDeleteScheduler {
             int retentionDays = settings.getDeleteAfterDays() != null ? settings.getDeleteAfterDays() : 30;
             LocalDateTime cutoff = LocalDateTime.now().minusDays(retentionDays);
 
-            // 1. Transfer Soft-Deleted Blotter Cases to Permanent Delete State (Audit-Safe Soft Purge)
+            // 1. Transfer Soft-Deleted Cases (Blotter, Lupon, and VAWC) to Permanent Delete State (Audit-Safe Purge)
             List<Case> expiredCases = caseRepository.findExpiredSoftDeletedCases(cutoff);
             for (Case c : expiredCases) {
                 try {

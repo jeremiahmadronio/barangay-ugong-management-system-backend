@@ -7,12 +7,15 @@ import com.barangay.cases.blotter.service.CaseFileService;
 import com.barangay.cases.blotter.dto.CaseStatusBreakdownResponse;
 import com.barangay.cases.blotter.dto.DailyCaseTrendResponse;
 import com.barangay.cases.blotter.dto.MonthlyCaseTrendResponse;
+import com.barangay.cases.blotter.dto.*;
 import com.barangay.cases.vawc.dto.*;
+import com.barangay.cases.vawc.service.VawcArchiveService;
 import com.barangay.cases.vawc.service.VawcCaseService;
 import com.barangay.cases.vawc.service.VawcReportService;
 import com.barangay.zshared.audit.annotations.LogAudit;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;
+import com.barangay.zshared.mapper.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -22,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/vawc")
@@ -31,6 +35,7 @@ public class VawcCaseController {
 
     private final VawcCaseService vawcCaseService;
     private final VawcReportService vawcReportService;
+    private final VawcArchiveService vawcArchiveService;
     private final CaseFileService caseFileService;
     private final CaseNoteService caseNoteService;
 
@@ -70,6 +75,18 @@ public class VawcCaseController {
     public ResponseEntity<VawcStatsResponse> getVawcStats() {
         VawcStatsResponse stats = vawcCaseService.getVawcStats();
         return ResponseEntity.ok(stats);
+    }
+
+    /**
+     * Retrieves the 4 core Operational Dashboard KPI metrics for VAWC Desk:
+     * (Total Cases This Week, Total Active BPOs This Week, Total Referred Cases This Week, Total Withdrawn Cases This Week).
+     *
+     * @return {@link ResponseEntity} of {@link com.barangay.cases.vawc.dto.VawcDashboardKpiResponse}
+     */
+    @GetMapping("/dashboard-kpi")
+    public ResponseEntity<com.barangay.cases.vawc.dto.VawcDashboardKpiResponse> getDashboardKpis() {
+        com.barangay.cases.vawc.dto.VawcDashboardKpiResponse response = vawcReportService.getDashboardKpis();
+        return ResponseEntity.ok(response);
     }
 
     // ==========================================
@@ -279,5 +296,103 @@ public class VawcCaseController {
             @PathVariable Long referralId,
             @Valid @RequestBody com.barangay.cases.vawc.dto.ReferralFeedbackRequest request) {
         return ResponseEntity.ok(vawcCaseService.addReferralFeedback(caseId, referralId, request));
+    }
+
+    // ==========================================
+    // VAWC ARCHIVE & TRASH VAULT ENDPOINTS
+    // ==========================================
+
+    /**
+     * Endpoint retrieving lifecycle and trash statistics exclusively for the VAWC Department.
+     *
+     * @return {@link BlotterLifecycleKpiResponse}
+     */
+    @GetMapping("/archive-kpi")
+    public ResponseEntity<BlotterLifecycleKpiResponse> getVawcLifecycleKpi() {
+        BlotterLifecycleKpiResponse response = vawcArchiveService.getVawcLifecycleKpi();
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Endpoint retrieving paginated archived VAWC cases for the Archive Table.
+     *
+     * @param filter {@link BlotterArchiveFilterRequest} search and filingType criteria
+     * @return {@link PageResponse} of {@link BlotterArchiveItemResponse}
+     */
+    @GetMapping("/archive-table")
+    public ResponseEntity<PageResponse<BlotterArchiveItemResponse>> getArchivedVawcCases(
+            @ModelAttribute BlotterArchiveFilterRequest filter) {
+        PageResponse<BlotterArchiveItemResponse> response = vawcArchiveService.getArchivedVawcCases(filter);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Endpoint retrieving paginated soft-deleted VAWC cases for the Recent Delete / Trash Table.
+     * Excludes permanently deleted records.
+     *
+     * @param filter {@link BlotterArchiveFilterRequest} search and filingType criteria
+     * @return {@link PageResponse} of {@link BlotterRecentDeleteItemResponse}
+     */
+    @GetMapping("/recent-delete")
+    public ResponseEntity<PageResponse<BlotterRecentDeleteItemResponse>> getRecentDeletedVawcCases(
+            @ModelAttribute BlotterArchiveFilterRequest filter) {
+        PageResponse<BlotterRecentDeleteItemResponse> response = vawcArchiveService.getRecentDeletedVawcCases(filter);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Archives a resolved, settled, dismissed, or withdrawn VAWC case.
+     *
+     * @param caseId  target case ID
+     * @param request archive remarks payload
+     * @return 200 OK
+     */
+    @PatchMapping("/archive-case/{caseId}")
+    @LogAudit(module = AuditModule.VAWC, action = "ARCHIVE_VAWC_CASE", severity = Severity.INFO)
+    public ResponseEntity<Void> archiveCase(
+            @PathVariable Long caseId,
+            @Valid @RequestBody ArchiveCaseRequest request
+    ) {
+        vawcArchiveService.archiveCase(caseId, request);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Restores an archived VAWC case back to active records.
+     *
+     * @param caseId target case ID
+     * @return 200 OK
+     */
+    @PatchMapping({"/{caseId}/restore-archive", "/{caseId}/restore-trash"})
+    @LogAudit(module = AuditModule.VAWC, action = "RESTORE_VAWC_CASE", severity = Severity.INFO)
+    public ResponseEntity<Void> restoreArchivedCase(@PathVariable Long caseId) {
+        vawcArchiveService.restoreArchivedCase(caseId);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Moves a VAWC case to the recycle bin (soft delete).
+     *
+     * @param caseId target case ID
+     * @return success message
+     */
+    @PatchMapping("/{caseId}/soft-delete")
+    @LogAudit(module = AuditModule.VAWC, action = "SOFT_DELETE_VAWC_CASE", severity = Severity.INFO)
+    public ResponseEntity<Map<String, String>> softDelete(@PathVariable Long caseId) {
+        vawcArchiveService.softDelete(caseId);
+        return ResponseEntity.ok(Map.of("message", "VAWC Case moved to trash successfully"));
+    }
+
+    /**
+     * Permanently purges a soft-deleted VAWC case from the recycle bin.
+     *
+     * @param caseId target case ID
+     * @return success message
+     */
+    @DeleteMapping("/{caseId}/permanent-delete")
+    @LogAudit(module = AuditModule.VAWC, action = "PERMANENT_DELETE_VAWC_CASE", severity = Severity.INFO)
+    public ResponseEntity<Map<String, String>> permanentDelete(@PathVariable Long caseId) {
+        vawcArchiveService.permanentDeleteCaseByFlag(caseId);
+        return ResponseEntity.ok(Map.of("message", "VAWC Case permanently deleted"));
     }
 }

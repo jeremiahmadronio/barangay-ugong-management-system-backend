@@ -13,8 +13,11 @@ import com.barangay.cases.vawc.dto.VawcReportKpiResponse;
 import com.barangay.cases.vawc.dto.VawcTableRowResponse;
 import com.barangay.cases.vawc.model.ReferralFeedback;
 import com.barangay.cases.vawc.model.VawcReferral;
+import com.barangay.cases.vawc.dto.VawcDashboardKpiResponse;
+import com.barangay.cases.vawc.repository.BarangayProtectionOrderRepository;
 import com.barangay.cases.vawc.repository.ReferralFeedbackRepository;
 import com.barangay.cases.vawc.repository.VawcReferralRepository;
+import com.barangay.zshared.enumerated.BpoStatus;
 import com.barangay.zshared.enumerated.CaseStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -30,6 +34,7 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -49,9 +54,63 @@ public class VawcReportService {
     private final CaseRepository caseRepository;
     private final VawcReferralRepository vawcReferralRepository;
     private final ReferralFeedbackRepository referralFeedbackRepository;
+    private final BarangayProtectionOrderRepository barangayProtectionOrderRepository;
     private final VawcCaseService vawcCaseService;
 
     private static final DateTimeFormatter DAY_LABEL_FORMATTER = DateTimeFormatter.ofPattern("MMM d");
+
+    /**
+     * Generates real-time Dashboard KPIs for VAWC Desk.
+     * Computes weekly metrics starting Monday to Sunday:
+     * 1. Total VAWC cases filed this week (with trend vs previous Monday-Sunday week)
+     * 2. Total active BPOs this week
+     * 3. Total referred cases this week
+     * 4. Total withdrawn cases this week
+     *
+     * @return {@link VawcDashboardKpiResponse}
+     */
+    @Transactional(readOnly = true)
+    public VawcDashboardKpiResponse getDashboardKpis() {
+        LocalDate today = LocalDate.now();
+        LocalDate mondayDate = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate sundayDate = today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+
+        LocalDateTime startOfWeek = mondayDate.atStartOfDay();
+        LocalDateTime endOfWeek = sundayDate.atTime(LocalTime.MAX);
+
+        // Previous week Monday to Sunday
+        LocalDateTime prevStartOfWeek = mondayDate.minusWeeks(1).atStartOfDay();
+        LocalDateTime prevEndOfWeek = sundayDate.minusWeeks(1).atTime(LocalTime.MAX);
+
+        // 1. Total Cases This Week & Trend vs Previous Week
+        long totalCasesThisWeek = caseRepository.countRootVawcCasesByCreatedAtBetween(startOfWeek, endOfWeek);
+        long prevTotalCases = caseRepository.countRootVawcCasesByCreatedAtBetween(prevStartOfWeek, prevEndOfWeek);
+        String casesTrend = calculateTrend(totalCasesThisWeek, prevTotalCases);
+
+        // 2. Total Active BPO This Week (ISSUED, SERVED)
+        List<BpoStatus> activeBpoStatuses = List.of(BpoStatus.ISSUED, BpoStatus.SERVED);
+        long totalActiveBpoThisWeek = barangayProtectionOrderRepository.countActiveBpoBetween(
+                activeBpoStatuses, startOfWeek, endOfWeek
+        );
+
+        // 3. Total Referred Cases This Week
+        long totalReferredCasesThisWeek = vawcReferralRepository.countReferralsBetween(startOfWeek, endOfWeek);
+
+        // 4. Total Withdrawn Cases This Week
+        long totalWithdrawnCasesThisWeek = caseRepository.countVawcCasesByCaseStatusInBetween(
+                List.of(CaseStatus.WITHDRAWN), startOfWeek, endOfWeek
+        );
+
+        return new VawcDashboardKpiResponse(
+                mondayDate,
+                sundayDate,
+                totalCasesThisWeek,
+                casesTrend,
+                totalActiveBpoThisWeek,
+                totalReferredCasesThisWeek,
+                totalWithdrawnCasesThisWeek
+        );
+    }
 
     /**
      * Calculates date-filtered KPI metrics for VAWC department reports:

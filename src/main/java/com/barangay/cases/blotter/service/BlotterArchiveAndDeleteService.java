@@ -260,7 +260,7 @@ public class BlotterArchiveAndDeleteService {
         }
 
         for (Case c : lineage) {
-            c.setIsPermanentDeleted(true);
+            c.permanentDelete();
         }
 
         caseRepository.saveAll(lineage);

@@ -925,4 +925,25 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             @Param("startOfWeek") LocalDateTime startOfWeek,
             @Param("endOfWeek") LocalDateTime endOfWeek
     );
+
+    /**
+     * Aggregates VAWC Lifecycle KPIs (Archived and Trash counts for VAWC cases).
+     */
+    @Query("""
+        SELECT
+            SUM(CASE WHEN c.isArchived = true AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') THEN 1L ELSE 0L END) AS totalArchived,
+            SUM(CASE WHEN c.isArchived = true AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+                     AND ((c.archivedAt IS NOT NULL AND c.archivedAt >= :startOfMonth AND c.archivedAt <= :endOfMonth) OR (c.archivedAt IS NULL AND c.updatedAt >= :startOfMonth AND c.updatedAt <= :endOfMonth)) THEN 1L ELSE 0L END) AS totalArchivedThisMonth,
+            SUM(CASE WHEN c.isDeleted = true AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') THEN 1L ELSE 0L END) AS totalRecentlyDeleted,
+            SUM(CASE WHEN (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+                     AND ((c.isDeleted = true AND c.deletedAt IS NOT NULL AND c.deletedAt >= :startOfMonth AND c.deletedAt <= :endOfMonth)
+                          OR (c.isPermanentDeleted = true AND c.permanentDeletedAt IS NOT NULL AND c.permanentDeletedAt >= :startOfMonth AND c.permanentDeletedAt <= :endOfMonth)
+                          OR ((c.isDeleted = true OR c.isPermanentDeleted = true) AND c.updatedAt >= :startOfMonth AND c.updatedAt <= :endOfMonth)) THEN 1L ELSE 0L END) AS totalRecentlyDeletedThisMonth
+        FROM Case c
+        WHERE ((c.department IS NOT NULL AND UPPER(c.department.name) = 'VAWC') OR UPPER(c.caseNumber) LIKE '%VAWC%')
+    """)
+    com.barangay.cases.shared.projection.BlotterLifecycleKpiProjection getVawcLifecycleKpiMetrics(
+            @Param("startOfMonth") LocalDateTime startOfMonth,
+            @Param("endOfMonth") LocalDateTime endOfMonth
+    );
 }

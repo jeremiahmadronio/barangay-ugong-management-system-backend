@@ -352,7 +352,6 @@ public class ArchiveService {
         }
     }
 
-    // --- Trash / Soft-Deleted Residents ---
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getTrashResidents(String search) {
         try {
@@ -386,7 +385,6 @@ public class ArchiveService {
         }
     }
 
-    // --- Trash / Soft-Deleted Users ---
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getTrashUsers(String search) {
         try {

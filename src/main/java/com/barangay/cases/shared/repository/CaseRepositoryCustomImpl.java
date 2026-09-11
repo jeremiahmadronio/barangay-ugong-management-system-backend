@@ -1012,4 +1012,235 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
 
         return predicates;
     }
+
+    @Override
+    public Page<BlotterArchiveItemResponse> findArchivedVawcCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+
+        // 1. Data Query
+        CriteriaQuery<Case> cq = cb.createQuery(Case.class);
+        Root<Case> root = cq.from(Case.class);
+
+        List<Predicate> predicates = buildVawcArchivePredicates(filter, cb, root);
+        cq.where(predicates.toArray(new Predicate[0]));
+        cq.orderBy(cb.desc(cb.coalesce(root.get("archivedAt"), root.get("updatedAt"))));
+
+        TypedQuery<Case> query = entityManager.createQuery(cq);
+        query.setFirstResult((int) pageable.getOffset());
+        query.setMaxResults(pageable.getPageSize());
+
+        List<Case> cases = query.getResultList();
+        List<BlotterArchiveItemResponse> content = cases.stream().map(rootCase -> {
+            Case latestCase = resolveLatestChildCase(rootCase);
+
+            String compName = "—";
+            Complainant comp = latestCase.getComplainant() != null ? latestCase.getComplainant() : rootCase.getComplainant();
+            if (comp != null && comp.getPerson() != null) {
+                Person p = comp.getPerson();
+                String f = p.getFirstName() != null ? p.getFirstName() : "";
+                String l = p.getLastName() != null ? p.getLastName() : "";
+                String m = p.getMiddleName() != null ? p.getMiddleName() : "";
+                compName = (l + (l.isBlank() || f.isBlank() ? "" : ", ") + f + (m.isBlank() ? "" : " " + m.charAt(0) + ".")).trim();
+            }
+
+            String respName = "—";
+            Respondent resp = latestCase.getRespondent() != null ? latestCase.getRespondent() : rootCase.getRespondent();
+            if (resp != null && resp.getPerson() != null) {
+                Person p = resp.getPerson();
+                String f = p.getFirstName() != null ? p.getFirstName() : "";
+                String l = p.getLastName() != null ? p.getLastName() : "";
+                String m = p.getMiddleName() != null ? p.getMiddleName() : "";
+                respName = (l + (l.isBlank() || f.isBlank() ? "" : ", ") + f + (m.isBlank() ? "" : " " + m.charAt(0) + ".")).trim();
+            }
+
+            String remarks = rootCase.getArchiveRemarks() != null ? rootCase.getArchiveRemarks() : (latestCase.getArchiveRemarks() != null ? latestCase.getArchiveRemarks() : "Archived Record");
+            LocalDateTime archivedAt = rootCase.getArchivedAt() != null ? rootCase.getArchivedAt() : (latestCase.getArchivedAt() != null ? latestCase.getArchivedAt() : rootCase.getUpdatedAt());
+
+            return new BlotterArchiveItemResponse(
+                    rootCase.getId(),
+                    rootCase.getCaseNumber(),
+                    compName,
+                    respName,
+                    remarks,
+                    latestCase.getCaseStatus(),
+                    archivedAt,
+                    rootCase.getFilingType()
+            );
+        }).toList();
+
+        // 2. Count Query
+        CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
+        Root<Case> countRoot = countCq.from(Case.class);
+        List<Predicate> countPredicates = buildVawcArchivePredicates(filter, cb, countRoot);
+        countCq.select(cb.count(countRoot));
+        countCq.where(countPredicates.toArray(new Predicate[0]));
+
+        Long totalCount = entityManager.createQuery(countCq).getSingleResult();
+
+        return new PageImpl<>(content, pageable, totalCount);
+    }
+
+    @Override
+    public Page<BlotterRecentDeleteItemResponse> findRecentDeletedVawcCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+
+        // 1. Data Query
+        CriteriaQuery<Case> cq = cb.createQuery(Case.class);
+        Root<Case> root = cq.from(Case.class);
+
+        List<Predicate> predicates = buildVawcRecentDeletePredicates(filter, cb, root);
+        cq.where(predicates.toArray(new Predicate[0]));
+        cq.orderBy(cb.desc(cb.coalesce(root.get("deletedAt"), root.get("updatedAt"))));
+
+        TypedQuery<Case> query = entityManager.createQuery(cq);
+        query.setFirstResult((int) pageable.getOffset());
+        query.setMaxResults(pageable.getPageSize());
+
+        List<Case> cases = query.getResultList();
+        List<BlotterRecentDeleteItemResponse> content = cases.stream().map(rootCase -> {
+            Case latestCase = resolveLatestChildCase(rootCase);
+
+            String compName = "—";
+            Complainant comp = latestCase.getComplainant() != null ? latestCase.getComplainant() : rootCase.getComplainant();
+            if (comp != null && comp.getPerson() != null) {
+                Person p = comp.getPerson();
+                String f = p.getFirstName() != null ? p.getFirstName() : "";
+                String l = p.getLastName() != null ? p.getLastName() : "";
+                String m = p.getMiddleName() != null ? p.getMiddleName() : "";
+                compName = (l + (l.isBlank() || f.isBlank() ? "" : ", ") + f + (m.isBlank() ? "" : " " + m.charAt(0) + ".")).trim();
+            }
+
+            String respName = "—";
+            Respondent resp = latestCase.getRespondent() != null ? latestCase.getRespondent() : rootCase.getRespondent();
+            if (resp != null && resp.getPerson() != null) {
+                Person p = resp.getPerson();
+                String f = p.getFirstName() != null ? p.getFirstName() : "";
+                String l = p.getLastName() != null ? p.getLastName() : "";
+                String m = p.getMiddleName() != null ? p.getMiddleName() : "";
+                respName = (l + (l.isBlank() || f.isBlank() ? "" : ", ") + f + (m.isBlank() ? "" : " " + m.charAt(0) + ".")).trim();
+            }
+
+            LocalDateTime deletedAt = rootCase.getDeletedAt() != null ? rootCase.getDeletedAt() : (latestCase.getDeletedAt() != null ? latestCase.getDeletedAt() : rootCase.getUpdatedAt());
+
+            return new BlotterRecentDeleteItemResponse(
+                    rootCase.getId(),
+                    rootCase.getCaseNumber(),
+                    compName,
+                    respName,
+                    latestCase.getCaseStatus(),
+                    deletedAt,
+                    rootCase.getFilingType()
+            );
+        }).toList();
+
+        // 2. Count Query
+        CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
+        Root<Case> countRoot = countCq.from(Case.class);
+        List<Predicate> countPredicates = buildVawcRecentDeletePredicates(filter, cb, countRoot);
+        countCq.select(cb.count(countRoot));
+        countCq.where(countPredicates.toArray(new Predicate[0]));
+
+        Long totalCount = entityManager.createQuery(countCq).getSingleResult();
+
+        return new PageImpl<>(content, pageable, totalCount);
+    }
+
+    private List<Predicate> buildVawcArchivePredicates(BlotterArchiveFilterRequest filter, CriteriaBuilder cb, Root<Case> root) {
+        List<Predicate> predicates = new ArrayList<>();
+
+        // Base criteria for Archive Table: isArchived = true, NOT soft-deleted, NOT permanently deleted & root cases only
+        predicates.add(cb.equal(root.get("isArchived"), true));
+        predicates.add(cb.or(cb.isNull(root.get("isDeleted")), cb.equal(root.get("isDeleted"), false)));
+        predicates.add(cb.or(cb.isNull(root.get("isPermanentDeleted")), cb.equal(root.get("isPermanentDeleted"), false)));
+        predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
+
+        // Scope to VAWC Department
+        Join<Case, com.barangay.usermanagement.department.model.Department> deptJoin = root.join("department", JoinType.LEFT);
+        Predicate isVawcDept = cb.equal(cb.upper(deptJoin.get("name")), "VAWC");
+        Predicate isVawcCaseNumber = cb.like(cb.upper(root.get("caseNumber")), "%VAWC%");
+        predicates.add(cb.or(isVawcDept, cb.and(cb.isNull(root.get("department")), isVawcCaseNumber)));
+
+        if (filter == null) {
+            return predicates;
+        }
+
+        if (filter.search() != null && !filter.search().isBlank()) {
+            String searchPattern = "%" + filter.search().trim().toLowerCase() + "%";
+            Join<Case, Complainant> compJoin = root.join("complainant", JoinType.LEFT);
+            Join<Complainant, Person> compPersonJoin = compJoin.join("person", JoinType.LEFT);
+            Join<Case, Respondent> respJoin = root.join("respondent", JoinType.LEFT);
+            Join<Respondent, Person> respPersonJoin = respJoin.join("person", JoinType.LEFT);
+
+            Predicate caseNumberLike = cb.like(cb.lower(root.get("caseNumber")), searchPattern);
+            Predicate compFirstNameLike = cb.like(cb.lower(compPersonJoin.get("firstName")), searchPattern);
+            Predicate compLastNameLike = cb.like(cb.lower(compPersonJoin.get("lastName")), searchPattern);
+            Predicate respFirstNameLike = cb.like(cb.lower(respPersonJoin.get("firstName")), searchPattern);
+            Predicate respLastNameLike = cb.like(cb.lower(respPersonJoin.get("lastName")), searchPattern);
+
+            predicates.add(cb.or(caseNumberLike, compFirstNameLike, compLastNameLike, respFirstNameLike, respLastNameLike));
+        }
+
+        if (filter.filingType() != null && !filter.filingType().isBlank() && !"all".equalsIgnoreCase(filter.filingType())) {
+            try {
+                String typeStr = filter.filingType().toUpperCase();
+                if (typeStr.contains("RECORD")) {
+                    typeStr = "FOR_RECORD_ONLY";
+                }
+                FilingType filingEnum = FilingType.valueOf(typeStr);
+                predicates.add(cb.equal(root.get("filingType"), filingEnum));
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+
+        return predicates;
+    }
+
+    private List<Predicate> buildVawcRecentDeletePredicates(BlotterArchiveFilterRequest filter, CriteriaBuilder cb, Root<Case> root) {
+        List<Predicate> predicates = new ArrayList<>();
+
+        // Base criteria for Recent Delete Table: isDeleted = true, NOT permanently deleted & root cases only
+        predicates.add(cb.equal(root.get("isDeleted"), true));
+        predicates.add(cb.or(cb.isNull(root.get("isPermanentDeleted")), cb.equal(root.get("isPermanentDeleted"), false)));
+        predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
+
+        // Scope to VAWC Department
+        Join<Case, com.barangay.usermanagement.department.model.Department> deptJoin = root.join("department", JoinType.LEFT);
+        Predicate isVawcDept = cb.equal(cb.upper(deptJoin.get("name")), "VAWC");
+        Predicate isVawcCaseNumber = cb.like(cb.upper(root.get("caseNumber")), "%VAWC%");
+        predicates.add(cb.or(isVawcDept, cb.and(cb.isNull(root.get("department")), isVawcCaseNumber)));
+
+        if (filter == null) {
+            return predicates;
+        }
+
+        if (filter.search() != null && !filter.search().isBlank()) {
+            String searchPattern = "%" + filter.search().trim().toLowerCase() + "%";
+            Join<Case, Complainant> compJoin = root.join("complainant", JoinType.LEFT);
+            Join<Complainant, Person> compPersonJoin = compJoin.join("person", JoinType.LEFT);
+            Join<Case, Respondent> respJoin = root.join("respondent", JoinType.LEFT);
+            Join<Respondent, Person> respPersonJoin = respJoin.join("person", JoinType.LEFT);
+
+            Predicate caseNumberLike = cb.like(cb.lower(root.get("caseNumber")), searchPattern);
+            Predicate compFirstNameLike = cb.like(cb.lower(compPersonJoin.get("firstName")), searchPattern);
+            Predicate compLastNameLike = cb.like(cb.lower(compPersonJoin.get("lastName")), searchPattern);
+            Predicate respFirstNameLike = cb.like(cb.lower(respPersonJoin.get("firstName")), searchPattern);
+            Predicate respLastNameLike = cb.like(cb.lower(respPersonJoin.get("lastName")), searchPattern);
+
+            predicates.add(cb.or(caseNumberLike, compFirstNameLike, compLastNameLike, respFirstNameLike, respLastNameLike));
+        }
+
+        if (filter.filingType() != null && !filter.filingType().isBlank() && !"all".equalsIgnoreCase(filter.filingType())) {
+            try {
+                String typeStr = filter.filingType().toUpperCase();
+                if (typeStr.contains("RECORD")) {
+                    typeStr = "FOR_RECORD_ONLY";
+                }
+                FilingType filingEnum = FilingType.valueOf(typeStr);
+                predicates.add(cb.equal(root.get("filingType"), filingEnum));
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+
+        return predicates;
+    }
 }

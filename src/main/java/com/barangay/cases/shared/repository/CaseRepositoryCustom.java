@@ -26,4 +26,8 @@ public interface CaseRepositoryCustom {
     Page<BlotterArchiveItemResponse> findArchivedLuponCases(BlotterArchiveFilterRequest filter, Pageable pageable);
 
     Page<BlotterRecentDeleteItemResponse> findRecentDeletedLuponCases(BlotterArchiveFilterRequest filter, Pageable pageable);
+
+    Page<BlotterArchiveItemResponse> findArchivedVawcCases(BlotterArchiveFilterRequest filter, Pageable pageable);
+
+    Page<BlotterRecentDeleteItemResponse> findRecentDeletedVawcCases(BlotterArchiveFilterRequest filter, Pageable pageable);
 }
