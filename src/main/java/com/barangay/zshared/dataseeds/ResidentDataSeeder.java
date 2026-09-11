@@ -7,6 +7,7 @@ import java.util.Random;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +21,8 @@ import com.barangay.zshared.enumerated.ResidentStatus;
 
 import lombok.RequiredArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Component
 @Order(5)
 @RequiredArgsConstructor
@@ -28,16 +31,19 @@ public class ResidentDataSeeder implements CommandLineRunner {
     private final PersonRepository personRepository;
     private final ResidentRepository residentRepository;
     private final RelationshipRepository relationshipRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     @Override
     @Transactional
     public void run(String... args) {
         if (residentRepository.count() >= 100) {
-            System.out.println("Residents already seeded (" + residentRepository.count() + " records). Skipping...");
+            System.out.println("Residents already seeded (" + residentRepository.count() + " records). Distributing historical dates if needed...");
+            distributeHistoricalDatesIfSingleDay();
             return;
         }
 
         seedResidents(100);
+        distributeHistoricalDatesIfSingleDay();
     }
 
     private void seedResidents(int count) {
@@ -197,5 +203,32 @@ public class ResidentDataSeeder implements CommandLineRunner {
         }
 
         System.out.println("Successfully seeded " + createdPersons.size() + " residents with family relationships (Associated With) in Serbisyoko-Web.");
+    }
+
+    private void distributeHistoricalDatesIfSingleDay() {
+        try {
+            List<Resident> residents = residentRepository.findAll();
+            if (residents.isEmpty()) return;
+
+            LocalDate now = LocalDate.now();
+            Random rand = new Random(42);
+
+            for (int i = 0; i < residents.size(); i++) {
+                Resident r = residents.get(i);
+                // Distribute across last 6 months (0 to 170 days ago)
+                int daysAgo = (int) ((i / (double) residents.size()) * 170) + rand.nextInt(5);
+                LocalDateTime histDate = now.minusDays(daysAgo).atTime(8 + rand.nextInt(9), rand.nextInt(60), rand.nextInt(60));
+
+                jdbcTemplate.update("UPDATE resident SET created_at = ?, updated_at = ? WHERE resident_id = ?",
+                        histDate, histDate, r.getResidentId());
+                if (r.getPerson() != null && r.getPerson().getId() != null) {
+                    jdbcTemplate.update("UPDATE person SET created_at = ?, updated_at = ? WHERE id = ?",
+                            histDate, histDate, r.getPerson().getId());
+                }
+            }
+            System.out.println("Distributed " + residents.size() + " resident creation dates across the past 6 months for realistic monthly registration trend analytics.");
+        } catch (Exception e) {
+            System.err.println("Could not distribute resident historical dates: " + e.getMessage());
+        }
     }
 }

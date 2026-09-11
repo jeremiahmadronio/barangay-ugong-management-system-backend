@@ -24,6 +24,9 @@ public record ResidentDetailResponse(
         String photoBase64,
         List<ResidentRelativeResponse> familyAssociations,
         List<ResidentFileResponse> attachedFiles,
+        List<ResidentCaseHistoryResponse> caseHistory,
+        List<ResidentClearanceHistoryResponse> clearancesIssued,
+        List<ResidentFtjsHistoryResponse> ftjsIssued,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

@@ -113,14 +113,15 @@ public class AdminDashboardService {
 
         for (int i = 5; i >= 0; i--) {
             LocalDate monthDate = now.minusMonths(i);
+            java.time.LocalDateTime startOfMonth = monthDate.withDayOfMonth(1).atStartOfDay();
             java.time.LocalDateTime endOfMonth = (i == 0)
                     ? java.time.LocalDateTime.now()
-                    : monthDate.withDayOfMonth(monthDate.lengthOfMonth()).atTime(23, 59, 59);
+                    : monthDate.withDayOfMonth(monthDate.lengthOfMonth()).atTime(23, 59, 59, 999999999);
 
             String monthName = monthDate.format(formatter);
 
-            long userCount = userRepository.countNonAdminUsersCreatedOnOrBefore(endOfMonth);
-            long residentCount = residentRepository.countResidentsCreatedOnOrBefore(endOfMonth);
+            long userCount = userRepository.countNonAdminUsersCreatedBetween(startOfMonth, endOfMonth);
+            long residentCount = residentRepository.countResidentsCreatedBetween(startOfMonth, endOfMonth);
 
             Map<String, Object> point = new HashMap<>();
             point.put("month", monthName);

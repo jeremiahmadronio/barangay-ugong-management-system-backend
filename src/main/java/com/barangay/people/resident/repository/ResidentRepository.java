@@ -80,8 +80,11 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
     @Query("SELECT r FROM Resident r JOIN r.person p WHERE LOWER(p.lastName) = LOWER(:lastName) AND r.status = 'ACTIVE'")
     List<Resident> findActiveResidentsByLastName(@Param("lastName") String lastName);
 
-    @Query("SELECT COUNT(r) FROM Resident r WHERE r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED AND r.createdAt <= :cutoff")
+    @Query("SELECT COUNT(r) FROM Resident r WHERE (r.isDeleted = false OR r.isDeleted IS NULL) AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED) AND r.createdAt <= :cutoff")
     long countResidentsCreatedOnOrBefore(@Param("cutoff") LocalDateTime cutoff);
+
+    @Query("SELECT COUNT(r) FROM Resident r WHERE (r.isDeleted = false OR r.isDeleted IS NULL) AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED) AND r.createdAt BETWEEN :start AND :end")
+    long countResidentsCreatedBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     @Query("SELECT r FROM Resident r WHERE r.isDeleted = true AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND r.deletedAt <= :cutoff")
     List<Resident> findExpiredSoftDeletedResidents(@Param("cutoff") LocalDateTime cutoff);

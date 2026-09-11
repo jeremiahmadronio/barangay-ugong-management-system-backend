@@ -29,6 +29,9 @@ public class ResidentServiceImpl implements ResidentService {
     private final PersonRepository personRepository;
     private final com.barangay.people.person.repository.RelationshipRepository relationshipRepository;
     private final com.barangay.people.resident.repository.ResidentDocumentRepository residentDocumentRepository;
+    private final com.barangay.cases.shared.repository.CaseRepository caseRepository;
+    private final com.barangay.clearance.repository.IssuedCertificateRepository issuedCertificateRepository;
+    private final com.barangay.ftjs.repository.FirstTimeJobSeekerRepository ftjsRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -537,6 +540,120 @@ public class ResidentServiceImpl implements ResidentService {
             }).collect(Collectors.toList());
         }
 
+        List<ResidentCaseHistoryResponse> caseHistory = java.util.Collections.emptyList();
+        if (p != null && p.getId() != null) {
+            String pFirst = p.getFirstName() != null ? p.getFirstName().trim() : null;
+            String pLast = p.getLastName() != null ? p.getLastName().trim() : null;
+            List<com.barangay.cases.shared.model.Case> rawCases = caseRepository.findByPersonInCaseRoles(p.getId(), pFirst, pLast);
+            if (rawCases != null && !rawCases.isEmpty()) {
+                java.util.Set<String> supersededCaseNumbers = new java.util.HashSet<>();
+                for (com.barangay.cases.shared.model.Case c : rawCases) {
+                    if (c.getReOpenedCaseNumber() != null && !c.getReOpenedCaseNumber().trim().isEmpty()) {
+                        supersededCaseNumbers.add(c.getCaseNumber());
+                    }
+                }
+
+                caseHistory = new ArrayList<>();
+                for (com.barangay.cases.shared.model.Case c : rawCases) {
+                    if (supersededCaseNumbers.contains(c.getCaseNumber())) {
+                        continue;
+                    }
+
+                    String role = "OTHER";
+                    boolean isComp = c.getComplainant() != null && isSamePerson(p, c.getComplainant().getPerson());
+                    boolean isResp = c.getRespondent() != null && isSamePerson(p, c.getRespondent().getPerson());
+                    boolean isWitness = c.getWitnesses() != null && c.getWitnesses().stream().anyMatch(w -> isSamePerson(p, w.getPerson()));
+
+                    if (!isComp && !isResp && !isWitness) {
+                        continue;
+                    }
+
+                    if (isComp) {
+                        role = "COMPLAINANT";
+                    } else if (isResp) {
+                        role = "RESPONDENT";
+                    } else if (isWitness) {
+                        role = "WITNESS";
+                    }
+
+                    String deptName = "BLOTTER";
+                    if (c.getDepartment() != null && c.getDepartment().getName() != null) {
+                        deptName = c.getDepartment().getName().toUpperCase();
+                    } else if (c.getCaseNumber() != null && c.getCaseNumber().toUpperCase().contains("VAWC")) {
+                        deptName = "VAWC";
+                    } else if (c.getCaseNumber() != null && c.getCaseNumber().toUpperCase().contains("BCPC")) {
+                        deptName = "BCPC";
+                    } else if (c.getCaseNumber() != null && c.getCaseNumber().toUpperCase().contains("LUPON")) {
+                        deptName = "LUPON";
+                    }
+
+                    String incidentNature = "General Complaint";
+                    if (c.getIncidentDetail() != null && c.getIncidentDetail().getNatureOfComplaint() != null && !c.getIncidentDetail().getNatureOfComplaint().isBlank()) {
+                        incidentNature = c.getIncidentDetail().getNatureOfComplaint();
+                    }
+
+                    String statusStr = c.getCaseStatus() != null ? c.getCaseStatus().name() : "PENDING";
+                    LocalDateTime dateFiled = c.getCreatedAt() != null ? c.getCreatedAt() : LocalDateTime.now();
+
+                    caseHistory.add(new ResidentCaseHistoryResponse(
+                            c.getId(),
+                            c.getCaseNumber() != null ? c.getCaseNumber() : "CASE-" + c.getId(),
+                            deptName,
+                            role,
+                            incidentNature,
+                            statusStr,
+                            dateFiled
+                    ));
+                }
+            }
+        }
+
+        List<ResidentClearanceHistoryResponse> clearancesIssued = java.util.Collections.emptyList();
+        if (p != null && (p.getId() != null || (p.getFirstName() != null && p.getLastName() != null))) {
+            String fullSearchName = buildFullName(p.getFirstName(), p.getMiddleName(), p.getLastName(), p.getSuffix());
+            List<com.barangay.clearance.model.IssuedCertificate> certs =
+                    issuedCertificateRepository.findActiveCertificatesByPersonOrName(p.getId(), fullSearchName != null ? fullSearchName.trim() : "");
+            if (certs != null && !certs.isEmpty()) {
+                clearancesIssued = certs.stream().map(c -> new ResidentClearanceHistoryResponse(
+                        c.getId(),
+                        c.getCertNumber() != null ? c.getCertNumber() : "CERT-" + c.getId(),
+                        c.getTemplate() != null ? c.getTemplate().getCertTitle() : "Barangay Clearance",
+                        c.getOrNumber(),
+                        c.getCtnNumber(),
+                        c.getAmountPaid() != null ? c.getAmountPaid() : java.math.BigDecimal.ZERO,
+                        c.isFree(),
+                        c.getStatus() != null ? c.getStatus().name() : "ACTIVE",
+                        c.getExpiryDate(),
+                        c.getCreatedAt() != null ? c.getCreatedAt() : LocalDateTime.now()
+                )).collect(Collectors.toList());
+            }
+        }
+
+        List<ResidentFtjsHistoryResponse> ftjsIssued = java.util.Collections.emptyList();
+        if (r.getResidentId() != null || (p != null && p.getId() != null)) {
+            List<com.barangay.ftjs.model.FirstTimeJobSeeker> ftjsList = java.util.Collections.emptyList();
+            if (r.getResidentId() != null) {
+                ftjsList = ftjsRepository.findByResidentIdAndIsDeletedFalseOrderByCreatedAtDesc(r.getResidentId());
+            }
+            if ((ftjsList == null || ftjsList.isEmpty()) && p != null && p.getId() != null) {
+                ftjsList = ftjsRepository.findByPersonIdAndIsDeletedFalseOrderByCreatedAtDesc(p.getId());
+            }
+
+            if (ftjsList != null && !ftjsList.isEmpty()) {
+                ftjsIssued = ftjsList.stream().map(f -> new ResidentFtjsHistoryResponse(
+                        f.getId(),
+                        f.getFtjsNumber() != null ? f.getFtjsNumber() : "FTJS-" + f.getId(),
+                        f.getPurposeDocuments() != null ? f.getPurposeDocuments() : "First Time Jobseeker Requirement",
+                        f.getEducationalAttainment() != null ? f.getEducationalAttainment() : "—",
+                        f.getSchoolInstitution() != null ? f.getSchoolInstitution() : "—",
+                        f.getIssuanceCount() != null ? f.getIssuanceCount() : 1,
+                        f.getStatus() != null ? f.getStatus().name() : "ISSUED",
+                        f.getDateSubmitted() != null ? f.getDateSubmitted() : (f.getCreatedAt() != null ? f.getCreatedAt().toLocalDate() : LocalDate.now()),
+                        f.getCreatedAt() != null ? f.getCreatedAt() : LocalDateTime.now()
+                )).collect(Collectors.toList());
+            }
+        }
+
         return new ResidentDetailResponse(
                 r.getResidentId(),
                 r.getBarangayIdNumber() != null ? r.getBarangayIdNumber() : "BRGY-" + String.format("%04d", r.getResidentId()),
@@ -551,9 +668,25 @@ public class ResidentServiceImpl implements ResidentService {
                 photoStr,
                 familyAssociations,
                 attachedFiles,
+                caseHistory,
+                clearancesIssued,
+                ftjsIssued,
                 r.getCreatedAt(),
                 r.getUpdatedAt()
         );
+    }
+
+    private boolean isSamePerson(Person p1, Person p2) {
+        if (p1 == null || p2 == null) return false;
+        if (p1.getId() != null && p2.getId() != null && p1.getId().equals(p2.getId())) {
+            return true;
+        }
+        if (p1.getFirstName() != null && p2.getFirstName() != null &&
+            p1.getLastName() != null && p2.getLastName() != null) {
+            return p1.getFirstName().trim().equalsIgnoreCase(p2.getFirstName().trim()) &&
+                   p1.getLastName().trim().equalsIgnoreCase(p2.getLastName().trim());
+        }
+        return false;
     }
 
     private String buildFullName(String first, String middle, String last, String suffix) {
