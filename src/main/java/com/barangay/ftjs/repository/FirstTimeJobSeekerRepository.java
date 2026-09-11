@@ -43,6 +43,10 @@ public interface FirstTimeJobSeekerRepository extends JpaRepository<FirstTimeJob
     @Query("SELECT f FROM FirstTimeJobSeeker f WHERE f.person.id = :personId AND f.isDeleted = false ORDER BY f.createdAt DESC")
     List<FirstTimeJobSeeker> findByPersonIdAndIsDeletedFalseOrderByCreatedAtDesc(@Param("personId") Long personId);
 
+    @Query(value = "SELECT * FROM first_time_job_seeker f WHERE (:residentId IS NOT NULL AND f.resident_id = :residentId) OR (:personId IS NOT NULL AND f.person_id = :personId) ORDER BY f.created_at DESC", nativeQuery = true)
+    List<FirstTimeJobSeeker> findAllHistoricalByResidentOrPerson(@Param("residentId") Long residentId, @Param("personId") Long personId);
+
+
     /**
      * Fast duplicate check under RA 11261.
      */

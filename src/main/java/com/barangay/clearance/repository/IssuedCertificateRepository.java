@@ -43,6 +43,17 @@ public interface IssuedCertificateRepository extends JpaRepository<IssuedCertifi
     @Query("""
         SELECT ic FROM IssuedCertificate ic
         LEFT JOIN FETCH ic.template t
+        WHERE (ic.person.id = :personId OR LOWER(TRIM(ic.requestorName)) = LOWER(TRIM(:fullName)))
+        ORDER BY ic.createdAt DESC
+    """)
+    List<IssuedCertificate> findAllCertificatesByPersonOrName(
+        @Param("personId") Long personId,
+        @Param("fullName") String fullName
+    );
+
+    @Query("""
+        SELECT ic FROM IssuedCertificate ic
+        LEFT JOIN FETCH ic.template t
         WHERE ic.person.id = :personId
           AND (ic.isDeleted IS NULL OR ic.isDeleted = false)
           AND (ic.isPermanentDeleted IS NULL OR ic.isPermanentDeleted = false)

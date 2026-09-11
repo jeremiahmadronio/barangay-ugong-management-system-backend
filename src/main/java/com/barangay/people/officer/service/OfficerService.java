@@ -14,4 +14,6 @@ public interface OfficerService {
     void permanentDeleteOfficer(Long id);
     OfficerTableResponse restoreOfficer(Long id);
     List<LuponOfficerResponse> getLuponOfficer();
+    List<OfficerCaseHistoryResponse> getOfficerCasesHandled(Long officerId);
 }
+

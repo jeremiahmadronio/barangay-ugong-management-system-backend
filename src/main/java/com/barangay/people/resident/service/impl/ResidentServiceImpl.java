@@ -544,7 +544,7 @@ public class ResidentServiceImpl implements ResidentService {
         if (p != null && p.getId() != null) {
             String pFirst = p.getFirstName() != null ? p.getFirstName().trim() : null;
             String pLast = p.getLastName() != null ? p.getLastName().trim() : null;
-            List<com.barangay.cases.shared.model.Case> rawCases = caseRepository.findByPersonInCaseRoles(p.getId(), pFirst, pLast);
+            List<com.barangay.cases.shared.model.Case> rawCases = caseRepository.findAllHistoricalCasesByPersonInCaseRoles(p.getId(), pFirst, pLast);
             if (rawCases != null && !rawCases.isEmpty()) {
                 java.util.Set<String> supersededCaseNumbers = new java.util.HashSet<>();
                 for (com.barangay.cases.shared.model.Case c : rawCases) {
@@ -612,7 +612,7 @@ public class ResidentServiceImpl implements ResidentService {
         if (p != null && (p.getId() != null || (p.getFirstName() != null && p.getLastName() != null))) {
             String fullSearchName = buildFullName(p.getFirstName(), p.getMiddleName(), p.getLastName(), p.getSuffix());
             List<com.barangay.clearance.model.IssuedCertificate> certs =
-                    issuedCertificateRepository.findActiveCertificatesByPersonOrName(p.getId(), fullSearchName != null ? fullSearchName.trim() : "");
+                    issuedCertificateRepository.findAllCertificatesByPersonOrName(p.getId(), fullSearchName != null ? fullSearchName.trim() : "");
             if (certs != null && !certs.isEmpty()) {
                 clearancesIssued = certs.stream().map(c -> new ResidentClearanceHistoryResponse(
                         c.getId(),
@@ -631,13 +631,8 @@ public class ResidentServiceImpl implements ResidentService {
 
         List<ResidentFtjsHistoryResponse> ftjsIssued = java.util.Collections.emptyList();
         if (r.getResidentId() != null || (p != null && p.getId() != null)) {
-            List<com.barangay.ftjs.model.FirstTimeJobSeeker> ftjsList = java.util.Collections.emptyList();
-            if (r.getResidentId() != null) {
-                ftjsList = ftjsRepository.findByResidentIdAndIsDeletedFalseOrderByCreatedAtDesc(r.getResidentId());
-            }
-            if ((ftjsList == null || ftjsList.isEmpty()) && p != null && p.getId() != null) {
-                ftjsList = ftjsRepository.findByPersonIdAndIsDeletedFalseOrderByCreatedAtDesc(p.getId());
-            }
+            List<com.barangay.ftjs.model.FirstTimeJobSeeker> ftjsList =
+                    ftjsRepository.findAllHistoricalByResidentOrPerson(r.getResidentId(), p != null ? p.getId() : null);
 
             if (ftjsList != null && !ftjsList.isEmpty()) {
                 ftjsIssued = ftjsList.stream().map(f -> new ResidentFtjsHistoryResponse(

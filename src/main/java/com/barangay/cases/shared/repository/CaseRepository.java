@@ -53,6 +53,45 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             @Param("lastName") String lastName
     );
 
+    @Query("""
+        SELECT DISTINCT c FROM Case c
+        LEFT JOIN c.complainant comp
+        LEFT JOIN comp.person compP
+        LEFT JOIN c.respondent resp
+        LEFT JOIN resp.person respP
+        LEFT JOIN c.witnesses w
+        LEFT JOIN w.person wP
+        WHERE (
+            (compP.id = :personId OR (:firstName IS NOT NULL AND :lastName IS NOT NULL AND LOWER(TRIM(compP.firstName)) = LOWER(TRIM(:firstName)) AND LOWER(TRIM(compP.lastName)) = LOWER(TRIM(:lastName))))
+            OR
+            (respP.id = :personId OR (:firstName IS NOT NULL AND :lastName IS NOT NULL AND LOWER(TRIM(respP.firstName)) = LOWER(TRIM(:firstName)) AND LOWER(TRIM(respP.lastName)) = LOWER(TRIM(:lastName))))
+            OR
+            (wP.id = :personId OR (:firstName IS NOT NULL AND :lastName IS NOT NULL AND LOWER(TRIM(wP.firstName)) = LOWER(TRIM(:firstName)) AND LOWER(TRIM(wP.lastName)) = LOWER(TRIM(:lastName))))
+        )
+        ORDER BY c.createdAt DESC
+    """)
+    List<Case> findAllHistoricalCasesByPersonInCaseRoles(
+            @Param("personId") Long personId,
+            @Param("firstName") String firstName,
+            @Param("lastName") String lastName
+    );
+
+    @Query("""
+        SELECT DISTINCT c FROM Case c
+        LEFT JOIN c.officer off
+        LEFT JOIN off.person offP
+        LEFT JOIN c.caseFilledBy user
+        LEFT JOIN user.person userP
+        WHERE off.id = :officerId
+           OR (offP.id IS NOT NULL AND offP.id = :personId)
+           OR (userP.id IS NOT NULL AND userP.id = :personId)
+        ORDER BY c.createdAt DESC
+    """)
+    List<Case> findAllCasesHandledByOfficer(
+            @Param("officerId") Long officerId,
+            @Param("personId") Long personId
+    );
+
     default List<Case> findByPersonIdInCaseRoles(Long personId) {
         return findByPersonInCaseRoles(personId, null, null);
     }

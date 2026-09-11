@@ -19,6 +19,9 @@ import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.barangay.cases.shared.repository.CaseRepository;
+import com.barangay.cases.shared.model.Case;
+
 @Service
 @RequiredArgsConstructor
 public class OfficerServiceImpl implements OfficerService {
@@ -26,6 +29,7 @@ public class OfficerServiceImpl implements OfficerService {
     private final OfficerRepository officerRepository;
     private final PersonRepository personRepository;
     private final DepartmentRepository departmentRepository;
+    private final CaseRepository caseRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -250,12 +254,55 @@ public class OfficerServiceImpl implements OfficerService {
         return sb.toString().trim();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<OfficerCaseHistoryResponse> getOfficerCasesHandled(Long officerId) {
+        Officer officer = officerRepository.findById(officerId)
+                .orElseThrow(() -> new RuntimeException("Officer not found with id: " + officerId));
 
+        Person p = officer.getPerson();
+        Long personId = p != null ? p.getId() : null;
 
+        List<Case> cases = caseRepository.findAllCasesHandledByOfficer(officerId, personId);
+        if (cases == null || cases.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
 
+        return cases.stream().map(c -> {
+            String deptName = "BLOTTER";
+            if (c.getDepartment() != null && c.getDepartment().getName() != null) {
+                deptName = c.getDepartment().getName().toUpperCase();
+            } else if (c.getCaseNumber() != null && c.getCaseNumber().toUpperCase().contains("VAWC")) {
+                deptName = "VAWC";
+            } else if (c.getCaseNumber() != null && c.getCaseNumber().toUpperCase().contains("BCPC")) {
+                deptName = "BCPC";
+            } else if (c.getCaseNumber() != null && c.getCaseNumber().toUpperCase().contains("LUPON")) {
+                deptName = "LUPON";
+            }
 
+            String role = officer.getPosition() != null && !officer.getPosition().isBlank() 
+                    ? officer.getPosition() 
+                    : "Assigned Officer";
 
+            String incidentNature = "—";
+            if (c.getIncidentDetail() != null && c.getIncidentDetail().getNatureOfComplaint() != null && !c.getIncidentDetail().getNatureOfComplaint().isBlank()) {
+                incidentNature = c.getIncidentDetail().getNatureOfComplaint();
+            }
 
+            String status = c.getCaseStatus() != null ? c.getCaseStatus().name() : "PENDING";
+            LocalDateTime issuedDate = c.getCreatedAt() != null ? c.getCreatedAt() : LocalDateTime.now();
 
+            return new OfficerCaseHistoryResponse(
+                    c.getId(),
+                    c.getCaseNumber() != null ? c.getCaseNumber() : "CASE-" + c.getId(),
+                    deptName,
+                    role,
+                    incidentNature,
+                    status,
+                    issuedDate
+            );
+        }).collect(Collectors.toList());
+    }
 }
+
 

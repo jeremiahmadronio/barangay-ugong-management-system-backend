@@ -161,4 +161,13 @@ public class OfficerController {
     public ResponseEntity<List<LuponOfficerResponse>> getLuponOfficers() {
         return ResponseEntity.ok(officerService.getLuponOfficer());
     }
+
+    /**
+     * Fetch all cases handled by a specific officer (including active, soft-deleted, and permanently deleted cases).
+     */
+    @GetMapping("/{id}/cases")
+    public ResponseEntity<List<OfficerCaseHistoryResponse>> getOfficerCases(@PathVariable Long id) {
+        return ResponseEntity.ok(officerService.getOfficerCasesHandled(id));
+    }
 }
+
