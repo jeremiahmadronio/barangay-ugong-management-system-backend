@@ -45,7 +45,6 @@ public class VawcCaseController {
      * @return list of {@link VawcCaseDetailResponse}
      */
     @GetMapping
-    @LogAudit(module = AuditModule.VAWC, action = "LIST_VAWC_CASES", severity = Severity.INFO)
     public ResponseEntity<List<VawcCaseDetailResponse>> getAllVawcCases() {
         List<VawcCaseDetailResponse> cases = vawcCaseService.getAllVawcCases();
         return ResponseEntity.ok(cases);
@@ -58,7 +57,6 @@ public class VawcCaseController {
      * @return {@link PageResponse} of {@link VawcTableRowResponse}
      */
     @GetMapping("/table")
-    @LogAudit(module = AuditModule.VAWC, action = "LIST_VAWC_CASES_TABLE", severity = Severity.INFO)
     public ResponseEntity<com.barangay.zshared.mapper.PageResponse<com.barangay.cases.vawc.dto.VawcTableRowResponse>> getVawcTable(
             @ModelAttribute com.barangay.cases.vawc.dto.VawcFilterRequest filter
     ) {
@@ -185,7 +183,6 @@ public class VawcCaseController {
      * @return {@link VawcCaseDetailResponse}
      */
     @GetMapping({ "/{id}", "/details/{id}" })
-    @LogAudit(module = AuditModule.VAWC, action = "VIEW_VAWC_CASE", severity = Severity.INFO)
     public ResponseEntity<VawcCaseDetailResponse> getVawcCaseById(@PathVariable Long id) {
         VawcCaseDetailResponse response = vawcCaseService.getVawcCaseById(id);
         return ResponseEntity.ok(response);
@@ -348,7 +345,8 @@ public class VawcCaseController {
      * @return 200 OK
      */
     @PatchMapping("/archive-case/{caseId}")
-    @LogAudit(module = AuditModule.VAWC, action = "ARCHIVE_VAWC_CASE", severity = Severity.INFO)
+    @LogAudit(module = AuditModule.VAWC, action = "ARCHIVE_VAWC_CASE", severity = Severity.INFO,
+            captureOldValue = true, oldValueArgIndex = 1, captureNewValue = false)
     public ResponseEntity<Void> archiveCase(
             @PathVariable Long caseId,
             @Valid @RequestBody ArchiveCaseRequest request
@@ -364,7 +362,8 @@ public class VawcCaseController {
      * @return 200 OK
      */
     @PatchMapping({"/{caseId}/restore-archive", "/{caseId}/restore-trash"})
-    @LogAudit(module = AuditModule.VAWC, action = "RESTORE_VAWC_CASE", severity = Severity.INFO)
+    @LogAudit(module = AuditModule.VAWC, action = "RESTORE_VAWC_CASE", severity = Severity.INFO,
+            captureOldValue = true, oldValueArgIndex = 0, captureNewValue = false)
     public ResponseEntity<Void> restoreArchivedCase(@PathVariable Long caseId) {
         vawcArchiveService.restoreArchivedCase(caseId);
         return ResponseEntity.ok().build();
@@ -377,7 +376,8 @@ public class VawcCaseController {
      * @return success message
      */
     @PatchMapping("/{caseId}/soft-delete")
-    @LogAudit(module = AuditModule.VAWC, action = "SOFT_DELETE_VAWC_CASE", severity = Severity.INFO)
+    @LogAudit(module = AuditModule.VAWC, action = "SOFT_DELETE_VAWC_CASE", severity = Severity.INFO,
+            captureOldValue = true, oldValueArgIndex = 0)
     public ResponseEntity<Map<String, String>> softDelete(@PathVariable Long caseId) {
         vawcArchiveService.softDelete(caseId);
         return ResponseEntity.ok(Map.of("message", "VAWC Case moved to trash successfully"));
@@ -390,7 +390,8 @@ public class VawcCaseController {
      * @return success message
      */
     @DeleteMapping("/{caseId}/permanent-delete")
-    @LogAudit(module = AuditModule.VAWC, action = "PERMANENT_DELETE_VAWC_CASE", severity = Severity.INFO)
+    @LogAudit(module = AuditModule.VAWC, action = "PERMANENT_DELETE_VAWC_CASE", severity = Severity.INFO,
+            captureOldValue = true, oldValueArgIndex = 0)
     public ResponseEntity<Map<String, String>> permanentDelete(@PathVariable Long caseId) {
         vawcArchiveService.permanentDeleteCaseByFlag(caseId);
         return ResponseEntity.ok(Map.of("message", "VAWC Case permanently deleted"));

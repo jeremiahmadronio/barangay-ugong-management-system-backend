@@ -140,6 +140,8 @@ public class BlotterController {
      * @return the created session with HTTP 201
      */
     @PostMapping("/{caseId}/mediation")
+    @LogAudit(module = AuditModule.BLOTTER, action = "SCHEDULE_MEDIATION_HEARING", severity = Severity.INFO,
+            captureOldValue = true, oldValueArgIndex = 1, captureNewValue = true)
     public ResponseEntity<MediationSessionResponse> scheduleMediation(
             @PathVariable Long caseId,
             @Valid @RequestBody MediationSessionRequest request) {
@@ -154,6 +156,8 @@ public class BlotterController {
      * @return the updated session
      */
     @PatchMapping("/mediation/{sessionId}/cancel")
+    @LogAudit(module = AuditModule.BLOTTER, action = "CANCEL_MEDIATION_HEARING", severity = Severity.WARNING,
+            captureOldValue = true, oldValueArgIndex = 0)
     public ResponseEntity<MediationSessionResponse> cancelMediation(
             @PathVariable Long sessionId) {
         return ResponseEntity.ok(mediationSessionService.cancelMediation(sessionId));
@@ -163,6 +167,8 @@ public class BlotterController {
      * Records or updates minutes for a mediation session.
      */
     @PostMapping("/mediation/{sessionId}/minutes")
+    @LogAudit(module = AuditModule.BLOTTER, action = "RECORD_MEDIATION_MINUTES", severity = Severity.INFO,
+            captureOldValue = true, oldValueArgIndex = 1, captureNewValue = true)
     public ResponseEntity<MediationSessionResponse> recordSessionMinutes(
             @PathVariable Long sessionId,
             @Valid @RequestBody SessionMinutesRequest request) {
@@ -182,6 +188,8 @@ public class BlotterController {
      * Adds a follow-up note to a mediation session.
      */
     @PostMapping("/mediation/{sessionId}/followup")
+    @LogAudit(module = AuditModule.BLOTTER, action = "ADD_MEDIATION_FOLLOWUP", severity = Severity.INFO,
+            captureOldValue = true, oldValueArgIndex = 1, captureNewValue = true)
     public ResponseEntity<SessionFollowUpResponse> addSessionFollowUp(
             @PathVariable Long sessionId,
             @Valid @RequestBody SessionFollowUpRequest request) {
@@ -202,6 +210,8 @@ public class BlotterController {
      * Adds a note to a blotter case.
      */
     @PostMapping("/{caseId}/notes")
+    @LogAudit(module = AuditModule.BLOTTER, action = "ADD_BLOTTER_CASE_NOTE", severity = Severity.INFO,
+            captureOldValue = true, oldValueArgIndex = 1, captureNewValue = true)
     public ResponseEntity<CaseNoteResponse> addCaseNote(
             @PathVariable Long caseId,
             @Valid @RequestBody CaseNoteRequest request) {
@@ -451,6 +461,8 @@ public class BlotterController {
      * @return success message
      */
     @PatchMapping("/archive-case/{caseId}")
+    @LogAudit(module = AuditModule.BLOTTER, action = "ARCHIVE_BLOTTER_CASE", severity = Severity.INFO,
+            captureOldValue = true, oldValueArgIndex = 1, captureNewValue = false)
     public ResponseEntity<Void> archiveCase(
           @PathVariable Long caseId,
            @Valid @RequestBody ArchiveCaseRequest request
@@ -467,6 +479,8 @@ public class BlotterController {
      * @return success message
      */
     @PatchMapping("/{caseId}/restore-archive")
+    @LogAudit(module = AuditModule.BLOTTER, action = "RESTORE_BLOTTER_CASE", severity = Severity.INFO,
+            captureOldValue = true, oldValueArgIndex = 0, captureNewValue = false)
     public ResponseEntity<Void> restoreArchivedCase(
             @PathVariable Long caseId
     ) {
@@ -477,12 +491,16 @@ public class BlotterController {
 
 
     @PatchMapping("/{caseId}/soft-delete")
+    @LogAudit(module = AuditModule.BLOTTER, action = "SOFT_DELETE_BLOTTER_CASE", severity = Severity.WARNING,
+            captureOldValue = true, oldValueArgIndex = 0)
     public ResponseEntity<Map<String, String>> softDelete(@PathVariable Long caseId) {
         archiveAndDeleteService.softDelete(caseId);
         return ResponseEntity.ok(Map.of("message", "Case moved to trash successfully"));
     }
 
     @DeleteMapping("/{caseId}/permanent-delete")
+    @LogAudit(module = AuditModule.BLOTTER, action = "PERMANENT_DELETE_BLOTTER_CASE", severity = Severity.CRITICAL,
+            captureOldValue = true, oldValueArgIndex = 0)
     public ResponseEntity<Map<String, String>> permanentDelete(@PathVariable Long caseId) {
         archiveAndDeleteService.permanentDeleteCaseByFlag(caseId);
         return ResponseEntity.ok(Map.of("message", "Case permanently deleted"));
@@ -525,6 +543,8 @@ public class BlotterController {
 
 
     @PostMapping("/refer/{caseNumber}")
+    @LogAudit(module = AuditModule.BLOTTER, action = "REFER_CASE_TO_LUPON", severity = Severity.INFO,
+            captureOldValue = true, oldValueArgIndex = 1, captureNewValue = true)
     public ResponseEntity<LuponReferralResponse> referToLupon(
             @PathVariable String caseNumber,
             @Valid @RequestBody LuponReferRalRequest request

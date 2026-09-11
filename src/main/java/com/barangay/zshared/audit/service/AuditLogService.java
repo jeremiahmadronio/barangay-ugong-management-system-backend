@@ -30,6 +30,7 @@ import java.util.Map;
 
 import static com.barangay.zshared.audit.repository.AuditLogSpecifications.createdOnOrAfter;
 import static com.barangay.zshared.audit.repository.AuditLogSpecifications.createdOnOrBefore;
+import static com.barangay.zshared.audit.repository.AuditLogSpecifications.excludeViewActions;
 import static com.barangay.zshared.audit.repository.AuditLogSpecifications.hasSeverity;
 import static com.barangay.zshared.audit.repository.AuditLogSpecifications.search;
 
@@ -101,7 +102,8 @@ public class AuditLogService {
                 .allOf(search(searchTerm))
                 .and(hasSeverity(severity))
                 .and(createdOnOrAfter(fromDate != null ? fromDate.atStartOfDay() : null))
-                .and(createdOnOrBefore(toDate != null ? toDate.atTime(LocalTime.MAX) : null));
+                .and(createdOnOrBefore(toDate != null ? toDate.atTime(LocalTime.MAX) : null))
+                .and(excludeViewActions());
 
         Page<AuditLogResponse> pageResult = auditLogsRepository.findAll(specification, pageable)
                 .map(this::mapToResponse);

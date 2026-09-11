@@ -68,4 +68,20 @@ public final class AuditLogSpecifications {
         return (root, query, cb) ->
                 toDateTime == null ? cb.conjunction() : cb.lessThanOrEqualTo(root.get("createdAt"), toDateTime);
     }
+
+    /**
+     * Permanently excludes read-only / view-only audit actions from all queries.
+     * These actions are: VIEW_*, LIST_*, GET_* prefixes.
+     * This covers old records already in the DB and prevents future noise.
+     */
+    public static Specification<AuditLogs> excludeViewActions() {
+        return (root, query, cb) -> {
+            Expression<String> action = cb.upper(root.get("actionTaken").as(String.class));
+            return cb.and(
+                    cb.notLike(action, "VIEW%"),
+                    cb.notLike(action, "LIST%"),
+                    cb.notLike(action, "GET%")
+            );
+        };
+    }
 }

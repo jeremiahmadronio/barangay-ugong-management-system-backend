@@ -35,7 +35,10 @@ public @interface LogAudit {
     String reason()  default "";
 
     // Set to true if you want to capture the method argument as old value
-    boolean captureOldValue() default false ;
+    boolean captureOldValue() default false;
+
+    // Which argument index to use as the old value (default: 0 = first arg)
+    int oldValueArgIndex() default 0;
 
     // Set to true if you want to capture the return value as new value
     boolean captureNewValue() default true;

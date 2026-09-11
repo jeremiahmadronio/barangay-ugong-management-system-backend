@@ -158,6 +158,8 @@ public class FtjsController {
 
 
     @PostMapping("/notes-entry/{ftjsId}")
+    @LogAudit(module = AuditModule.FTJS, action = "ADD_FTJS_NOTE", severity = Severity.INFO,
+            captureOldValue = true, oldValueArgIndex = 1, captureNewValue = true)
     public ResponseEntity<FtjsNoteResponse> addNote(@PathVariable Long ftjsId, @Valid @RequestBody FtjsNoteRequest request) {
         FtjsNoteResponse response = ftjsNoteService.addNote(ftjsId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -174,6 +176,8 @@ public class FtjsController {
     }
 
     @PostMapping("/archive/{id}")
+    @LogAudit(module = AuditModule.FTJS, action = "ARCHIVE_FTJS_RECORD", severity = Severity.INFO,
+            captureOldValue = true, oldValueArgIndex = 0, captureNewValue = false)
     /**
      * Archives an FTJS record.
      */
@@ -183,6 +187,8 @@ public class FtjsController {
     }
 
     @PostMapping("/restore/{id}")
+    @LogAudit(module = AuditModule.FTJS, action = "RESTORE_FTJS_RECORD", severity = Severity.INFO,
+            captureOldValue = true, oldValueArgIndex = 0, captureNewValue = false)
     /**
      * Restores an archived or soft-deleted FTJS record.
      */
@@ -241,6 +247,8 @@ public class FtjsController {
     }
 
     @PutMapping("/update-retention")
+    @LogAudit(module = AuditModule.FTJS, action = "UPDATE_FTJS_RETENTION_SETTING", severity = Severity.WARNING,
+            captureOldValue = true, oldValueArgIndex = 0)
     /**
      * Updates system data retention setting.
      */
@@ -248,9 +256,6 @@ public class FtjsController {
         retentionService.updateRetentionSetting(request);
         return ResponseEntity.noContent().build();
     }
-
-
-
 
     @DeleteMapping("/{id}")
     @LogAudit(module = AuditModule.FTJS, action = "SOFT_DELETE_FTJS_RECORD", severity = Severity.LOW)

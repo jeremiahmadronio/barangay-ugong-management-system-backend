@@ -345,6 +345,8 @@ public class LuponController {
      * @param request archive remarks payload
      */
     @PatchMapping("/archive-case/{caseId}")
+    @LogAudit(module = AuditModule.LUPON, action = "ARCHIVE_LUPON_CASE", severity = Severity.INFO,
+            captureOldValue = true, oldValueArgIndex = 1, captureNewValue = false)
     public ResponseEntity<Void> archiveCase(
             @PathVariable Long caseId,
             @Valid @RequestBody com.barangay.cases.blotter.dto.ArchiveCaseRequest request) {
@@ -358,6 +360,8 @@ public class LuponController {
      * @param caseId the case ID
      */
     @PatchMapping("/{caseId}/restore-archive")
+    @LogAudit(module = AuditModule.LUPON, action = "RESTORE_LUPON_CASE", severity = Severity.INFO,
+            captureOldValue = true, oldValueArgIndex = 0, captureNewValue = false)
     public ResponseEntity<Void> restoreArchivedCase(@PathVariable Long caseId) {
         luponArchive.restoreArchivedCase(caseId);
         return ResponseEntity.noContent().build();
@@ -369,6 +373,8 @@ public class LuponController {
      * @param caseId the case ID
      */
     @PatchMapping("/{caseId}/soft-delete")
+    @LogAudit(module = AuditModule.LUPON, action = "SOFT_DELETE_LUPON_CASE", severity = Severity.WARNING,
+            captureOldValue = true, oldValueArgIndex = 0, captureNewValue = false)
     public ResponseEntity<Void> softDeleteCase(@PathVariable Long caseId) {
         luponArchive.softDelete(caseId);
         return ResponseEntity.noContent().build();
@@ -380,6 +386,8 @@ public class LuponController {
      * @param caseId the case ID
      */
     @PatchMapping("/{caseId}/restore-trash")
+    @LogAudit(module = AuditModule.LUPON, action = "RESTORE_LUPON_CASE_FROM_TRASH", severity = Severity.INFO,
+            captureOldValue = true, oldValueArgIndex = 0, captureNewValue = false)
     public ResponseEntity<Void> restoreDeletedCase(@PathVariable Long caseId) {
         luponArchive.restoreArchivedCase(caseId);
         return ResponseEntity.noContent().build();
@@ -391,6 +399,8 @@ public class LuponController {
      * @param caseId the case ID
      */
     @DeleteMapping("/{caseId}/permanent-delete")
+    @LogAudit(module = AuditModule.LUPON, action = "PERMANENT_DELETE_LUPON_CASE", severity = Severity.CRITICAL,
+            captureOldValue = true, oldValueArgIndex = 0, captureNewValue = false)
     public ResponseEntity<Void> permanentDeleteCase(@PathVariable Long caseId) {
         luponArchive.permanentDeleteCaseByFlag(caseId);
         return ResponseEntity.noContent().build();

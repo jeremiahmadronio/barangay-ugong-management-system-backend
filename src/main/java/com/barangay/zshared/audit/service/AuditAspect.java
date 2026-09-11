@@ -40,12 +40,13 @@ public class AuditAspect {
         Method method = signature.getMethod();
         LogAudit annotation = method.getAnnotation(LogAudit.class);
 
-        // Capture old value — first argument of the method (if enabled)
+        // Capture old value — use oldValueArgIndex to pick the relevant argument
         Object oldValue = null;
         if (annotation.captureOldValue()) {
             Object[] args = joinPoint.getArgs();
-            if (args != null && args.length > 0) {
-                oldValue = args[0];
+            int argIdx = annotation.oldValueArgIndex();
+            if (args != null && args.length > argIdx) {
+                oldValue = args[argIdx];
             }
         }
 
@@ -53,9 +54,14 @@ public class AuditAspect {
         Object result = joinPoint.proceed();
 
         // Capture new value — return value of the method (if enabled)
+        // Skip capturing org.springframework.http.ResponseEntity<Void> (no meaningful payload)
         Object newValue = null;
-        if (annotation.captureNewValue()) {
-            newValue = result;
+        if (annotation.captureNewValue() && result != null) {
+            boolean isVoidResponse = result instanceof org.springframework.http.ResponseEntity<?> re
+                    && (re.getBody() == null);
+            if (!isVoidResponse) {
+                newValue = result;
+            }
         }
 
         // Get the currently logged-in user
