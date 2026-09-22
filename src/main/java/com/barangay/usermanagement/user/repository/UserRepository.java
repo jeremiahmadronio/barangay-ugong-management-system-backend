@@ -41,7 +41,7 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
 
     boolean existsByPersonId(Long personId);
 
-    @org.springframework.data.jpa.repository.Query("SELECT COUNT(u) FROM User u WHERE u.status = :status AND (u.isArchived = false OR u.isArchived IS NULL) AND (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)")
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(u) FROM User u LEFT JOIN u.role r WHERE u.status = :status AND (u.isArchived = false OR u.isArchived IS NULL) AND (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) AND (u.isSystem = false OR u.isSystem IS NULL) AND (r.roleName IS NULL OR UPPER(r.roleName) NOT IN ('SYSTEM_ADMIN', 'ROOTADMIN', 'ROOT_ADMIN', 'ROLE_SYSTEM_ADMIN', 'ROLE_ROOT_ADMIN')) AND (u.username IS NULL OR LOWER(u.username) <> 'superadmin')")
     long countByStatus(@org.springframework.data.repository.query.Param("status") com.barangay.zshared.enumerated.UserStatus status);
 
     java.util.List<User> findAllByStatus(com.barangay.zshared.enumerated.UserStatus status);

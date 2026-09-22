@@ -47,10 +47,14 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
         LocalDateTime startOfPrevMonth = startOfCurrentMonth.minusMonths(1);
         LocalDateTime endOfPrevMonth = startOfCurrentMonth.minusNanos(1);
 
-        String baseFilter = " WHERE (u.isArchived = false OR u.isArchived IS NULL) " +
+        String baseFilter = " LEFT JOIN u.role r " +
+                "WHERE (u.isArchived = false OR u.isArchived IS NULL) " +
                 "AND (u.status IS NULL OR u.status <> com.barangay.zshared.enumerated.UserStatus.ARCHIVED) " +
                 "AND (u.isDeleted = false OR u.isDeleted IS NULL) " +
-                "AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) ";
+                "AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) " +
+                "AND (u.isSystem = false OR u.isSystem IS NULL) " +
+                "AND (r.roleName IS NULL OR UPPER(r.roleName) NOT IN ('SYSTEM_ADMIN', 'ROOTADMIN', 'ROOT_ADMIN', 'ROLE_SYSTEM_ADMIN', 'ROLE_ROOT_ADMIN')) " +
+                "AND (u.username IS NULL OR LOWER(u.username) <> 'superadmin') ";
 
         String jpqlTotal = "SELECT COUNT(u) FROM User u " + baseFilter;
         String jpqlTotalPrev = "SELECT COUNT(u) FROM User u " + baseFilter + " AND u.createdAt >= :startOfPrevMonth AND u.createdAt <= :endOfPrevMonth";
@@ -107,6 +111,9 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
                   AND (u.status IS NULL OR u.status <> com.barangay.zshared.enumerated.UserStatus.ARCHIVED)
                   AND (u.isDeleted = false OR u.isDeleted IS NULL)
                   AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)
+                  AND (u.isSystem = false OR u.isSystem IS NULL)
+                  AND (r.roleName IS NULL OR UPPER(r.roleName) NOT IN ('SYSTEM_ADMIN', 'ROOTADMIN', 'ROOT_ADMIN', 'ROLE_SYSTEM_ADMIN', 'ROLE_ROOT_ADMIN'))
+                  AND (u.username IS NULL OR LOWER(u.username) <> 'superadmin')
                 """);
 
         Map<String, Object> params = new HashMap<>();
