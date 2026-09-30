@@ -189,13 +189,24 @@ public class UserService {
         if (departments.isEmpty()) {
             throw new ResourceNotFoundException("No valid departments found for provided IDs.");
         }
-        user.setDepartments(new HashSet<>(departments));
-
-        Set<Permission> permissions = new HashSet<>();
-        if (request.permissionIds() != null && !request.permissionIds().isEmpty()) {
-            permissions.addAll(permissionRepository.findAllById(request.permissionIds()));
+        if (user.getDepartments() == null) {
+            user.setDepartments(new HashSet<>());
+        } else {
+            user.getDepartments().clear();
         }
-        user.setCustomPermissions(permissions);
+        user.getDepartments().addAll(departments);
+
+        boolean isKapitana = isKapitanaDepartment(departments);
+
+        if (user.getCustomPermissions() == null) {
+            user.setCustomPermissions(new HashSet<>());
+        } else {
+            user.getCustomPermissions().clear();
+        }
+
+        if (!isKapitana && request.permissionIds() != null && !request.permissionIds().isEmpty()) {
+            user.getCustomPermissions().addAll(permissionRepository.findAllById(request.permissionIds()));
+        }
 
         if (request.isActivated() != null) {
             user.setStatus(request.isActivated() ? UserStatus.ACTIVE : UserStatus.INACTIVE);
@@ -498,8 +509,10 @@ public class UserService {
             throw new ResourceNotFoundException("No valid departments found for provided IDs.");
         }
 
+        boolean isKapitana = isKapitanaDepartment(departments);
+
         Set<Permission> permissions = new HashSet<>();
-        if (request.permissionIds() != null && !request.permissionIds().isEmpty()) {
+        if (!isKapitana && request.permissionIds() != null && !request.permissionIds().isEmpty()) {
             permissions.addAll(permissionRepository.findAllById(request.permissionIds()));
         }
 
@@ -628,5 +641,15 @@ public class UserService {
                 permNames,
                 user.getCreatedAt()
         );
+    }
+
+    private boolean isKapitanaDepartment(List<Department> departments) {
+        if (departments == null || departments.isEmpty()) {
+            return false;
+        }
+        return departments.stream().anyMatch(d -> {
+            String name = d.getName() != null ? d.getName().trim().toUpperCase() : "";
+            return name.contains("KAPITANA") || name.contains("PUNONG") || name.contains("BARANGAY CAPTAIN");
+        });
     }
 }

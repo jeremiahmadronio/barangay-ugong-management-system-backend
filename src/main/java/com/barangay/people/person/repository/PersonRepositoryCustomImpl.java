@@ -24,7 +24,9 @@ public class PersonRepositoryCustomImpl implements PersonRepositoryCustom {
             String jpql = """
                     SELECT p FROM Person p
                     WHERE p.id NOT IN (
-                        SELECT u.person.id FROM User u WHERE u.person.id IS NOT NULL
+                        SELECT u.person.id FROM User u
+                        WHERE u.person.id IS NOT NULL
+                        AND (u.isPermanentDeleted IS NULL OR u.isPermanentDeleted = false)
                     )
                     ORDER BY p.lastName ASC, p.firstName ASC
                     """;
@@ -45,7 +47,9 @@ public class PersonRepositoryCustomImpl implements PersonRepositoryCustom {
                     LOWER(CONCAT(p.firstName, ' ', p.lastName)) LIKE LOWER(:prefixSearch)
                 )
                 AND p.id NOT IN (
-                    SELECT u.person.id FROM User u WHERE u.person.id IS NOT NULL
+                    SELECT u.person.id FROM User u
+                    WHERE u.person.id IS NOT NULL
+                    AND (u.isPermanentDeleted IS NULL OR u.isPermanentDeleted = false)
                 )
                 ORDER BY
                     CASE

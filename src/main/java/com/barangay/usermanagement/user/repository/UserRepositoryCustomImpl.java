@@ -135,19 +135,33 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
 
             // Role / Account Type filter
             if (filter.roleName() != null && !filter.roleName().isBlank() && !"ALL".equalsIgnoreCase(filter.roleName())) {
-                jpql.append(" AND LOWER(r.roleName) = LOWER(:roleName) ");
-                params.put("roleName", filter.roleName().trim());
+                String role = filter.roleName().trim().toUpperCase();
+                if ("USER".equals(role) || "OFFICER".equals(role)) {
+                    jpql.append(" AND (r.roleName IS NULL OR UPPER(r.roleName) = 'OFFICER' OR UPPER(r.roleName) = 'USER' OR UPPER(r.roleName) NOT LIKE '%ADMIN%') ");
+                } else if ("ADMIN".equals(role)) {
+                    jpql.append(" AND (UPPER(r.roleName) = 'ADMIN' OR UPPER(r.roleName) = 'ROLE_ADMIN' OR UPPER(r.roleName) LIKE '%ADMIN%') ");
+                } else {
+                    jpql.append(" AND LOWER(r.roleName) = LOWER(:roleName) ");
+                    params.put("roleName", filter.roleName().trim());
+                }
             }
 
             // Department filter
             if (filter.departmentName() != null && !filter.departmentName().isBlank() && !"ALL".equalsIgnoreCase(filter.departmentName())) {
-                jpql.append(" AND LOWER(d.name) = LOWER(:departmentName) ");
+                jpql.append(" AND (LOWER(d.name) = LOWER(:departmentName) OR LOWER(d.name) LIKE LOWER(:deptPattern)) ");
                 params.put("departmentName", filter.departmentName().trim());
+                params.put("deptPattern", "%" + filter.departmentName().trim() + "%");
             }
 
             // Status filter
             if (filter.status() != null) {
-                jpql.append(" AND u.status = :status ");
+                if (filter.status() == com.barangay.zshared.enumerated.UserStatus.LOCKED) {
+                    jpql.append(" AND (u.status = :status OR u.isLocked = true) ");
+                } else if (filter.status() == com.barangay.zshared.enumerated.UserStatus.ACTIVE) {
+                    jpql.append(" AND u.status = :status AND (u.isLocked = false OR u.isLocked IS NULL) ");
+                } else {
+                    jpql.append(" AND u.status = :status ");
+                }
                 params.put("status", filter.status());
             }
         }

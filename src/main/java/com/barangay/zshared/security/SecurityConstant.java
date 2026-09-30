@@ -30,6 +30,11 @@ public class SecurityConstant {
             "/api/v1/admin/**",
             "/api/v1/blotter/**",
             "/api/v1/ftjs/**",
+            "/api/settings",
+            "/api/public/**",
+            "/api/v1/cms/announcements/public",
+            "/api/v1/cms/services/public",
+            "/uploads/**",
             "/error"
     };
 
@@ -45,7 +50,10 @@ public class SecurityConstant {
             "/api/v1/users/**",
             "/api/v1/user-management/stats",
             "/api/v1/departments/**",
-            "/api/v1/roles/**"
+            "/api/v1/roles/**",
+            "/api/settings/**",
+            "/api/officials/**",
+            "/api/v1/cms/**"
     };
 
     // Endpoints restricted to ROOT_ADMIN or staff assigned to the VAWC department
