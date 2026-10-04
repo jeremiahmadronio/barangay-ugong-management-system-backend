@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
@@ -313,6 +314,61 @@ public class UserService {
         }
 
         return mapToResponse(user);
+    }
+
+    /**
+     * Updates the profile photo for a user account (and linked person entity if present).
+     * Validates file size (max 5MB) and mime type (images only).
+     *
+     * @param userId the ID of the user whose photo is to be updated
+     * @param file   the uploaded image file
+     * @return Base64 data URL representation of the saved photo
+     */
+    @Transactional
+    public String updateProfilePhoto(Long userId, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessRuleException("Please select an image file to upload.");
+        }
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new BusinessRuleException("Profile photo size must not exceed 5MB.");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new BusinessRuleException("Only valid image formats (JPEG, PNG, WebP) are accepted.");
+        }
+
+        User user = findUserById(userId);
+        try {
+            byte[] bytes = file.getBytes();
+            user.setSystemPhoto(bytes);
+            userRepository.save(user);
+
+            if (user.getPerson() != null) {
+                Person person = user.getPerson();
+                person.setPhoto(bytes);
+                personRepository.save(person);
+            }
+
+            log.info("Profile photo successfully updated for user ID: {}", userId);
+            return "data:" + contentType + ";base64," + Base64.getEncoder().encodeToString(bytes);
+        } catch (java.io.IOException e) {
+            log.error("Failed to read uploaded photo for user ID: {}", userId, e);
+            throw new BusinessRuleException("Failed to process uploaded photo: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Retrieves the profile photo binary data for a user.
+     */
+    @Transactional(readOnly = true)
+    public byte[] getUserPhotoBytes(Long userId) {
+        User user = findUserById(userId);
+        byte[] bytes = user.getSystemPhoto();
+        if ((bytes == null || bytes.length == 0) && user.getPerson() != null) {
+            bytes = user.getPerson().getPhoto();
+        }
+        return bytes;
     }
 
     /**

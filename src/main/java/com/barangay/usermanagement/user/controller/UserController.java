@@ -131,6 +131,55 @@ public class UserController {
     }
 
     /**
+     * Endpoint to upload/update profile photo for the current authenticated user.
+     */
+    @PostMapping(value = "/profile/photo", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "UPDATE_PROFILE_PHOTO", severity = Severity.INFO)
+    public ResponseEntity<java.util.Map<String, String>> uploadCurrentUserProfilePhoto(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file
+    ) {
+        User currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new BusinessRuleException("User must be authenticated to update profile photo.");
+        }
+        String photoBase64 = userService.updateProfilePhoto(currentUser.getId(), file);
+        return ResponseEntity.ok(java.util.Map.of(
+                "photo", photoBase64,
+                "message", "Profile photo updated successfully."
+        ));
+    }
+
+    /**
+     * Endpoint to upload/update profile photo for a user by ID.
+     */
+    @PostMapping(value = "/{userId}/photo", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "UPDATE_PROFILE_PHOTO", severity = Severity.INFO)
+    public ResponseEntity<java.util.Map<String, String>> uploadUserProfilePhoto(
+            @PathVariable Long userId,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file
+    ) {
+        String photoBase64 = userService.updateProfilePhoto(userId, file);
+        return ResponseEntity.ok(java.util.Map.of(
+                "photo", photoBase64,
+                "message", "Profile photo updated successfully."
+        ));
+    }
+
+    /**
+     * Endpoint to fetch profile photo binary image for a user.
+     */
+    @GetMapping(value = "/{userId}/photo", produces = {org.springframework.http.MediaType.IMAGE_JPEG_VALUE, org.springframework.http.MediaType.IMAGE_PNG_VALUE})
+    public ResponseEntity<byte[]> getUserPhoto(@PathVariable Long userId) {
+        byte[] photoBytes = userService.getUserPhotoBytes(userId);
+        if (photoBytes == null || photoBytes.length == 0) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "max-age=3600")
+                .body(photoBytes);
+    }
+
+    /**
      * Endpoint to update a user's status (ACTIVE / INACTIVE).
      */
     @PatchMapping("/{userId}/status")
