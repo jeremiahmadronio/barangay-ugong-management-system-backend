@@ -58,6 +58,9 @@ class AuthServiceTest {
     /** BCrypt encoder mock — avoids real hashing overhead. */
     @Mock private PasswordEncoder passwordEncoder;
 
+    /** System setting repository mock. */
+    @Mock private com.barangay.contentmanagement.repository.SystemSettingRepository systemSettingRepository;
+
     /** System under test — all mocks are injected automatically. */
     @InjectMocks
     private AuthService authService;

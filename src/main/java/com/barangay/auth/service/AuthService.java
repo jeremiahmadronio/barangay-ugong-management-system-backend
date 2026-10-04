@@ -3,6 +3,7 @@ package com.barangay.auth.service;
 import com.barangay.auth.dto.*;
 import com.barangay.usermanagement.user.model.User;
 import com.barangay.usermanagement.user.repository.UserRepository;
+import com.barangay.contentmanagement.repository.SystemSettingRepository;
 import com.barangay.zshared.audit.service.AuditLogService;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;
@@ -40,6 +41,7 @@ public class AuthService {
     private final MfaService mfaService;
     private final TotpService totpService;
     private final PasswordEncoder passwordEncoder;
+    private final SystemSettingRepository systemSettingRepository;
 
     /**
      * Handles the initial login step.
@@ -106,31 +108,86 @@ public class AuthService {
         user.setLockUntil(null);
         user.setLastFailedAttempt(null);
 
-        // Generate and send OTP
-        String code = mfaService.generateCode();
-        user.setMfaCode(code);
-        user.setMfaExpiry(LocalDateTime.now().plusMinutes(5));
+        // Check if System-Wide Global MFA is enforced OR User has Personal 2FA (TOTP) enabled
+        boolean isGlobalMfaEnforced = systemSettingRepository.findById("global_mfa_enabled")
+                .map(setting -> "true".equalsIgnoreCase(setting.getSettingValue()))
+                .orElse(true);
+
+        boolean isMfaRequired = isGlobalMfaEnforced || Boolean.TRUE.equals(user.getTotpEnabled());
+
+        if (isMfaRequired) {
+            // Generate and send OTP
+            String code = mfaService.generateCode();
+            user.setMfaCode(code);
+            user.setMfaExpiry(LocalDateTime.now().plusMinutes(5));
+            userRepository.save(user);
+
+            mfaService.sendMfaEmail(user.getSystemEmail(), code);
+
+            auditLogService.log(
+                    user, AuditModule.SECURITY, "LOGIN_OTP_SENT",
+                    Severity.INFO, "OTP sent to primary email", ipAddress, null, null
+            );
+
+            return new LoginResponse(
+                    "MFA_REQUIRED",
+                    user.getId(),
+                    user.getRole().getRoleName(),
+                    null,
+                    null,
+                    Boolean.TRUE.equals(user.getTotpEnabled()),
+                    user.getSystemBackupEmail() != null,
+                    user.getPerson() != null ? user.getPerson().getFirstName() : null,
+                    user.getPerson() != null ? user.getPerson().getLastName() : null,
+                    user.getUsername(),
+                    null
+            );
+        }
+
+        // Global MFA is disabled and user has no personal TOTP enabled — login directly
+        user.setLastLoginAt(LocalDateTime.now());
         userRepository.save(user);
 
-        mfaService.sendMfaEmail(user.getSystemEmail(), code);
+        String firstName = user.getPerson() != null ? user.getPerson().getFirstName() : null;
+        String lastName = user.getPerson() != null ? user.getPerson().getLastName() : null;
+        String username = user.getUsername() != null ? user.getUsername() : user.getSystemEmail();
+        String photoUrl = null;
 
+        // New account — must change password first
+        if (Boolean.TRUE.equals(user.getIsNewAccount())) {
+            return new LoginResponse(
+                    "CHANGE_PASSWORD_REQUIRED",
+                    user.getId(),
+                    user.getRole().getRoleName(),
+                    null,
+                    null,
+                    false,
+                    user.getSystemBackupEmail() != null,
+                    firstName,
+                    lastName,
+                    username,
+                    photoUrl
+            );
+        }
+
+        String token = generateToken(user);
         auditLogService.log(
-                user, AuditModule.SECURITY, "LOGIN_OTP_SENT",
-                Severity.INFO, "OTP sent to primary email", ipAddress,null, null
+                user, AuditModule.SECURITY, "LOGIN_SUCCESS",
+                Severity.INFO, "Direct login without MFA (Global MFA disabled)", ipAddress, null, null
         );
 
         return new LoginResponse(
-                "MFA_REQUIRED",
+                "SUCCESS",
                 user.getId(),
                 user.getRole().getRoleName(),
-                null,
-                null,
-                Boolean.TRUE.equals(user.getTotpEnabled()),
+                getDepartmentNames(user),
+                token,
+                false,
                 user.getSystemBackupEmail() != null,
-                user.getPerson() != null ? user.getPerson().getFirstName() : null,
-                user.getPerson() != null ? user.getPerson().getLastName() : null,
-                user.getUsername(),
-                null
+                firstName,
+                lastName,
+                username,
+                photoUrl
         );
     }
 

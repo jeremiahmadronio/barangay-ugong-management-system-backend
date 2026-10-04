@@ -67,6 +67,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                        .requestMatchers("/api/v1/users/me", "/api/v1/users/profile", "/api/v1/users/profile/**", "/api/v1/users/change-password", "/api/v1/users/global-mfa").authenticated()
                         .requestMatchers(ROOT_ADMIN_ENDPOINTS).hasAnyRole(ROLE_ROOT_ADMIN, ROLE_SYSTEM_ADMIN)
                         .requestMatchers(ADMIN_ENDPOINTS).hasAnyRole(ROLE_ADMIN, ROLE_ROOT_ADMIN, ROLE_SYSTEM_ADMIN)
                         .requestMatchers(VAWC_ENDPOINTS).access(deptAccess("VAWC"))

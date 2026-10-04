@@ -372,6 +372,32 @@ public class UserService {
     }
 
     /**
+     * Changes password for an authenticated user with verification and validation.
+     * Enforces current password verification, new password confirmation, complexity,
+     * prevents reusing current password, and securely hashes with BCrypt.
+     */
+    @Transactional
+    public void changePassword(Long userId, UpdatePasswordRequest request) {
+        User user = findUserById(userId);
+
+        if (!request.newPassword().equals(request.confirmPassword())) {
+            throw new BusinessRuleException("New password and confirmation password do not match.");
+        }
+
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new BusinessRuleException("The current password you entered is incorrect.");
+        }
+
+        if (passwordEncoder.matches(request.newPassword(), user.getPassword())) {
+            throw new BusinessRuleException("New password cannot be the same as your current password.");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
+        log.info("Password successfully updated and BCrypt-hashed for user ID: {}", userId);
+    }
+
+    /**
      * Updates a user's status (ACTIVE / INACTIVE).
      */
     @Transactional

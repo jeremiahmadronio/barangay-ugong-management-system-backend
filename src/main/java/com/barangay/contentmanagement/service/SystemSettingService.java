@@ -24,6 +24,7 @@ public class SystemSettingService {
         for (SystemSetting setting : settingsList) {
             settingsMap.put(setting.getSettingKey(), setting.getSettingValue());
         }
+        settingsMap.putIfAbsent("global_mfa_enabled", "true");
         return settingsMap;
     }
 
@@ -35,5 +36,20 @@ public class SystemSettingService {
             systemSettingRepository.save(setting);
         }
         return newSettings;
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isGlobalMfaEnforced() {
+        return systemSettingRepository.findById("global_mfa_enabled")
+                .map(setting -> "true".equalsIgnoreCase(setting.getSettingValue()))
+                .orElse(true);
+    }
+
+    public boolean setGlobalMfaEnforced(boolean enabled) {
+        SystemSetting setting = systemSettingRepository.findById("global_mfa_enabled")
+                .orElse(new SystemSetting("global_mfa_enabled", null));
+        setting.setSettingValue(String.valueOf(enabled));
+        systemSettingRepository.save(setting);
+        return enabled;
     }
 }

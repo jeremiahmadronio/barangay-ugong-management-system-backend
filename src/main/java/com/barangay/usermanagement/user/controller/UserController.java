@@ -27,6 +27,7 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final com.barangay.contentmanagement.service.SystemSettingService systemSettingService;
 
     /**
      * Endpoint to check if a system email address is taken by an active non-archived user.
@@ -177,6 +178,65 @@ public class UserController {
         return ResponseEntity.ok()
                 .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "max-age=3600")
                 .body(photoBytes);
+    }
+
+    /**
+     * Endpoint to change password for the current authenticated user.
+     */
+    @PostMapping("/change-password")
+    @LogAudit(module = AuditModule.SECURITY, action = "CHANGE_PASSWORD", severity = Severity.INFO)
+    public ResponseEntity<java.util.Map<String, String>> changeCurrentUserPassword(
+            @Valid @RequestBody UpdatePasswordRequest request
+    ) {
+        User currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new BusinessRuleException("User must be authenticated to change password.");
+        }
+        userService.changePassword(currentUser.getId(), request);
+        return ResponseEntity.ok(java.util.Map.of("message", "Password changed successfully."));
+    }
+
+    /**
+     * Endpoint to change password for a specific user by ID.
+     */
+    @PostMapping("/{userId}/change-password")
+    @LogAudit(module = AuditModule.SECURITY, action = "CHANGE_PASSWORD", severity = Severity.INFO)
+    public ResponseEntity<java.util.Map<String, String>> changeUserPassword(
+            @PathVariable Long userId,
+            @Valid @RequestBody UpdatePasswordRequest request
+    ) {
+        userService.changePassword(userId, request);
+        return ResponseEntity.ok(java.util.Map.of("message", "Password changed successfully."));
+    }
+
+    /**
+     * Endpoint to fetch the current system-wide Global MFA status.
+     */
+    @GetMapping("/global-mfa")
+    public ResponseEntity<java.util.Map<String, Object>> getGlobalMfaStatus() {
+        boolean enabled = systemSettingService.isGlobalMfaEnforced();
+        return ResponseEntity.ok(java.util.Map.of("globalMfaEnabled", enabled));
+    }
+
+    /**
+     * Endpoint to toggle or set system-wide Global MFA enforcement status.
+     */
+    @PutMapping("/global-mfa")
+    @LogAudit(module = AuditModule.SECURITY, action = "TOGGLE_GLOBAL_MFA", severity = Severity.WARNING)
+    public ResponseEntity<java.util.Map<String, Object>> updateGlobalMfa(
+            @RequestBody java.util.Map<String, Boolean> request
+    ) {
+        Boolean enabled = request.get("enabled");
+        if (enabled == null) {
+            throw new BusinessRuleException("Field 'enabled' is required.");
+        }
+        systemSettingService.setGlobalMfaEnforced(enabled);
+        return ResponseEntity.ok(java.util.Map.of(
+                "globalMfaEnabled", enabled,
+                "message", enabled
+                        ? "System-wide Global MFA has been successfully enabled."
+                        : "System-wide Global MFA has been successfully disabled."
+        ));
     }
 
     /**
