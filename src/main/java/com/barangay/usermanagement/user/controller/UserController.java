@@ -8,6 +8,9 @@ import com.barangay.zshared.enumerated.Severity;
 import com.barangay.zshared.enumerated.UserStatus;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import com.barangay.usermanagement.user.model.User;
+import com.barangay.zshared.exception.BusinessRuleException;
+import com.barangay.zshared.security.SecurityUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -85,6 +88,46 @@ public class UserController {
             @Valid @RequestBody AdminUpdateRequest request
     ) {
         return ResponseEntity.ok(userService.updateAdmin(userId, request));
+    }
+
+    /**
+     * Endpoint to fetch the current authenticated user's profile details.
+     */
+    @GetMapping("/me")
+    public ResponseEntity<UserDetailResponse> getCurrentUserProfile() {
+        User currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new BusinessRuleException("User must be authenticated.");
+        }
+        return ResponseEntity.ok(userService.getUserDetail(currentUser.getId()));
+    }
+
+    /**
+     * Endpoint to partially update personal information for the current authenticated user.
+     * Only altered fields are updated in the database. System email is immutable.
+     */
+    @PutMapping("/profile")
+    @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "UPDATE_PERSONAL_INFO", severity = Severity.INFO)
+    public ResponseEntity<UserResponse> updateCurrentUserPersonalInfo(
+            @Valid @RequestBody UpdatePersonalInfoRequest request
+    ) {
+        User currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new BusinessRuleException("User must be authenticated to update profile.");
+        }
+        return ResponseEntity.ok(userService.updatePersonalInfo(currentUser.getId(), request));
+    }
+
+    /**
+     * Endpoint to partially update personal information by userId.
+     */
+    @PutMapping("/{userId}/profile")
+    @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "UPDATE_PERSONAL_INFO", severity = Severity.INFO)
+    public ResponseEntity<UserResponse> updatePersonalInfo(
+            @PathVariable Long userId,
+            @Valid @RequestBody UpdatePersonalInfoRequest request
+    ) {
+        return ResponseEntity.ok(userService.updatePersonalInfo(userId, request));
     }
 
     /**

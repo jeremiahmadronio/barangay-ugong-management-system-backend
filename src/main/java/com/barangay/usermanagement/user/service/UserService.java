@@ -244,6 +244,78 @@ public class UserService {
     }
 
     /**
+     * Partially updates personal info (username, contact number, and optionally first/last name).
+     * Only fields that actually changed are updated and saved to the database.
+     * System email is strictly read-only and immutable.
+     */
+    @Transactional
+    public UserResponse updatePersonalInfo(Long userId, UpdatePersonalInfoRequest request) {
+        User user = findUserById(userId);
+        boolean userModified = false;
+        boolean personModified = false;
+
+        // 1. Partial update: Username (only if changed and valid)
+        if (request.username() != null && !request.username().isBlank()) {
+            String trimmedUsername = request.username().trim();
+            if (!trimmedUsername.equalsIgnoreCase(user.getUsername())) {
+                if (userRepository.existsByUsernameExcludingUser(trimmedUsername, user.getId())) {
+                    throw new DuplicateEntryException("Username '" + trimmedUsername + "' is already in use by another account.");
+                }
+                user.setUsername(trimmedUsername);
+                userModified = true;
+                log.info("Updated username for user ID: {} to '{}'", userId, trimmedUsername);
+            }
+        }
+
+        // 2. Partial update: Person details (contactNumber, firstName, lastName)
+        Person person = user.getPerson();
+        if (person != null) {
+            // Contact Number (only if changed)
+            if (request.contactNumber() != null) {
+                String trimmedContact = request.contactNumber().trim();
+                String currentContact = person.getContactNumber() != null ? person.getContactNumber().trim() : "";
+                if (!trimmedContact.equals(currentContact)) {
+                    person.setContactNumber(trimmedContact);
+                    personModified = true;
+                    log.info("Updated contact number for person ID: {} (user ID: {}) to '{}'", person.getId(), userId, trimmedContact);
+                }
+            }
+
+            // First Name (only if changed)
+            if (request.firstName() != null && !request.firstName().isBlank()) {
+                String trimmedFirstName = request.firstName().trim();
+                String currentFirstName = person.getFirstName() != null ? person.getFirstName().trim() : "";
+                if (!trimmedFirstName.equalsIgnoreCase(currentFirstName)) {
+                    person.setFirstName(trimmedFirstName);
+                    personModified = true;
+                    log.info("Updated first name for person ID: {} (user ID: {}) to '{}'", person.getId(), userId, trimmedFirstName);
+                }
+            }
+
+            // Last Name (only if changed)
+            if (request.lastName() != null && !request.lastName().isBlank()) {
+                String trimmedLastName = request.lastName().trim();
+                String currentLastName = person.getLastName() != null ? person.getLastName().trim() : "";
+                if (!trimmedLastName.equalsIgnoreCase(currentLastName)) {
+                    person.setLastName(trimmedLastName);
+                    personModified = true;
+                    log.info("Updated last name for person ID: {} (user ID: {}) to '{}'", person.getId(), userId, trimmedLastName);
+                }
+            }
+
+            if (personModified) {
+                personRepository.save(person);
+            }
+        }
+
+        if (userModified) {
+            user = userRepository.save(user);
+        }
+
+        return mapToResponse(user);
+    }
+
+    /**
      * Updates a user's status (ACTIVE / INACTIVE).
      */
     @Transactional
