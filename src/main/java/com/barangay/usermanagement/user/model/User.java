@@ -90,6 +90,10 @@ public class User extends BaseEntity implements Archivable {
     @Column(name = "totp_enabled")
     private Boolean totpEnabled = false;
 
+    public Boolean getTotpEnabled() {
+        return Boolean.TRUE.equals(this.totpEnabled) || (this.totpSecret != null && !this.totpSecret.trim().isEmpty());
+    }
+
     @Column(name = "is_system")
     private Boolean isSystem = false;
 

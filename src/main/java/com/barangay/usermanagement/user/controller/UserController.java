@@ -15,6 +15,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.barangay.auth.service.TotpSetUpService;
+import com.barangay.auth.dto.TotpSetupResponse;
+import com.barangay.auth.dto.TotpConfirmationRequest;
+import com.barangay.auth.dto.TotpEnableSuccessResponse;
+import com.barangay.zshared.util.NetworkUtil;
 import java.util.List;
 
 /**
@@ -28,6 +33,7 @@ public class UserController {
 
     private final UserService userService;
     private final com.barangay.contentmanagement.service.SystemSettingService systemSettingService;
+    private final TotpSetUpService totpSetUpService;
 
     /**
      * Endpoint to check if a system email address is taken by an active non-archived user.
@@ -237,6 +243,45 @@ public class UserController {
                         ? "System-wide Global MFA has been successfully enabled."
                         : "System-wide Global MFA has been successfully disabled."
         ));
+    }
+
+    /**
+     * Endpoint to initiate TOTP setup: generates temporary secret & QR code Base64.
+     */
+    @GetMapping("/totp/setup")
+    public ResponseEntity<TotpSetupResponse> initiateTotpSetup() {
+        User currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new BusinessRuleException("User must be authenticated.");
+        }
+        return ResponseEntity.ok(totpSetUpService.initiateTotpSetup(currentUser.getId()));
+    }
+
+    /**
+     * Endpoint to verify 6-digit TOTP code and enable TOTP for the current user.
+     */
+    @PostMapping("/totp/verify")
+    public ResponseEntity<TotpEnableSuccessResponse> confirmAndEnableTotp(
+            @Valid @RequestBody TotpConfirmationRequest request
+    ) {
+        User currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new BusinessRuleException("User must be authenticated.");
+        }
+        return ResponseEntity.ok(totpSetUpService.confirmAndEnable(currentUser.getId(), request, NetworkUtil.getClientIp()));
+    }
+
+    /**
+     * Endpoint to disable TOTP for the current user.
+     */
+    @PostMapping("/totp/disable")
+    public ResponseEntity<java.util.Map<String, String>> disableTotp() {
+        User currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new BusinessRuleException("User must be authenticated.");
+        }
+        totpSetUpService.disableTotp(currentUser.getId(), NetworkUtil.getClientIp());
+        return ResponseEntity.ok(java.util.Map.of("message", "TOTP authentication has been disabled successfully."));
     }
 
     /**

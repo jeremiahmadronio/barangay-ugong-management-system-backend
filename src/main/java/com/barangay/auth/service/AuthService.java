@@ -151,7 +151,7 @@ public class AuthService {
         String firstName = user.getPerson() != null ? user.getPerson().getFirstName() : null;
         String lastName = user.getPerson() != null ? user.getPerson().getLastName() : null;
         String username = user.getUsername() != null ? user.getUsername() : user.getSystemEmail();
-        String photoUrl = null;
+        String photoUrl = extractPhotoUrl(user);
 
         // New account — must change password first
         if (Boolean.TRUE.equals(user.getIsNewAccount())) {
@@ -249,7 +249,7 @@ public class AuthService {
         String firstName = user.getPerson() != null ? user.getPerson().getFirstName() : null;
         String lastName = user.getPerson() != null ? user.getPerson().getLastName() : null;
         String username = user.getUsername() != null ? user.getUsername() : user.getSystemEmail();
-        String photoUrl = null; // Can be photo endpoint URL if needed
+        String photoUrl = extractPhotoUrl(user);
 
         // New account — must change password first
         if (Boolean.TRUE.equals(user.getIsNewAccount())) {
@@ -392,7 +392,7 @@ public class AuthService {
                 user.getPerson() != null ? user.getPerson().getFirstName() : null,
                 user.getPerson() != null ? user.getPerson().getLastName() : null,
                 user.getUsername(),
-                null
+                extractPhotoUrl(user)
         );
     }
 
@@ -604,6 +604,13 @@ public class AuthService {
         return user.getDepartments().stream()
                 .map(dept -> dept.getName())
                 .collect(Collectors.toSet());
+    }
+
+    private String extractPhotoUrl(User user) {
+        if (user.getSystemPhoto() != null && user.getSystemPhoto().length > 0) {
+            return "data:image/jpeg;base64," + java.util.Base64.getEncoder().encodeToString(user.getSystemPhoto());
+        }
+        return null;
     }
 
 }

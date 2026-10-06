@@ -152,6 +152,7 @@ public class UserService {
                 user.getStatus(),
                 user.getIsLocked(),
                 user.getIsNewAccount(),
+                Boolean.TRUE.equals(user.getTotpEnabled()),
                 personInfo,
                 departments,
                 customPermissions,

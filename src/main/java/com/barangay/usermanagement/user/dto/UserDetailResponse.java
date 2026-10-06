@@ -24,6 +24,7 @@ public record UserDetailResponse(
         UserStatus status,
         Boolean isLocked,
         Boolean isNewAccount,
+        Boolean totpEnabled,
 
         // 2. Personal Information (Linked Resident / Person)
         PersonSummaryInfo personInfo,

@@ -24,6 +24,8 @@ public class TotpConfig {
 
     @Bean
     public CodeVerifier codeVerifier() {
-        return new DefaultCodeVerifier(new DefaultCodeGenerator(), new SystemTimeProvider());
+        DefaultCodeVerifier verifier = new DefaultCodeVerifier(new DefaultCodeGenerator(), new SystemTimeProvider());
+        verifier.setAllowedTimePeriodDiscrepancy(1);
+        return verifier;
     }
 }
