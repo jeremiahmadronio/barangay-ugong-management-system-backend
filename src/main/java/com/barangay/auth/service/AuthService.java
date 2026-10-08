@@ -540,6 +540,10 @@ public class AuthService {
         user.setMfaCode(null);
         user.setMfaExpiry(null);
         user.setIsNewAccount(false);
+        user.setIsLocked(false);
+        user.setLockUntil(null);
+        user.setFailedAttempts(0);
+        user.setLastFailedAttempt(null);
         userRepository.saveAndFlush(user);
 
         auditLogService.log(
@@ -607,8 +611,12 @@ public class AuthService {
     }
 
     private String extractPhotoUrl(User user) {
-        if (user.getSystemPhoto() != null && user.getSystemPhoto().length > 0) {
-            return "data:image/jpeg;base64," + java.util.Base64.getEncoder().encodeToString(user.getSystemPhoto());
+        byte[] photoBytes = user.getSystemPhoto();
+        if ((photoBytes == null || photoBytes.length == 0) && user.getPerson() != null) {
+            photoBytes = user.getPerson().getPhoto();
+        }
+        if (photoBytes != null && photoBytes.length > 0) {
+            return "data:image/jpeg;base64," + java.util.Base64.getEncoder().encodeToString(photoBytes);
         }
         return null;
     }

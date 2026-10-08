@@ -2,6 +2,7 @@ package com.barangay.zshared.notification.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,9 @@ import org.springframework.stereotype.Service;
 public class EmailService {
 
     private final JavaMailSender mailSender;
+
+    @Value("${spring.mail.username:nermamadronio@gmail.com}")
+    private String configuredSender;
 
     private static final String SENDER_EMAIL = "nermamadronio@gmail.com";
     private static final String SYSTEM_NAME = "Barangay Management System";
@@ -60,8 +64,9 @@ public class EmailService {
      */
     public void sendEmail(String toEmail, String subject, String textContent) {
         try {
+            String fromAddress = (configuredSender != null && !configuredSender.isBlank()) ? configuredSender : SENDER_EMAIL;
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(SENDER_EMAIL);
+            message.setFrom(fromAddress);
             message.setTo(toEmail);
             message.setSubject(subject);
             message.setText(textContent);
