@@ -1,6 +1,7 @@
 package com.barangay.usermanagement.user.service;
 
 import com.barangay.zshared.dto.BarangayAdminDashboardKpiDTO;
+import com.barangay.zshared.dto.DepartmentWeeklyOverviewDTO;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,11 @@ public class BarangayAdminDashboardService {
 
     @Transactional(readOnly = true)
     public BarangayAdminDashboardKpiDTO getDashboardKpiStats() {
+        LocalDateTime startOfWeek = LocalDate.now()
+                .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                .atStartOfDay();
+        LocalDateTime now = LocalDateTime.now();
+
         // 1. Total System Users Only
         long totalUsers = 0;
         try {
@@ -72,11 +78,6 @@ public class BarangayAdminDashboardService {
         // 4. Total Services Issued This Week (Barangay Clearances created this week)
         long servicesIssuedThisWeek = 0;
         try {
-            LocalDateTime startOfWeek = LocalDate.now()
-                    .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                    .atStartOfDay();
-            LocalDateTime now = LocalDateTime.now();
-
             String jpqlClearance = "SELECT COUNT(ic) FROM IssuedCertificate ic " +
                     " WHERE ic.createdAt >= :startOfWeek AND ic.createdAt <= :now " +
                     " AND (ic.isArchived = false OR ic.isArchived IS NULL) " +
@@ -90,11 +91,106 @@ public class BarangayAdminDashboardService {
             log.warn("Failed to count clearances issued this week: {}", e.getMessage());
         }
 
+        // 5. Department Overview Operations (This Week Only)
+        long blotterCount = 0;
+        try {
+            String jpql = "SELECT COUNT(c) FROM Case c LEFT JOIN c.department d " +
+                    " WHERE LOWER(TRIM(d.name)) = 'blotter' " +
+                    " AND c.createdAt >= :startOfWeek AND c.createdAt <= :now " +
+                    " AND (c.isDeleted IS NULL OR c.isDeleted = false) " +
+                    " AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) " +
+                    " AND (c.isArchived IS NULL OR c.isArchived = false) ";
+            blotterCount = entityManager.createQuery(jpql, Long.class)
+                    .setParameter("startOfWeek", startOfWeek)
+                    .setParameter("now", now)
+                    .getSingleResult();
+        } catch (Exception e) {
+            log.warn("Failed to count blotter cases this week: {}", e.getMessage());
+        }
+
+        long luponCount = 0;
+        try {
+            String jpql = "SELECT COUNT(c) FROM Case c LEFT JOIN c.department d " +
+                    " WHERE LOWER(TRIM(d.name)) = 'lupon' " +
+                    " AND c.createdAt >= :startOfWeek AND c.createdAt <= :now " +
+                    " AND (c.isDeleted IS NULL OR c.isDeleted = false) " +
+                    " AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) " +
+                    " AND (c.isArchived IS NULL OR c.isArchived = false) ";
+            luponCount = entityManager.createQuery(jpql, Long.class)
+                    .setParameter("startOfWeek", startOfWeek)
+                    .setParameter("now", now)
+                    .getSingleResult();
+        } catch (Exception e) {
+            log.warn("Failed to count lupon cases this week: {}", e.getMessage());
+        }
+
+        long bcpcCount = 0;
+        try {
+            String jpql = "SELECT COUNT(c) FROM Case c LEFT JOIN c.department d " +
+                    " WHERE LOWER(TRIM(d.name)) = 'bcpc' " +
+                    " AND c.createdAt >= :startOfWeek AND c.createdAt <= :now " +
+                    " AND (c.isDeleted IS NULL OR c.isDeleted = false) " +
+                    " AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) " +
+                    " AND (c.isArchived IS NULL OR c.isArchived = false) ";
+            bcpcCount = entityManager.createQuery(jpql, Long.class)
+                    .setParameter("startOfWeek", startOfWeek)
+                    .setParameter("now", now)
+                    .getSingleResult();
+        } catch (Exception e) {
+            log.warn("Failed to count bcpc cases this week: {}", e.getMessage());
+        }
+
+        long vawcCount = 0;
+        try {
+            String jpql = "SELECT COUNT(c) FROM Case c LEFT JOIN c.department d " +
+                    " WHERE LOWER(TRIM(d.name)) = 'vawc' " +
+                    " AND c.createdAt >= :startOfWeek AND c.createdAt <= :now " +
+                    " AND (c.isDeleted IS NULL OR c.isDeleted = false) " +
+                    " AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) " +
+                    " AND (c.isArchived IS NULL OR c.isArchived = false) ";
+            vawcCount = entityManager.createQuery(jpql, Long.class)
+                    .setParameter("startOfWeek", startOfWeek)
+                    .setParameter("now", now)
+                    .getSingleResult();
+        } catch (Exception e) {
+            log.warn("Failed to count vawc cases this week: {}", e.getMessage());
+        }
+
+        long clearanceCount = servicesIssuedThisWeek;
+
+        long ftjsCount = 0;
+        try {
+            String jpql = "SELECT COUNT(f) FROM FirstTimeJobSeeker f " +
+                    " WHERE f.createdAt >= :startOfWeek AND f.createdAt <= :now " +
+                    " AND (f.isArchived IS NULL OR f.isArchived = false) " +
+                    " AND (f.isDeleted IS NULL OR f.isDeleted = false) " +
+                    " AND (f.isPermanentDeleted IS NULL OR f.isPermanentDeleted = false) ";
+            ftjsCount = entityManager.createQuery(jpql, Long.class)
+                    .setParameter("startOfWeek", startOfWeek)
+                    .setParameter("now", now)
+                    .getSingleResult();
+        } catch (Exception e) {
+            log.warn("Failed to count ftjs records this week: {}", e.getMessage());
+        }
+
+        long totalWeeklyOperations = blotterCount + luponCount + bcpcCount + vawcCount + clearanceCount + ftjsCount;
+
+        DepartmentWeeklyOverviewDTO departmentOverview = DepartmentWeeklyOverviewDTO.builder()
+                .blotter(blotterCount)
+                .lupon(luponCount)
+                .bcpc(bcpcCount)
+                .vawc(vawcCount)
+                .clearance(clearanceCount)
+                .ftjs(ftjsCount)
+                .totalWeeklyOperations(totalWeeklyOperations)
+                .build();
+
         return BarangayAdminDashboardKpiDTO.builder()
                 .totalUsers(totalUsers)
                 .totalResidents(totalResidents)
                 .totalOfficers(totalOfficers)
                 .servicesIssuedThisWeek(servicesIssuedThisWeek)
+                .departmentOverview(departmentOverview)
                 .build();
     }
 }

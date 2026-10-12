@@ -14,4 +14,5 @@ public class BarangayAdminDashboardKpiDTO {
     private long totalResidents;
     private long totalOfficers;
     private long servicesIssuedThisWeek;
+    private DepartmentWeeklyOverviewDTO departmentOverview;
 }
