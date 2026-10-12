@@ -49,6 +49,7 @@ public class SecurityConstant {
     public static final String[] ADMIN_ENDPOINTS = {
             "/api/v1/users/**",
             "/api/v1/user-management/stats",
+            "/api/v1/system-users/**",
             "/api/v1/departments/**",
             "/api/v1/roles/**",
             "/api/settings/**",
