@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 
 /**
  * Dedicated Archive Service for Barangay Admin.
+ * Completely self-contained and isolated from System Admin ArchiveService.
  * Targets System Users only (Officers/Staff), excluding Admin and Root Admin accounts
  * from archived/deleted user lists and metric calculations.
  */
@@ -35,7 +36,6 @@ public class AdminArchiveService {
     private final UserRepository userRepository;
     private final ResidentRepository residentRepository;
     private final OfficerRepository officerRepository;
-    private final ArchiveService archiveService;
 
     /**
      * Checks if a User entity is a regular System User (non-admin, non-system root).
@@ -227,7 +227,14 @@ public class AdminArchiveService {
         if (!isSystemUser(user)) {
             throw new BusinessRuleException("Administrator accounts cannot be restored via this service.");
         }
-        archiveService.restoreUser(userId);
+        user.setStatus(UserStatus.ACTIVE);
+        user.setIsArchived(false);
+        user.setArchivedAt(null);
+        user.setArchiveRemarks(null);
+        user.setIsLocked(false);
+        user.setLockUntil(null);
+        user.restoreDelete();
+        userRepository.save(user);
     }
 
     @Transactional
@@ -237,7 +244,10 @@ public class AdminArchiveService {
         if (!isSystemUser(user)) {
             throw new BusinessRuleException("Administrator accounts cannot be moved to trash via this service.");
         }
-        archiveService.softDeleteUser(userId);
+        user.softDelete();
+        user.setStatus(UserStatus.INACTIVE);
+        user.setIsLocked(true);
+        userRepository.save(user);
     }
 
     @Transactional
@@ -247,48 +257,211 @@ public class AdminArchiveService {
         if (!isSystemUser(user)) {
             throw new BusinessRuleException("Administrator accounts cannot be permanently deleted via this service.");
         }
-        archiveService.deleteUserPermanent(userId);
+        user.permanentDelete();
+        user.setStatus(UserStatus.INACTIVE);
+        user.setIsLocked(true);
+        userRepository.save(user);
     }
 
-    // ── Delegates for Residents & Officers ──────────────────────────────────
+    // ── Residents Logic ─────────────────────────────────────────────────────
 
+    @Transactional(readOnly = true)
     public List<Map<String, Object>> getArchivedResidents(String search) {
-        return archiveService.getArchivedResidents(search);
+        try {
+            List<Resident> residents = residentRepository.findAllByStatus(ResidentStatus.ARCHIVED);
+            String query = search != null ? search.toLowerCase().trim() : "";
+
+            return residents.stream()
+                    .filter(r -> !Boolean.TRUE.equals(r.getIsDeleted()) && !Boolean.TRUE.equals(r.getIsPermanentDeleted()))
+                    .filter(r -> {
+                        if (query.isEmpty()) return true;
+                        Person p = r.getPerson();
+                        String fullName = p != null ? (p.getFirstName() + " " + p.getLastName()).toLowerCase() : "";
+                        String barangayId = r.getBarangayIdNumber() != null ? r.getBarangayIdNumber().toLowerCase() : "";
+                        return fullName.contains(query) || barangayId.contains(query);
+                    })
+                    .map(r -> {
+                        Person p = r.getPerson();
+                        Map<String, Object> map = new LinkedHashMap<>();
+                        map.put("id", r.getResidentId());
+                        map.put("fullName", p != null ? (p.getFirstName() + " " + (p.getMiddleName() != null ? p.getMiddleName() + " " : "") + p.getLastName()) : "N/A");
+                        map.put("barangayId", r.getBarangayIdNumber() != null ? r.getBarangayIdNumber() : "N/A");
+                        map.put("contact", p != null && p.getContactNumber() != null ? p.getContactNumber() : "N/A");
+                        map.put("status", "ARCHIVED");
+                        return map;
+                    })
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.warn("getArchivedResidents fallback: {}", e.getMessage());
+            return Collections.emptyList();
+        }
     }
 
+    @Transactional
     public void restoreResident(Long residentId) {
-        archiveService.restoreResident(residentId);
+        Resident resident = residentRepository.findById(residentId).orElse(null);
+        if (resident != null) {
+            resident.setStatus(ResidentStatus.ACTIVE);
+            resident.restoreDelete();
+            residentRepository.save(resident);
+        }
     }
 
+    @Transactional
     public void softDeleteResident(Long residentId) {
-        archiveService.softDeleteResident(residentId);
+        Resident resident = residentRepository.findById(residentId).orElse(null);
+        if (resident != null) {
+            resident.softDelete();
+            resident.setStatus(ResidentStatus.INACTIVE);
+            residentRepository.save(resident);
+        }
     }
 
+    @Transactional
     public void deleteResidentPermanent(Long residentId) {
-        archiveService.deleteResidentPermanent(residentId);
+        Resident resident = residentRepository.findById(residentId).orElse(null);
+        if (resident != null) {
+            resident.permanentDelete();
+            residentRepository.save(resident);
+        }
     }
 
-    public List<Map<String, Object>> getArchivedOfficers(String search) {
-        return archiveService.getArchivedOfficers(search);
-    }
-
-    public void restoreOfficer(Long officerId) {
-        archiveService.restoreOfficer(officerId);
-    }
-
-    public void softDeleteOfficer(Long officerId) {
-        archiveService.softDeleteOfficer(officerId);
-    }
-
-    public void deleteOfficerPermanent(Long officerId) {
-        archiveService.deleteOfficerPermanent(officerId);
-    }
-
+    @Transactional(readOnly = true)
     public List<Map<String, Object>> getTrashResidents(String search) {
-        return archiveService.getTrashResidents(search);
+        try {
+            List<Resident> residents = residentRepository.findAll();
+            String query = search != null ? search.toLowerCase().trim() : "";
+
+            return residents.stream()
+                    .filter(r -> Boolean.TRUE.equals(r.getIsDeleted()) && !Boolean.TRUE.equals(r.getIsPermanentDeleted()))
+                    .filter(r -> {
+                        if (query.isEmpty()) return true;
+                        Person p = r.getPerson();
+                        String fullName = p != null ? (p.getFirstName() + " " + p.getLastName()).toLowerCase() : "";
+                        String barangayId = r.getBarangayIdNumber() != null ? r.getBarangayIdNumber().toLowerCase() : "";
+                        return fullName.contains(query) || barangayId.contains(query);
+                    })
+                    .map(r -> {
+                        Person p = r.getPerson();
+                        Map<String, Object> map = new LinkedHashMap<>();
+                        map.put("id", r.getResidentId());
+                        map.put("fullName", p != null ? (p.getFirstName() + " " + (p.getMiddleName() != null ? p.getMiddleName() + " " : "") + p.getLastName()) : "N/A");
+                        map.put("barangayId", r.getBarangayIdNumber() != null ? r.getBarangayIdNumber() : "N/A");
+                        map.put("contact", p != null && p.getContactNumber() != null ? p.getContactNumber() : "N/A");
+                        map.put("status", "DELETED");
+                        map.put("deletedAt", r.getDeletedAt() != null ? r.getDeletedAt().toString() : "");
+                        return map;
+                    })
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.warn("getTrashResidents fallback: {}", e.getMessage());
+            return Collections.emptyList();
+        }
     }
 
+    // ── Officers Logic ──────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getArchivedOfficers(String search) {
+        try {
+            List<Officer> officers = officerRepository.findAllByStatus(OfficerStatus.ARCHIVED);
+            String query = search != null ? search.toLowerCase().trim() : "";
+
+            return officers.stream()
+                    .filter(o -> !Boolean.TRUE.equals(o.getIsDeleted()) && !Boolean.TRUE.equals(o.getIsPermanentDeleted()))
+                    .filter(o -> {
+                        if (query.isEmpty()) return true;
+                        Person p = o.getPerson();
+                        String fullName = p != null ? (p.getFirstName() + " " + p.getLastName()).toLowerCase() : "";
+                        String position = o.getPosition() != null ? o.getPosition().toLowerCase() : "";
+                        return fullName.contains(query) || position.contains(query);
+                    })
+                    .map(o -> {
+                        Person p = o.getPerson();
+                        Map<String, Object> map = new LinkedHashMap<>();
+                        map.put("id", o.getId());
+                        map.put("employee", p != null ? (p.getFirstName() + " " + p.getLastName()) : "N/A");
+                        String deptName = o.getDepartment() != null ? o.getDepartment().getName() : "OVERALL";
+                        if ("ADMIN".equalsIgnoreCase(deptName) || "ADMINISTRATION".equalsIgnoreCase(deptName)) {
+                            deptName = "OVERALL";
+                        }
+                        map.put("department", deptName);
+                        map.put("position", o.getPosition() != null ? o.getPosition() : "N/A");
+                        map.put("status", "ARCHIVED");
+                        map.put("statusRemarks", "Account Archived");
+                        return map;
+                    })
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.warn("getArchivedOfficers fallback: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    @Transactional
+    public void restoreOfficer(Long officerId) {
+        Officer officer = officerRepository.findById(officerId).orElse(null);
+        if (officer != null) {
+            officer.setStatus(OfficerStatus.ACTIVE);
+            officer.restoreDelete();
+            officerRepository.save(officer);
+        }
+    }
+
+    @Transactional
+    public void softDeleteOfficer(Long officerId) {
+        Officer officer = officerRepository.findById(officerId).orElse(null);
+        if (officer != null) {
+            officer.softDelete();
+            officer.setStatus(OfficerStatus.INACTIVE);
+            officerRepository.save(officer);
+        }
+    }
+
+    @Transactional
+    public void deleteOfficerPermanent(Long officerId) {
+        Officer officer = officerRepository.findById(officerId).orElse(null);
+        if (officer != null) {
+            officer.permanentDelete();
+            officerRepository.save(officer);
+        }
+    }
+
+    @Transactional(readOnly = true)
     public List<Map<String, Object>> getTrashOfficers(String search) {
-        return archiveService.getTrashOfficers(search);
+        try {
+            List<Officer> officers = officerRepository.findAll();
+            String query = search != null ? search.toLowerCase().trim() : "";
+
+            return officers.stream()
+                    .filter(o -> Boolean.TRUE.equals(o.getIsDeleted()) && !Boolean.TRUE.equals(o.getIsPermanentDeleted()))
+                    .filter(o -> {
+                        if (query.isEmpty()) return true;
+                        Person p = o.getPerson();
+                        String fullName = p != null ? (p.getFirstName() + " " + p.getLastName()).toLowerCase() : "";
+                        String position = o.getPosition() != null ? o.getPosition().toLowerCase() : "";
+                        return fullName.contains(query) || position.contains(query);
+                    })
+                    .map(o -> {
+                        Person p = o.getPerson();
+                        Map<String, Object> map = new LinkedHashMap<>();
+                        map.put("id", o.getId());
+                        map.put("employee", p != null ? (p.getFirstName() + " " + p.getLastName()) : "N/A");
+                        String deptName = o.getDepartment() != null ? o.getDepartment().getName() : "OVERALL";
+                        if ("ADMIN".equalsIgnoreCase(deptName) || "ADMINISTRATION".equalsIgnoreCase(deptName)) {
+                            deptName = "OVERALL";
+                        }
+                        map.put("department", deptName);
+                        map.put("position", o.getPosition() != null ? o.getPosition() : "N/A");
+                        map.put("status", "DELETED");
+                        map.put("statusRemarks", "In Recycle Bin");
+                        map.put("deletedAt", o.getDeletedAt() != null ? o.getDeletedAt().toString() : "");
+                        return map;
+                    })
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.warn("getTrashOfficers fallback: {}", e.getMessage());
+            return Collections.emptyList();
+        }
     }
 }
