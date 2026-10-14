@@ -57,6 +57,15 @@ public class AuthService {
                 .orElseGet(() -> userRepository.findByEmailWithRoleAndDepartments(cleanEmail)
                         .orElseThrow(() -> new UsernameNotFoundException("No account found with this email.")));
 
+        // Check if account is deleted (recent delete / trash or permanently deleted) or archived
+        if (Boolean.TRUE.equals(user.getIsDeleted()) || Boolean.TRUE.equals(user.getIsPermanentDeleted()) || Boolean.TRUE.equals(user.getIsArchived()) || user.getStatus() == UserStatus.ARCHIVED) {
+            auditLogService.log(
+                    user, AuditModule.SECURITY, "LOGIN_ATTEMPT_DELETED",
+                    Severity.WARNING, "Attempt on deleted or archived account", ipAddress, null, null
+            );
+            throw new DisabledException("Your account is not available. Please contact your administrator.");
+        }
+
         // Check if account is locked
         if (Boolean.TRUE.equals(user.getIsLocked())) {
             if (user.getLockUntil() != null && user.getLockUntil().isAfter(LocalDateTime.now())) {
@@ -74,21 +83,13 @@ public class AuthService {
             userRepository.saveAndFlush(user);
         }
 
-        //  Check if account is active
+        // Check if account is active
         if (user.getStatus() != UserStatus.ACTIVE) {
             auditLogService.log(
                     user, AuditModule.SECURITY, "LOGIN_ATTEMPT_INACTIVE",
                     Severity.WARNING, "Attempt on inactive account: " + user.getStatus(), ipAddress,null, null
             );
-            throw new DisabledException("Account is inactive. Contact your administrator.");
-        }
-
-        if (Boolean.TRUE.equals(user.getIsArchived())) {
-            auditLogService.log(
-                    user, AuditModule.SECURITY, "LOGIN_ATTEMPT_ARCHIVED",
-                    Severity.WARNING, "Attempt on archived account", ipAddress,null, null
-            );
-            throw new DisabledException("This account has been removed. Contact your administrator.");
+            throw new DisabledException("Your account is not available. Please contact your administrator.");
         }
 
         //  Verify credentials
@@ -299,6 +300,10 @@ public class AuthService {
         User user = userRepository.findBySystemEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("No account found."));
 
+        if (Boolean.TRUE.equals(user.getIsDeleted()) || Boolean.TRUE.equals(user.getIsPermanentDeleted()) || Boolean.TRUE.equals(user.getIsArchived()) || user.getStatus() != UserStatus.ACTIVE) {
+            throw new DisabledException("Your account is not available. Please contact your administrator.");
+        }
+
         if (user.getSystemBackupEmail() == null) {
             throw new BusinessRuleException("No backup email configured.");
         }
@@ -322,6 +327,10 @@ public class AuthService {
     public void resendOtp(String email,String ipAddress) {
         User user = userRepository.findBySystemEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("No account found."));
+
+        if (Boolean.TRUE.equals(user.getIsDeleted()) || Boolean.TRUE.equals(user.getIsPermanentDeleted()) || Boolean.TRUE.equals(user.getIsArchived()) || user.getStatus() != UserStatus.ACTIVE) {
+            throw new DisabledException("Your account is not available. Please contact your administrator.");
+        }
 
         String code = mfaService.generateCode();
         user.setMfaCode(code);
@@ -480,6 +489,11 @@ public class AuthService {
                 .orElseGet(() -> userRepository.findByEmailWithRoleAndDepartments(cleanEmail)
                         .orElseThrow(() -> new UsernameNotFoundException("No account found with this email: " + email)));
 
+        // Check if account is deleted (recent delete / trash or permanently deleted), archived, or inactive
+        if (Boolean.TRUE.equals(user.getIsDeleted()) || Boolean.TRUE.equals(user.getIsPermanentDeleted()) || Boolean.TRUE.equals(user.getIsArchived()) || user.getStatus() != UserStatus.ACTIVE) {
+            throw new DisabledException("Your account is not available. Please contact your administrator.");
+        }
+
         String code = mfaService.generateCode();
         user.setMfaCode(code);
         user.setMfaExpiry(LocalDateTime.now().plusMinutes(5));
@@ -500,6 +514,10 @@ public class AuthService {
         User user = userRepository.findBySystemEmail(cleanEmail)
                 .orElseGet(() -> userRepository.findByEmailWithRoleAndDepartments(cleanEmail)
                         .orElseThrow(() -> new UsernameNotFoundException("No account found with this email")));
+
+        if (Boolean.TRUE.equals(user.getIsDeleted()) || Boolean.TRUE.equals(user.getIsPermanentDeleted()) || Boolean.TRUE.equals(user.getIsArchived()) || user.getStatus() != UserStatus.ACTIVE) {
+            throw new DisabledException("Your account is not available. Please contact your administrator.");
+        }
 
         if (user.getMfaCode() == null || !user.getMfaCode().equals(request.code())) {
             throw new BadCredentialsException("The verification code is invalid. Please check and try again.");
@@ -523,6 +541,10 @@ public class AuthService {
         User user = userRepository.findBySystemEmail(cleanEmail)
                 .orElseGet(() -> userRepository.findByEmailWithRoleAndDepartments(cleanEmail)
                         .orElseThrow(() -> new UsernameNotFoundException("No account found with this email")));
+
+        if (Boolean.TRUE.equals(user.getIsDeleted()) || Boolean.TRUE.equals(user.getIsPermanentDeleted()) || Boolean.TRUE.equals(user.getIsArchived()) || user.getStatus() != UserStatus.ACTIVE) {
+            throw new DisabledException("Your account is not available. Please contact your administrator.");
+        }
 
         if (user.getMfaCode() == null || !user.getMfaCode().equals(request.code())) {
             throw new BadCredentialsException("Unauthorized reset attempt. Verification failed.");

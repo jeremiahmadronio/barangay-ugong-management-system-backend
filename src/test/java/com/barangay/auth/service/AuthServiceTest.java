@@ -185,7 +185,7 @@ class AuthServiceTest {
 
             assertThatThrownBy(() -> authService.login(request, IP))
                     .isInstanceOf(DisabledException.class)
-                    .hasMessageContaining("inactive");
+                    .hasMessageContaining("Your account is not available");
         }
 
         @Test
@@ -197,7 +197,19 @@ class AuthServiceTest {
 
             assertThatThrownBy(() -> authService.login(request, IP))
                     .isInstanceOf(DisabledException.class)
-                    .hasMessageContaining("removed");
+                    .hasMessageContaining("Your account is not available");
+        }
+
+        @Test
+        @DisplayName("Soft-deleted (recent delete) account → DisabledException")
+        void deletedAccount_throws() {
+            User user = activeUser();
+            user.softDelete();
+            when(userRepository.findBySystemEmail(EMAIL)).thenReturn(Optional.of(user));
+
+            assertThatThrownBy(() -> authService.login(request, IP))
+                    .isInstanceOf(DisabledException.class)
+                    .hasMessageContaining("Your account is not available");
         }
 
         @Test
