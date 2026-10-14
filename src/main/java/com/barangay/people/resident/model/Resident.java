@@ -40,6 +40,10 @@ public class Resident extends BaseEntity {
     @Column(name = "baranggay_id_number", columnDefinition = "TEXT")
     private String barangayIdNumber;
 
+    @Convert(converter = EncryptedFieldConverter.class)
+    @Column(name = "precinct_number", columnDefinition = "TEXT")
+    private String precinctNumber;
+
     @Column(nullable = false, name = "is_head_of_family")
     private Boolean isHeadOfFamily = false;
 

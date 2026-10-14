@@ -10,6 +10,7 @@ public record ResidentRelativeResponse(
         String contactNumber,
         String householdNumber,
         String barangayIdNumber,
+        String precinctNumber,
         String status,
         String relationshipType,
         String photoBase64

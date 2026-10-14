@@ -37,12 +37,14 @@ public class ResidentDataSeeder implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         if (residentRepository.count() >= 100) {
-            System.out.println("Residents already seeded (" + residentRepository.count() + " records). Distributing historical dates if needed...");
+            System.out.println("Residents already seeded (" + residentRepository.count() + " records). Normalizing resident addresses/relationships and distributing dates...");
+            normalizeExistingResidentData();
             distributeHistoricalDatesIfSingleDay();
             return;
         }
 
         seedResidents(100);
+        normalizeExistingResidentData();
         distributeHistoricalDatesIfSingleDay();
     }
 
@@ -75,8 +77,8 @@ public class ResidentDataSeeder implements CommandLineRunner {
         };
 
         String[] educationalAttainments = {
-                "Elementary Graduate", "High School Graduate", "Vocational/Technical",
-                "College Graduate", "Post Graduate"
+                "Elementary", "High School", "Vocational",
+                "College", "Post Graduate"
         };
         String[] occupations = {
                 "Employee", "Self-employed", "Vendor", "Driver", "Carpenter", "Teacher",
@@ -158,6 +160,7 @@ public class ResidentDataSeeder implements CommandLineRunner {
                 resident.setPerson(savedPerson);
                 resident.setBarangayIdNumber("2026-BID-" + String.format("%04d", residentCounter));
                 resident.setHouseholdNumber(householdNum);
+                resident.setPrecinctNumber(String.format("0%03d%s", 100 + (familyIndex % 25), (char)('A' + (familyIndex % 3))));
                 resident.setIsHeadOfFamily(isHead);
                 resident.setCitizenship("Filipino");
                 resident.setDateOfResidency(LocalDate.now().minusYears(random.nextInt(15)).minusDays(random.nextInt(365)));
@@ -179,9 +182,9 @@ public class ResidentDataSeeder implements CommandLineRunner {
                     if (m == 1 && Math.abs(head.getAge() - member.getAge()) < 15) {
                         relType = "Spouse";
                     } else if (member.getAge() < head.getAge()) {
-                        relType = "Child";
+                        relType = "Female".equalsIgnoreCase(member.getGender()) ? "Daughter" : "Son";
                     } else {
-                        relType = "Sibling";
+                        relType = "Female".equalsIgnoreCase(member.getGender()) ? "Sister" : "Brother";
                     }
 
                     // Link Head -> Member
@@ -192,7 +195,14 @@ public class ResidentDataSeeder implements CommandLineRunner {
                     relationshipRepository.save(r1);
 
                     // Link Member -> Head (Inverse)
-                    String inverseType = relType.equals("Child") ? "Parent" : relType;
+                    String inverseType;
+                    if ("Daughter".equals(relType) || "Son".equals(relType) || "Child".equals(relType)) {
+                        inverseType = "Female".equalsIgnoreCase(head.getGender()) ? "Mother" : "Father";
+                    } else if ("Sister".equals(relType) || "Brother".equals(relType) || "Sibling".equals(relType)) {
+                        inverseType = "Female".equalsIgnoreCase(head.getGender()) ? "Sister" : "Brother";
+                    } else {
+                        inverseType = "Spouse";
+                    }
                     Relationship r2 = new Relationship();
                     r2.setPerson(member);
                     r2.setRelative(head);
@@ -229,6 +239,129 @@ public class ResidentDataSeeder implements CommandLineRunner {
             System.out.println("Distributed " + residents.size() + " resident creation dates across the past 6 months for realistic monthly registration trend analytics.");
         } catch (Exception e) {
             System.err.println("Could not distribute resident historical dates: " + e.getMessage());
+        }
+    }
+
+    private void normalizeExistingResidentData() {
+        try {
+            List<Resident> residents = residentRepository.findAll();
+            if (residents.isEmpty()) return;
+
+            String[] houseNumbers = {
+                    "12A", "Unit 3B", "55-S", "8B", "24-A", "143", "77", "9", "305", "18",
+                    "42", "88", "15-C", "230", "64", "99", "120", "33", "5B", "71", "Building 4"
+            };
+            String[] streetNames = {
+                    "F. Legaspi Street", "Francisco Street", "M. De Leon St.", "Mabini St.",
+                    "Rizal St.", "P. Valenzuela St.", "San Diego St.", "Del Pilar St.",
+                    "Servando St.", "Kagitingan St.", "Katipunan St.", "Bonifacio St."
+            };
+            String[] puroks = {
+                    "Purok 1", "Purok 2", "Purok 3", "Purok 4", "Purok 5", "Purok 6",
+                    "Purok 7", "Purok 8", "Purok 3 / Phase 2", "Sitio Malinis",
+                    "Sitio Bagong Buhay", "Sitio Maliwanag", "Sitio Kaunlaran"
+            };
+
+            Random random = new Random(42);
+            java.util.Map<String, String> householdAddressMap = new java.util.HashMap<>();
+
+            for (Resident r : residents) {
+                Person p = r.getPerson();
+                if (p == null) continue;
+
+                String addr = p.getCompleteAddress();
+                String hh = r.getHouseholdNumber() != null && !r.getHouseholdNumber().isBlank()
+                        ? r.getHouseholdNumber()
+                        : "HH-" + r.getResidentId();
+
+                boolean needsAddressFix = false;
+                if (addr == null || addr.isBlank()) {
+                    needsAddressFix = true;
+                } else {
+                    String[] parts = addr.split(",");
+                    if (parts.length < 4) {
+                        needsAddressFix = true;
+                    }
+                }
+
+                if (needsAddressFix) {
+                    if (!householdAddressMap.containsKey(hh)) {
+                        String existingPurok = null;
+                        if (addr != null && !addr.isBlank()) {
+                            for (String candidatePurok : puroks) {
+                                if (addr.toLowerCase().contains(candidatePurok.toLowerCase())) {
+                                    existingPurok = candidatePurok;
+                                    break;
+                                }
+                            }
+                        }
+                        String finalPurok = existingPurok != null ? existingPurok : puroks[random.nextInt(puroks.length)];
+                        String houseNo = houseNumbers[random.nextInt(houseNumbers.length)];
+                        String street = streetNames[random.nextInt(streetNames.length)];
+                        String fullAddress = String.format("%s, %s, %s, Ugong, Valenzuela City, Metro Manila", houseNo, street, finalPurok);
+                        householdAddressMap.put(hh, fullAddress);
+                    }
+
+                    String assignedAddress = householdAddressMap.get(hh);
+                    p.setCompleteAddress(assignedAddress);
+                    personRepository.save(p);
+                }
+            }
+
+            // Normalize relationships (Child -> Son/Daughter, Parent -> Father/Mother, Sibling -> Brother/Sister)
+            List<Relationship> relationships = relationshipRepository.findAll();
+            for (Relationship rel : relationships) {
+                String type = rel.getRelationshipType();
+                if (type == null) continue;
+                Person relative = rel.getRelative();
+                if (relative == null) continue;
+                boolean isFemale = "Female".equalsIgnoreCase(relative.getGender());
+
+                if ("Child".equalsIgnoreCase(type)) {
+                    rel.setRelationshipType(isFemale ? "Daughter" : "Son");
+                    relationshipRepository.save(rel);
+                } else if ("Parent".equalsIgnoreCase(type)) {
+                    rel.setRelationshipType(isFemale ? "Mother" : "Father");
+                    relationshipRepository.save(rel);
+                } else if ("Sibling".equalsIgnoreCase(type)) {
+                    rel.setRelationshipType(isFemale ? "Sister" : "Brother");
+                    relationshipRepository.save(rel);
+                }
+            }
+
+            // Normalize educational attainment
+            for (Resident r : residents) {
+                String edu = r.getEducationalAttainment();
+                if (edu == null || edu.isBlank()) continue;
+                String normalizedEdu = edu;
+                String lower = edu.toLowerCase();
+                if (lower.contains("college") || lower.contains("bachelor")) normalizedEdu = "College";
+                else if (lower.contains("elementary")) normalizedEdu = "Elementary";
+                else if (lower.contains("high school")) normalizedEdu = "High School";
+                else if (lower.contains("vocational") || lower.contains("technical")) normalizedEdu = "Vocational";
+                else if (lower.contains("post")) normalizedEdu = "Post Graduate";
+                else if (lower.contains("no formal")) normalizedEdu = "No Formal Education";
+
+                if (!normalizedEdu.equals(edu)) {
+                    r.setEducationalAttainment(normalizedEdu);
+                    residentRepository.save(r);
+                }
+            }
+
+            // Normalize precinct numbers for existing records
+            for (Resident r : residents) {
+                if (r.getPrecinctNumber() == null || r.getPrecinctNumber().isBlank()) {
+                    String hh = r.getHouseholdNumber() != null ? r.getHouseholdNumber() : "HH" + r.getResidentId();
+                    int hash = Math.abs(hh.hashCode());
+                    String precinct = String.format("0%03d%s", 100 + (hash % 25), (char)('A' + (hash % 3)));
+                    r.setPrecinctNumber(precinct);
+                    residentRepository.save(r);
+                }
+            }
+
+            System.out.println("Normalized resident addresses, family relationships, educational attainment, and precinct numbers in database.");
+        } catch (Exception e) {
+            System.err.println("Could not normalize resident data: " + e.getMessage());
         }
     }
 }

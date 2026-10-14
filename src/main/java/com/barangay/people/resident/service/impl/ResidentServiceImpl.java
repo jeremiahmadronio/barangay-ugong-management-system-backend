@@ -146,6 +146,7 @@ public class ResidentServiceImpl implements ResidentService {
         resident.setPerson(person);
         resident.setBarangayIdNumber(request.barangayIdNumber());
         resident.setHouseholdNumber(request.householdNumber());
+        resident.setPrecinctNumber(request.precinctNumber());
         resident.setIsHeadOfFamily(Boolean.TRUE.equals(request.isHeadOfFamily()));
         resident.setEducationalAttainment(request.educationalAttainment());
         resident.setCitizenship(request.citizenship() != null ? request.citizenship() : "Filipino");
@@ -183,6 +184,7 @@ public class ResidentServiceImpl implements ResidentService {
 
         if (request.barangayIdNumber() != null) resident.setBarangayIdNumber(request.barangayIdNumber());
         if (request.householdNumber() != null) resident.setHouseholdNumber(request.householdNumber());
+        if (request.precinctNumber() != null) resident.setPrecinctNumber(request.precinctNumber());
         if (request.isHeadOfFamily() != null) resident.setIsHeadOfFamily(request.isHeadOfFamily());
         if (request.educationalAttainment() != null) resident.setEducationalAttainment(request.educationalAttainment());
         if (request.citizenship() != null) resident.setCitizenship(request.citizenship());
@@ -193,7 +195,7 @@ public class ResidentServiceImpl implements ResidentService {
         resident = residentRepository.save(resident);
 
         // Save family associations if provided
-        if (request.familyAssociations() != null && !request.familyAssociations().isEmpty()) {
+        if (request.familyAssociations() != null) {
             saveFamilyAssociations(person, request.familyAssociations());
         }
 
@@ -206,28 +208,56 @@ public class ResidentServiceImpl implements ResidentService {
     }
 
     private void saveFamilyAssociations(Person person, List<FamilyAssociationRequest> associations) {
-        for (FamilyAssociationRequest fa : associations) {
-            if (fa.relatedResidentId() == null) continue;
-            residentRepository.findById(fa.relatedResidentId()).ifPresent(otherRes -> {
-                Person otherPerson = otherRes.getPerson();
-                if (otherPerson != null && !otherPerson.getId().equals(person.getId())) {
-                    if (!relationshipRepository.existsByPersonIdAndRelativeId(person.getId(), otherPerson.getId())) {
-                        com.barangay.people.person.model.Relationship r1 = new com.barangay.people.person.model.Relationship();
-                        r1.setPerson(person);
-                        r1.setRelative(otherPerson);
-                        r1.setRelationshipType(fa.relationship() != null ? fa.relationship() : "Relative");
-                        relationshipRepository.save(r1);
-                    }
+        if (person == null) return;
+        java.util.Set<Long> targetOtherPersonIds = new java.util.HashSet<>();
 
-                    if (!relationshipRepository.existsByPersonIdAndRelativeId(otherPerson.getId(), person.getId())) {
-                        com.barangay.people.person.model.Relationship r2 = new com.barangay.people.person.model.Relationship();
-                        r2.setPerson(otherPerson);
-                        r2.setRelative(person);
-                        r2.setRelationshipType(fa.reverseRelationship() != null ? fa.reverseRelationship() : "Relative");
+        if (associations != null) {
+            for (FamilyAssociationRequest fa : associations) {
+                if (fa.relatedResidentId() == null) continue;
+                residentRepository.findById(fa.relatedResidentId()).ifPresent(otherRes -> {
+                    Person otherPerson = otherRes.getPerson();
+                    if (otherPerson != null && !otherPerson.getId().equals(person.getId())) {
+                        targetOtherPersonIds.add(otherPerson.getId());
+
+                        // 1. Update or insert person -> otherPerson
+                        com.barangay.people.person.model.Relationship r1 = relationshipRepository
+                                .findByPersonIdAndRelativeId(person.getId(), otherPerson.getId())
+                                .orElseGet(() -> {
+                                    com.barangay.people.person.model.Relationship r = new com.barangay.people.person.model.Relationship();
+                                    r.setPerson(person);
+                                    r.setRelative(otherPerson);
+                                    return r;
+                                });
+                        r1.setRelationshipType(fa.relationship() != null && !fa.relationship().isBlank() ? fa.relationship() : "Relative");
+                        relationshipRepository.save(r1);
+
+                        // 2. Update or insert otherPerson -> person (reciprocal)
+                        com.barangay.people.person.model.Relationship r2 = relationshipRepository
+                                .findByPersonIdAndRelativeId(otherPerson.getId(), person.getId())
+                                .orElseGet(() -> {
+                                    com.barangay.people.person.model.Relationship r = new com.barangay.people.person.model.Relationship();
+                                    r.setPerson(otherPerson);
+                                    r.setRelative(person);
+                                    return r;
+                                });
+                        r2.setRelationshipType(fa.reverseRelationship() != null && !fa.reverseRelationship().isBlank() ? fa.reverseRelationship() : "Relative");
                         relationshipRepository.save(r2);
                     }
+                });
+            }
+        }
+
+        // 3. Remove any associations that were unselected/deleted
+        List<com.barangay.people.person.model.Relationship> existingRels = relationshipRepository.findByPersonId(person.getId());
+        if (existingRels != null) {
+            for (com.barangay.people.person.model.Relationship existing : existingRels) {
+                if (existing.getRelative() != null && !targetOtherPersonIds.contains(existing.getRelative().getId())) {
+                    Long otherPersonId = existing.getRelative().getId();
+                    relationshipRepository.delete(existing);
+                    relationshipRepository.findByPersonIdAndRelativeId(otherPersonId, person.getId())
+                            .ifPresent(relationshipRepository::delete);
                 }
-            });
+            }
         }
     }
 
@@ -366,6 +396,7 @@ public class ResidentServiceImpl implements ResidentService {
                             p != null ? p.getContactNumber() : null,
                             r.getHouseholdNumber(),
                             r.getBarangayIdNumber(),
+                            r.getPrecinctNumber() != null ? r.getPrecinctNumber() : "—",
                             r.getStatus() != null ? r.getStatus().name() : "ACTIVE",
                             "Relative",
                             photoStr
@@ -461,6 +492,7 @@ public class ResidentServiceImpl implements ResidentService {
                 p != null ? p.getEmail() : null,
                 p != null ? p.getCompleteAddress() : null,
                 r.getHouseholdNumber() != null ? r.getHouseholdNumber() : "—",
+                r.getPrecinctNumber() != null ? r.getPrecinctNumber() : "—",
                 Boolean.TRUE.equals(r.getIsHeadOfFamily()),
                 r.getStatus() != null ? r.getStatus() : ResidentStatus.ACTIVE,
                 age,
@@ -516,6 +548,7 @@ public class ResidentServiceImpl implements ResidentService {
                                 otherP.getContactNumber(),
                                 otherR != null ? otherR.getHouseholdNumber() : "—",
                                 otherR != null ? otherR.getBarangayIdNumber() : "—",
+                                otherR != null && otherR.getPrecinctNumber() != null ? otherR.getPrecinctNumber() : "—",
                                 otherR != null && otherR.getStatus() != null ? otherR.getStatus().name() : "ACTIVE",
                                 rel.getRelationshipType(),
                                 otherPhotoStr
@@ -653,6 +686,7 @@ public class ResidentServiceImpl implements ResidentService {
                 r.getResidentId(),
                 r.getBarangayIdNumber() != null ? r.getBarangayIdNumber() : "BRGY-" + String.format("%04d", r.getResidentId()),
                 r.getHouseholdNumber(),
+                r.getPrecinctNumber(),
                 Boolean.TRUE.equals(r.getIsHeadOfFamily()),
                 r.getStatus(),
                 r.getStatusRemarks(),

@@ -20,6 +20,7 @@ public record ResidentTableResponse(
         String email,
         String completeAddress,
         String householdNumber,
+        String precinctNumber,
         Boolean isHeadOfFamily,
         ResidentStatus status,
         Integer age,

@@ -34,6 +34,7 @@ public record ResidentCreateRequest(
 
         String barangayIdNumber,
         String householdNumber,
+        String precinctNumber,
         Boolean isHeadOfFamily,
         String educationalAttainment,
         String citizenship,

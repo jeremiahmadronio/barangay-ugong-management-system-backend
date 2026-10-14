@@ -14,6 +14,7 @@ public record ResidentDetailResponse(
         Long id,
         String barangayIdNumber,
         String householdNumber,
+        String precinctNumber,
         Boolean isHeadOfFamily,
         ResidentStatus status,
         String statusRemarks,
