@@ -241,7 +241,9 @@ public class OfficerServiceImpl implements OfficerService {
                 cases,
                 officer.getStatus() != null ? officer.getStatus().name() : "ACTIVE",
                 officer.getIsGlobal(),
-                photoBase64
+                photoBase64,
+                officer.getCreatedAt(),
+                officer.getUpdatedAt()
         );
     }
 

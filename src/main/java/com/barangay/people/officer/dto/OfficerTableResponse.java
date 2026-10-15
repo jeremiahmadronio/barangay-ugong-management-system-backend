@@ -1,5 +1,7 @@
 package com.barangay.people.officer.dto;
 
+import java.time.LocalDateTime;
+
 public record OfficerTableResponse(
         Long id,
         Long personId,
@@ -11,5 +13,7 @@ public record OfficerTableResponse(
         int activeCases,
         String status,
         Boolean isGlobal,
-        String photoBase64
+        String photoBase64,
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt
 ) {}
