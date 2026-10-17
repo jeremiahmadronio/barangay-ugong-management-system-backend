@@ -14,7 +14,13 @@ import java.util.Optional;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long>, UserRepositoryCustom {
 
-    @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE LOWER(TRIM(u.systemEmail)) = LOWER(TRIM(:systemEmail)) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) ORDER BY u.id DESC")
+    @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE LOWER(TRIM(u.systemEmail)) = LOWER(TRIM(:systemEmail)) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) " +
+            "ORDER BY CASE " +
+            "  WHEN (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isArchived = false OR u.isArchived IS NULL) AND u.status = com.barangay.zshared.enumerated.UserStatus.ACTIVE THEN 0 " +
+            "  WHEN (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isArchived = false OR u.isArchived IS NULL) THEN 1 " +
+            "  WHEN (u.isDeleted = false OR u.isDeleted IS NULL) THEN 2 " +
+            "  ELSE 3 " +
+            "END ASC, u.id DESC")
     java.util.List<User> findAllActiveOrRecentBySystemEmail(@org.springframework.data.repository.query.Param("systemEmail") String systemEmail);
 
     default Optional<User> findBySystemEmail(String systemEmail) {
@@ -46,6 +52,9 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
 
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(u) FROM User u LEFT JOIN u.role r WHERE u.status = :status AND (u.isArchived = false OR u.isArchived IS NULL) AND (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) AND (u.isSystem = false OR u.isSystem IS NULL) AND (r.roleName IS NULL OR UPPER(r.roleName) NOT IN ('SYSTEM_ADMIN', 'ROOTADMIN', 'ROOT_ADMIN', 'ROLE_SYSTEM_ADMIN', 'ROLE_ROOT_ADMIN')) AND (u.username IS NULL OR LOWER(u.username) <> 'superadmin')")
     long countByStatus(@org.springframework.data.repository.query.Param("status") com.barangay.zshared.enumerated.UserStatus status);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(u) FROM User u LEFT JOIN u.role r WHERE (u.isArchived = false OR u.isArchived IS NULL) AND (u.status IS NULL OR u.status <> com.barangay.zshared.enumerated.UserStatus.ARCHIVED) AND (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) AND (u.isSystem = false OR u.isSystem IS NULL) AND (r.roleName IS NULL OR UPPER(r.roleName) NOT IN ('SYSTEM_ADMIN', 'ROOTADMIN', 'ROOT_ADMIN', 'ROLE_SYSTEM_ADMIN', 'ROLE_ROOT_ADMIN')) AND (u.username IS NULL OR LOWER(u.username) <> 'superadmin')")
+    long countTotalUsers();
 
     java.util.List<User> findAllByStatus(com.barangay.zshared.enumerated.UserStatus status);
 

@@ -37,9 +37,9 @@ public class AdminDashboardService {
     @Transactional(readOnly = true)
     public AdminDashboardDTO getDashboardStats() {
         // 1. KPI Stats Cards
-        long totalUsers = userRepository.countByStatus(UserStatus.ACTIVE);
-        long totalResidents = residentRepository.countByStatus(ResidentStatus.ACTIVE);
-        long totalOfficers = officerRepository.countByStatus(OfficerStatus.ACTIVE);
+        long totalUsers = userRepository.countTotalUsers();
+        long totalResidents = residentRepository.countTotalResidents();
+        long totalOfficers = officerRepository.countTotalOfficers();
         long totalAuditEntries = auditLogsRepository.count();
 
         // 2. System Health Stats

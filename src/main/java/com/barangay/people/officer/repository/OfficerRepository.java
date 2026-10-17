@@ -19,6 +19,9 @@ public interface OfficerRepository extends JpaRepository<Officer, Long> {
 
     List<Officer> findAllByStatus(OfficerStatus status);
 
+    @Query("SELECT COUNT(o) FROM Officer o WHERE (o.isDeleted = false OR o.isDeleted IS NULL) AND (o.isPermanentDeleted = false OR o.isPermanentDeleted IS NULL) AND (o.status IS NULL OR o.status != com.barangay.zshared.enumerated.OfficerStatus.ARCHIVED)")
+    long countTotalOfficers();
+
     long countByStatusIn(Collection<OfficerStatus> statuses);
 
     long countByCreatedAtBeforeAndStatusIn(LocalDateTime timestamp, Collection<OfficerStatus> statuses);

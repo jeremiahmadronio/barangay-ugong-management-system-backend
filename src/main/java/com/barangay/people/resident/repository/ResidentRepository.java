@@ -23,6 +23,9 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
     long countByStatus(ResidentStatus status);
     List<Resident> findAllByStatus(ResidentStatus status);
 
+    @Query("SELECT COUNT(r) FROM Resident r WHERE (r.isDeleted = false OR r.isDeleted IS NULL) AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED)")
+    long countTotalResidents();
+
     long countByStatusIn(Collection<ResidentStatus> statuses);
     long countByStatusInAndIsHeadOfFamilyTrue(Collection<ResidentStatus> statuses);
     long countByStatusInAndIsHeadOfFamilyTrueAndCreatedAtBetween(Collection<ResidentStatus> statuses, LocalDateTime start, LocalDateTime end);

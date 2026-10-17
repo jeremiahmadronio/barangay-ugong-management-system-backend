@@ -35,6 +35,7 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
                 AND (u.status IS NULL OR u.status <> com.barangay.zshared.enumerated.UserStatus.ARCHIVED)
                 AND (u.isDeleted = false OR u.isDeleted IS NULL)
                 AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)
+                ORDER BY CASE WHEN u.status = com.barangay.zshared.enumerated.UserStatus.ACTIVE THEN 0 ELSE 1 END ASC, u.id DESC
                 """;
         TypedQuery<User> query = entityManager.createQuery(jpql, User.class);
         query.setParameter("email", cleanEmail);

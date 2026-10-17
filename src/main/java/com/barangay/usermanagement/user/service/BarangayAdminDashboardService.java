@@ -51,28 +51,28 @@ public class BarangayAdminDashboardService {
             log.warn("Failed to count system users: {}", e.getMessage());
         }
 
-        // 2. Total Active Residents (Not soft-deleted, not permanently deleted)
+        // 2. Total Registered Residents (Not soft-deleted, not permanently deleted, not archived)
         long totalResidents = 0;
         try {
             String jpqlResidents = "SELECT COUNT(r) FROM Resident r " +
                     " WHERE (r.isDeleted = false OR r.isDeleted IS NULL) " +
                     " AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) " +
-                    " AND (r.status = com.barangay.zshared.enumerated.ResidentStatus.ACTIVE) ";
+                    " AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED) ";
             totalResidents = entityManager.createQuery(jpqlResidents, Long.class).getSingleResult();
         } catch (Exception e) {
-            log.warn("Failed to count active residents: {}", e.getMessage());
+            log.warn("Failed to count residents: {}", e.getMessage());
         }
 
-        // 3. Total Active Officers (Not soft-deleted, not permanently deleted)
+        // 3. Total Registered Officers (Not soft-deleted, not permanently deleted, not archived)
         long totalOfficers = 0;
         try {
             String jpqlOfficers = "SELECT COUNT(o) FROM Officer o " +
                     " WHERE (o.isDeleted = false OR o.isDeleted IS NULL) " +
                     " AND (o.isPermanentDeleted = false OR o.isPermanentDeleted IS NULL) " +
-                    " AND (o.status = com.barangay.zshared.enumerated.OfficerStatus.ACTIVE) ";
+                    " AND (o.status IS NULL OR o.status != com.barangay.zshared.enumerated.OfficerStatus.ARCHIVED) ";
             totalOfficers = entityManager.createQuery(jpqlOfficers, Long.class).getSingleResult();
         } catch (Exception e) {
-            log.warn("Failed to count active officers: {}", e.getMessage());
+            log.warn("Failed to count officers: {}", e.getMessage());
         }
 
         // 4. Total Services Issued This Week (Barangay Clearances created this week)
