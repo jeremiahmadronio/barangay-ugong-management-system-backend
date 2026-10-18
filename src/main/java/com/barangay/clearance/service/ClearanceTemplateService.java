@@ -311,9 +311,21 @@ public class ClearanceTemplateService {
             String fName = fields.hasNonNull("firstName") ? fields.get("firstName").asText() : null;
             String lName = fields.hasNonNull("lastName") ? fields.get("lastName").asText() : null;
             if (fName != null && lName != null && !fName.trim().isEmpty() && !lName.trim().isEmpty()) {
+                if (fName.trim().length() > 50) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "First name cannot exceed 50 characters");
+                }
+                if (lName.trim().length() > 50) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Last name cannot exceed 50 characters");
+                }
                 Person newPerson = new Person();
                 newPerson.setFirstName(fName.trim());
-                if (fields.hasNonNull("middleName")) newPerson.setMiddleName(fields.get("middleName").asText().trim());
+                if (fields.hasNonNull("middleName")) {
+                    String mName = fields.get("middleName").asText().trim();
+                    if (mName.length() > 50) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Middle name cannot exceed 50 characters");
+                    }
+                    newPerson.setMiddleName(mName);
+                }
                 newPerson.setLastName(lName.trim());
                 if (fields.hasNonNull("suffix")) newPerson.setSuffix(fields.get("suffix").asText().trim());
                 if (fields.hasNonNull("address")) newPerson.setCompleteAddress(fields.get("address").asText().trim());
@@ -322,7 +334,16 @@ public class ClearanceTemplateService {
                 if (fields.hasNonNull("contactNumber")) newPerson.setContactNumber(fields.get("contactNumber").asText().trim());
                 if (fields.hasNonNull("dateOfBirth")) {
                     try {
-                        newPerson.setBirthDate(LocalDate.parse(fields.get("dateOfBirth").asText()));
+                        LocalDate dob = LocalDate.parse(fields.get("dateOfBirth").asText());
+                        if (dob.isAfter(LocalDate.now())) {
+                            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date of birth cannot be in the future");
+                        }
+                        if (dob.isBefore(LocalDate.now().minusYears(130))) {
+                            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Age cannot exceed 130 years");
+                        }
+                        newPerson.setBirthDate(dob);
+                    } catch (ResponseStatusException rse) {
+                        throw rse;
                     } catch (Exception ignored) {}
                 }
                 person = personRepository.save(newPerson);
