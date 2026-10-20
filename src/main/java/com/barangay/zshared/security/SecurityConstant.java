@@ -88,10 +88,7 @@ public class SecurityConstant {
             "/api/v1/permits/**"
     };
 
-    // Endpoints restricted to ROOT_ADMIN or staff assigned to the FTJS department
-    public static final String[] FTJS_ENDPOINTS = {
-            "/api/v1/ftjs/**"
-    };
+
 
     // Endpoints accessible by any logged in staff regardless of department
     public static final String[] SHARED_CASE_ENDPOINTS = {

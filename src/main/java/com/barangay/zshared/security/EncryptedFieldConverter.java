@@ -32,22 +32,29 @@ public class EncryptedFieldConverter implements AttributeConverter<String, Strin
     /**
      * Called automatically before saving a value to the database.
      * Encrypts the field value using AesEncryptionService.
-     * If the service is not available, the raw value is saved as-is.
+     * Throws IllegalStateException if the service is not available,
+     * so data is never saved unencrypted.
      */
     @Override
     public String convertToDatabaseColumn(String attribute) {
-        if (encryptionService == null) return attribute;
+        if (encryptionService == null) {
+            throw new IllegalStateException(
+                    "AesEncryptionService is not initialized. Refusing to save data unencrypted.");
+        }
         return encryptionService.encryptSafe(attribute);
     }
 
     /**
      * Called automatically after loading a value from the database.
      * Decrypts the field value using AesEncryptionService.
-     * If the service is not available, the raw value is returned as-is.
+     * Throws IllegalStateException if the service is not available.
      */
     @Override
     public String convertToEntityAttribute(String dbData) {
-        if (encryptionService == null) return dbData;
+        if (encryptionService == null) {
+            throw new IllegalStateException(
+                    "AesEncryptionService is not initialized. Cannot read encrypted data.");
+        }
         return encryptionService.decryptSafe(dbData);
     }
 }
