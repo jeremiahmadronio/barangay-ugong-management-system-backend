@@ -218,7 +218,12 @@ public class FtjsReportsService {
                     p.getIssuanceCount(),
                     p.getPurpose(),
                     statusEnum,
-                    p.getDateSubmitted()
+                    p.getDateSubmitted(),
+                    p.getGender(),
+                    p.getAge(),
+                    p.getEducationalAttainment(),
+                    p.getInstitution(),
+                    p.getReleasedBy()
             );
         });
     }

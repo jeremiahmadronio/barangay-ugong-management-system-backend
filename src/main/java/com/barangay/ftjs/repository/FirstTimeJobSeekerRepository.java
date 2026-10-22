@@ -484,13 +484,21 @@ public interface FirstTimeJobSeekerRepository extends JpaRepository<FirstTimeJob
     SELECT 
         f.id AS id,
         f.ftjs_number AS applicationNo,
-        CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(CONCAT(p.middle_name, ' '), ''), COALESCE(p.last_name, '')) AS applicantName,
+        TRIM(CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(CONCAT(p.middle_name, ' '), ''), COALESCE(p.last_name, ''), ' ', COALESCE(p.suffix, ''))) AS applicantName,
         COALESCE(f.issuance_count, 1) AS issuanceCount,
         f.purpose_documents AS purpose,
         f.status AS status,
-        f.created_at AS dateSubmitted
+        f.created_at AS dateSubmitted,
+        p.gender AS gender,
+        COALESCE(p.age, CAST(EXTRACT(YEAR FROM AGE(CURRENT_DATE, p.birth_date)) AS integer)) AS age,
+        f.educational_attainment AS educationalAttainment,
+        f.school_institution AS institution,
+        COALESCE(NULLIF(TRIM(CONCAT(COALESCE(up.first_name, ''), ' ', COALESCE(up.last_name, ''))), ''), u.username) AS releasedBy
     FROM first_time_job_seeker f
-    LEFT JOIN person p ON f.person_id = p.id
+    LEFT JOIN resident r ON f.resident_id = r.resident_id
+    LEFT JOIN person p ON COALESCE(f.person_id, r.person_id) = p.id
+    LEFT JOIN users u ON f.verified_by = u.id
+    LEFT JOIN person up ON u.person_id = up.id
     WHERE f.is_deleted = false
       AND (:status IS NULL OR f.status = :status)
       AND f.created_at >= CAST(:dateFrom AS timestamp)
@@ -528,7 +536,8 @@ public interface FirstTimeJobSeekerRepository extends JpaRepository<FirstTimeJob
 countQuery = """
     SELECT COUNT(f.id)
     FROM first_time_job_seeker f
-    LEFT JOIN person p ON f.person_id = p.id
+    LEFT JOIN resident r ON f.resident_id = r.resident_id
+    LEFT JOIN person p ON COALESCE(f.person_id, r.person_id) = p.id
     WHERE f.is_deleted = false
       AND (:status IS NULL OR f.status = :status)
       AND f.created_at >= CAST(:dateFrom AS timestamp)

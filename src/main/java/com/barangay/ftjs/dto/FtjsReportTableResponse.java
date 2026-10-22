@@ -14,5 +14,22 @@ public record FtjsReportTableResponse(
         Long issuanceCount,
         String purpose,
         FtjsStatus status,
-        LocalDateTime dateSubmitted
-) {}
+        LocalDateTime dateSubmitted,
+        String gender,
+        Integer age,
+        String educationalAttainment,
+        String institution,
+        String releasedBy
+) {
+    public FtjsReportTableResponse(
+            Long id,
+            String applicationNo,
+            String applicantName,
+            Long issuanceCount,
+            String purpose,
+            FtjsStatus status,
+            LocalDateTime dateSubmitted
+    ) {
+        this(id, applicationNo, applicantName, issuanceCount, purpose, status, dateSubmitted, null, null, null, null, null);
+    }
+}

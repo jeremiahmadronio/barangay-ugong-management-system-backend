@@ -10,4 +10,9 @@ public interface FtjsReportTableProjection {
     String getPurpose();
     String getStatus();
     LocalDateTime getDateSubmitted();
+    String getGender();
+    Integer getAge();
+    String getEducationalAttainment();
+    String getInstitution();
+    String getReleasedBy();
 }
