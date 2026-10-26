@@ -277,14 +277,22 @@ public class BlotterCaseService {
             }
         }
 
-        // 3. Respondent
-        if (request.respondent() != null) {
+        // 3. Respondent (Optional for For the Record or records without an identified respondent)
+        if (request.respondent() != null && hasValidRespondent(request.respondent())) {
             Person respPerson = respondentMapper.toNewPerson(request.respondent());
             if (respPerson != null) {
+                if (respPerson.getLastName() == null || respPerson.getLastName().isBlank()) {
+                    respPerson.setLastName("N/A");
+                }
+                if (respPerson.getFirstName() == null || respPerson.getFirstName().isBlank()) {
+                    respPerson.setFirstName("Unknown");
+                }
                 respPerson = personRepository.save(respPerson);
                 Respondent respondent = respondentMapper.toRespondent(respPerson, request.respondent());
                 aCase.setRespondent(respondent);
             }
+        } else {
+            aCase.setRespondent(null);
         }
 
         // 4. Incident Detail
@@ -1142,5 +1150,21 @@ public class BlotterCaseService {
         }
 
         return getBlotterCaseById(aCase.getId());
+    }
+
+    /**
+     * Checks if respondent information contains real, identifying details.
+     * Prevents saving dummy "N/A" or blank person rows when a For the Record entry has no opposing party.
+     */
+    private boolean hasValidRespondent(com.barangay.zshared.dto.RespondentCreateDto dto) {
+        if (dto == null) return false;
+        String first = dto.firstName() != null ? dto.firstName().trim() : "";
+        String last = dto.lastName() != null ? dto.lastName().trim() : "";
+        if (first.isEmpty() && last.isEmpty()) return false;
+        if ((first.equalsIgnoreCase("Respondent") || first.equalsIgnoreCase("N/A") || first.equalsIgnoreCase("None") || first.isEmpty()) &&
+            (last.equalsIgnoreCase("N/A") || last.equalsIgnoreCase("Respondent") || last.equalsIgnoreCase("None") || last.isEmpty())) {
+            return false;
+        }
+        return true;
     }
 }

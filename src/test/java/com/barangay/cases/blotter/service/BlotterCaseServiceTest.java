@@ -202,4 +202,46 @@ class BlotterCaseServiceTest {
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("Case has already been reopened as BC-20260810-0002");
     }
+
+    @Test
+    @DisplayName("Should create For The Record case successfully without a respondent")
+    void shouldCreateForTheRecordCaseSuccessfully_whenNoRespondentProvided() {
+        // Given
+        com.barangay.cases.blotter.dto.BlotterCaseCreateRequest request =
+                new com.barangay.cases.blotter.dto.BlotterCaseCreateRequest(
+                        FilingType.FOR_RECORD_ONLY,
+                        "REC-2026-9999",
+                        null,
+                        null,
+                        null,
+                        "Officer On Duty",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        true
+                );
+
+        when(caseRepository.existsByCaseNumber("REC-2026-9999")).thenReturn(false);
+        when(departmentRepository.findByName("BLOTTER")).thenReturn(Optional.empty());
+        when(caseRepository.save(any(Case.class))).thenAnswer(invocation -> {
+            Case c = invocation.getArgument(0);
+            c.setId(100L);
+            return c;
+        });
+
+        // When
+        BlotterCaseDetailResponse response = blotterCaseService.createBlotterCase(request);
+
+        // Then
+        assertThat(response).isNotNull();
+        assertThat(response.filingType()).isEqualTo(FilingType.FOR_RECORD_ONLY);
+        assertThat(response.caseStatus()).isEqualTo(CaseStatus.RECORDED);
+        assertThat(response.respondent()).isNull();
+        verify(caseRepository, atLeastOnce()).save(any(Case.class));
+    }
 }
+
