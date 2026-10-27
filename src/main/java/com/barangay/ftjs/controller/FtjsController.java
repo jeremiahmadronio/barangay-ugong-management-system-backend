@@ -129,11 +129,13 @@ public class FtjsController {
 
     }
 
-    @PostMapping("re-issuance-request/{ftjsId}")
+        @GetMapping("/linked-blotter/{ftjsId}")
+    public ResponseEntity<LinkedBlotterResponseDTO> getLinkedBlotter(@PathVariable Long ftjsId) {
+        return ResponseEntity.ok(ftjsReIssuanceService.getLinkedBlotter(ftjsId));
+    }
+
+    @PostMapping("/re-issuance-request/{ftjsId}")
     @LogAudit(module = AuditModule.FTJS, action = "CREATE_RE-ISSUANCE_REQUEST", severity = Severity.INFO)
-    /**
-     * Submits a re-issuance request for an FTJS certificate.
-     */
     public ResponseEntity<ReIssuanceRequestDto> createReIssuanceRequest(@PathVariable Long ftjsId, @RequestBody ReIssuanceRequestDto request) throws BadRequestException {
         ReIssuanceRequestDto reIssuanceReq = ftjsReIssuanceService.createReIssuanceRequest(ftjsId, request);
         return ResponseEntity.ok(reIssuanceReq);

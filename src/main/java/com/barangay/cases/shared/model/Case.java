@@ -179,4 +179,26 @@ public class Case extends BaseEntity implements Archivable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "extended_by")
     private User extendedBy;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "related_barangay_service", length = 50)
+    private com.barangay.zshared.enumerated.RelatedBarangayService relatedBarangayService;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ftjs_application_id")
+    private com.barangay.ftjs.model.FirstTimeJobSeeker ftjsApplication;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "document_reissuance_status", length = 35)
+    private com.barangay.zshared.enumerated.DocumentReissuanceStatus documentReissuanceStatus;
+
+    @Column(name = "document_reissuance_remarks", columnDefinition = "TEXT")
+    private String documentReissuanceRemarks;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reissuance_reviewed_by")
+    private User documentReissuanceReviewedBy;
+
+    @Column(name = "reissuance_reviewed_at")
+    private LocalDateTime documentReissuanceReviewedAt;
 }

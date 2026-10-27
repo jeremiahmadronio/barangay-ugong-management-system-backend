@@ -25,8 +25,29 @@ public record BlotterCaseCreateRequest(
         @Valid EvidenceCreateDto evidence,
         List<EvidenceCreateDto> evidences,
         List<WitnessCreateDto> witnesses,
-        Boolean isCertified
+        Boolean isCertified,
+        Long ftjsApplicationId,
+        String relatedBarangayService
 ) {
-
+    public BlotterCaseCreateRequest(
+            FilingType filingType,
+            String caseNumber,
+            ComplainantCreateDto complainant,
+            RespondentCreateDto respondent,
+            Long receivingOfficerId,
+            String receivingOfficer,
+            Long assignedOfficerId,
+            String assignedOfficer,
+            IncidentCreateDto incident,
+            NarrativeCreateDto narrative,
+            EvidenceCreateDto evidence,
+            List<EvidenceCreateDto> evidences,
+            List<WitnessCreateDto> witnesses,
+            Boolean isCertified
+    ) {
+        this(filingType, caseNumber, complainant, respondent, receivingOfficerId, receivingOfficer,
+                assignedOfficerId, assignedOfficer, incident, narrative, evidence, evidences, witnesses, isCertified,
+                null, null);
+    }
 }
 

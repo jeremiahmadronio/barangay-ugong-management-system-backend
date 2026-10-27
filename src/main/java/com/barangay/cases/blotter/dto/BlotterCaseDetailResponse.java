@@ -40,5 +40,12 @@ public record BlotterCaseDetailResponse(
         String extensionReason,
         String extendedBy,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        String relatedBarangayService,
+        Long ftjsApplicationId,
+        String ftjsCertificateNumber,
+        String documentReissuanceStatus,
+        String documentReissuanceRemarks,
+        String documentReissuanceReviewedBy,
+        LocalDateTime documentReissuanceReviewedAt
 ) {}

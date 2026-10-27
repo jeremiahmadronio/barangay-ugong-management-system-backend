@@ -77,6 +77,16 @@ public interface FirstTimeJobSeekerRepository extends JpaRepository<FirstTimeJob
     @Query("SELECT COUNT(f) from FirstTimeJobSeeker f WHERE f.isArchived = true AND (f.issuanceCount = 1 OR f.issuanceCount IS NULL)")
     long countArchiveOriginalIssuance();
 
+    @Query("SELECT f FROM FirstTimeJobSeeker f WHERE f.isDeleted = false AND (f.isArchived IS NULL OR f.isArchived = false) " +
+           "AND f.status IN (com.barangay.zshared.enumerated.FtjsStatus.ISSUED, com.barangay.zshared.enumerated.FtjsStatus.RE_ISSUANCE) " +
+           "AND (:query IS NULL OR :query = '' OR " +
+           "LOWER(f.ftjsNumber) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(f.person.firstName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(f.person.lastName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(CONCAT(f.person.firstName, ' ', f.person.lastName)) LIKE LOWER(CONCAT('%', :query, '%'))) " +
+           "ORDER BY f.createdAt DESC")
+    List<FirstTimeJobSeeker> searchEligibleForReissuance(@Param("query") String query, Pageable pageable);
+
     @Query(value = "SELECT COUNT(*) from  first_time_job_seeker  WHERE is_deleted  = true",nativeQuery = true)
     long countTotalRecentDelete();
 

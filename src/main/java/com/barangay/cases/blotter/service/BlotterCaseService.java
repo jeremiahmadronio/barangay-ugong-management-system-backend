@@ -72,6 +72,7 @@ public class BlotterCaseService {
     private final CaseTimelineService caseTimelineService;
     private final CaseSessionRepository caseSessionRepository;
     private final com.barangay.cases.shared.repository.CertificateToFileActionRepository certificateToFileActionRepository;
+    private final com.barangay.ftjs.repository.FirstTimeJobSeekerRepository firstTimeJobSeekerRepository;
 
     private final ComplainantMapper complainantMapper;
     private final RespondentMapper respondentMapper;
@@ -205,9 +206,8 @@ public class BlotterCaseService {
 
         // 2. Total For the Record Only
         long totalForTheRecord = caseRepository.countRootBlotterCasesByFilingType(FilingType.FOR_RECORD_ONLY);
-        long currentForRecord = caseRepository.countRootBlotterCasesByFilingTypeAndCreatedAtGreaterThanEqual(FilingType.FOR_RECORD_ONLY, currentMonthStart);
-        long prevForRecord = caseRepository.countRootBlotterCasesByFilingTypeAndCreatedAtBetween(FilingType.FOR_RECORD_ONLY, prevMonthStart, prevMonthEnd);
-        String totalForTheRecordTrend = calculateMonthlyTrend(currentForRecord, prevForRecord);
+        double forTheRecordShare = totalCases > 0 ? ((double) totalForTheRecord / totalCases) * 100.0 : 0.0;
+        String totalForTheRecordTrend = String.format("%.1f%% of total cases", forTheRecordShare);
 
         // 3. Under Mediation / In Progress
         List<CaseStatus> activeStatuses = List.of(CaseStatus.UNDER_MEDIATION);
@@ -299,6 +299,29 @@ public class BlotterCaseService {
         if (request.incident() != null) {
             IncidentDetail incidentDetail = incidentDetailMapper.fromCreateDto(request.incident());
             aCase.setIncidentDetail(incidentDetail);
+        }
+
+        // 4.1. Related Barangay Service & FTJS Re-issuance Linkage
+        String rawRelService = request.relatedBarangayService();
+        if ((rawRelService == null || rawRelService.isBlank()) && request.incident() != null) {
+            rawRelService = request.incident().relatedBarangayService();
+        }
+        if (rawRelService != null && !rawRelService.isBlank()) {
+            try {
+                com.barangay.zshared.enumerated.RelatedBarangayService relService =
+                        com.barangay.zshared.enumerated.RelatedBarangayService.valueOf(rawRelService.trim().toUpperCase());
+                aCase.setRelatedBarangayService(relService);
+                if (relService == com.barangay.zshared.enumerated.RelatedBarangayService.FTJS_REISSUANCE) {
+                    aCase.setDocumentReissuanceStatus(com.barangay.zshared.enumerated.DocumentReissuanceStatus.APPROVED_FOR_REISSUANCE);
+                    aCase.setDocumentReissuanceReviewedAt(LocalDateTime.now());
+                    if (currentUser != null) {
+                        aCase.setDocumentReissuanceReviewedBy(currentUser);
+                    }
+                    if (request.ftjsApplicationId() != null) {
+                        firstTimeJobSeekerRepository.findById(request.ftjsApplicationId()).ifPresent(aCase::setFtjsApplication);
+                    }
+                }
+            } catch (Exception ignored) {}
         }
 
         // 5. Narrative Statement
@@ -748,6 +771,21 @@ public class BlotterCaseService {
             extendedByName = aCase.getExtendedBy().getUsername();
         }
 
+        String ftjsCertNo = aCase.getFtjsApplication() != null ? aCase.getFtjsApplication().getFtjsNumber() : null;
+        Long ftjsAppId = aCase.getFtjsApplication() != null ? aCase.getFtjsApplication().getId() : null;
+        String relService = aCase.getRelatedBarangayService() != null ? aCase.getRelatedBarangayService().name() : null;
+        String docReissStatus = aCase.getDocumentReissuanceStatus() != null ? aCase.getDocumentReissuanceStatus().name() : null;
+        String reissReviewedBy = null;
+        if (aCase.getDocumentReissuanceReviewedBy() != null) {
+            User ru = aCase.getDocumentReissuanceReviewedBy();
+            if (ru.getPerson() != null) {
+                reissReviewedBy = ((ru.getPerson().getFirstName() != null ? ru.getPerson().getFirstName() : "") + " " +
+                        (ru.getPerson().getLastName() != null ? ru.getPerson().getLastName() : "")).trim();
+            } else {
+                reissReviewedBy = ru.getUsername();
+            }
+        }
+
         return new BlotterCaseDetailResponse(
                 aCase.getId(),
                 aCase.getFilingType(),
@@ -781,7 +819,14 @@ public class BlotterCaseService {
                 aCase.getExtensionReason(),
                 extendedByName,
                 aCase.getCreatedAt(),
-                aCase.getUpdatedAt()
+                aCase.getUpdatedAt(),
+                relService,
+                ftjsAppId,
+                ftjsCertNo,
+                docReissStatus,
+                aCase.getDocumentReissuanceRemarks(),
+                reissReviewedBy,
+                aCase.getDocumentReissuanceReviewedAt()
         );
     }
 
@@ -1166,5 +1211,117 @@ public class BlotterCaseService {
             return false;
         }
         return true;
+    }
+
+    /**
+     * Searches active, eligible FTJS certificate applications for linking to an Affidavit of Loss case.
+     */
+    @Transactional(readOnly = true)
+    public List<FtjsSearchDTO> searchFtjsApplications(String query) {
+        Pageable pageable = PageRequest.of(0, 20);
+        List<com.barangay.ftjs.model.FirstTimeJobSeeker> results =
+                firstTimeJobSeekerRepository.searchEligibleForReissuance(query != null ? query.trim() : "", pageable);
+
+        return results.stream().map(ftjs -> {
+            Person p = ftjs.getPerson();
+            String applicantName = p != null ? (p.getFirstName() + " " + p.getLastName()).trim() : "N/A";
+
+            List<Case> activeCases = caseRepository.findActiveDocumentReissuanceRequests(
+                    ftjs.getId(),
+                    com.barangay.zshared.enumerated.RelatedBarangayService.FTJS_REISSUANCE,
+                    List.of(com.barangay.zshared.enumerated.DocumentReissuanceStatus.PENDING_VERIFICATION, com.barangay.zshared.enumerated.DocumentReissuanceStatus.APPROVED_FOR_REISSUANCE)
+            );
+            boolean hasActive = !activeCases.isEmpty();
+            String activeBlotterNumber = hasActive ? activeCases.get(0).getCaseNumber() : null;
+            String activeBlotterStatus = hasActive && activeCases.get(0).getDocumentReissuanceStatus() != null
+                    ? activeCases.get(0).getDocumentReissuanceStatus().name()
+                    : null;
+
+            return new FtjsSearchDTO(
+                    ftjs.getId(),
+                    ftjs.getFtjsNumber(),
+                    applicantName,
+                    p != null ? p.getFirstName() : null,
+                    p != null ? p.getMiddleName() : null,
+                    p != null ? p.getLastName() : null,
+                    p != null ? p.getSuffix() : null,
+                    p != null ? p.getContactNumber() : null,
+                    p != null ? p.getCompleteAddress() : null,
+                    p != null ? p.getEmail() : null,
+                    p != null ? p.getCivilStatus() : null,
+                    (p != null && p.getAge() != null) ? p.getAge().intValue() : null,
+                    p != null ? p.getGender() : null,
+                    ftjs.getResident() != null ? ftjs.getResident().getResidentId() : null,
+                    p != null ? p.getId() : null,
+                    ftjs.getDateSubmitted(),
+                    ftjs.getIssuanceCount(),
+                    hasActive,
+                    activeBlotterNumber,
+                    activeBlotterStatus
+            );
+        }).toList();
+    }
+
+    /**
+     * Verifies or rejects a document re-issuance clearance for an Affidavit of Loss Blotter case.
+     */
+    @Transactional
+    public void verifyDocumentReissuance(Long caseId, VerifyDocumentReissuanceDTO dto) {
+        Case aCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Blotter case not found: " + caseId));
+
+        if (aCase.getRelatedBarangayService() != com.barangay.zshared.enumerated.RelatedBarangayService.FTJS_REISSUANCE) {
+            throw new IllegalArgumentException("This Blotter case is not eligible for FTJS reissuance verification.");
+        }
+
+        if (aCase.getDocumentReissuanceStatus() != com.barangay.zshared.enumerated.DocumentReissuanceStatus.PENDING_VERIFICATION) {
+            throw new IllegalStateException("Cannot change verification status from current state: " + aCase.getDocumentReissuanceStatus());
+        }
+
+        User currentUser = SecurityUtils.getCurrentUser();
+        String action = dto.action() != null ? dto.action().trim().toUpperCase(java.util.Locale.ROOT) : "";
+
+        if ("REJECT".equals(action)) {
+            if (dto.remarks() == null || dto.remarks().trim().isEmpty()) {
+                throw new IllegalArgumentException("Remarks are required when rejecting document reissuance.");
+            }
+            aCase.setDocumentReissuanceStatus(com.barangay.zshared.enumerated.DocumentReissuanceStatus.REJECTED);
+            aCase.setDocumentReissuanceRemarks(dto.remarks().trim());
+            aCase.setDocumentReissuanceReviewedBy(currentUser);
+            aCase.setDocumentReissuanceReviewedAt(LocalDateTime.now());
+            caseRepository.save(aCase);
+
+            try {
+                caseTimelineService.logEvent(
+                        aCase,
+                        TimelineEventType.STATUS_CHANGED,
+                        "Reissuance Rejected",
+                        "Reissuance clearance was rejected by officer. Reason: " + dto.remarks().trim(),
+                        currentUser
+                );
+            } catch (Exception e) {
+                log.warn("Failed to log timeline event: {}", e.getMessage());
+            }
+        } else if ("APPROVE".equals(action)) {
+            aCase.setDocumentReissuanceStatus(com.barangay.zshared.enumerated.DocumentReissuanceStatus.APPROVED_FOR_REISSUANCE);
+            aCase.setDocumentReissuanceRemarks(dto.remarks() != null && !dto.remarks().trim().isEmpty() ? dto.remarks().trim() : "Approved for document reissuance.");
+            aCase.setDocumentReissuanceReviewedBy(currentUser);
+            aCase.setDocumentReissuanceReviewedAt(LocalDateTime.now());
+            caseRepository.save(aCase);
+
+            try {
+                caseTimelineService.logEvent(
+                        aCase,
+                        TimelineEventType.STATUS_CHANGED,
+                        "Cleared for Document Reissuance",
+                        "Case was verified and cleared for certificate reissuance.",
+                        currentUser
+                );
+            } catch (Exception e) {
+                log.warn("Failed to log timeline event: {}", e.getMessage());
+            }
+        } else {
+            throw new IllegalArgumentException("Invalid action: '" + dto.action() + "'. Allowed values: APPROVE, REJECT.");
+        }
     }
 }

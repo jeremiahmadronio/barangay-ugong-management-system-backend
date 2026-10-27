@@ -31,7 +31,8 @@ public class IncidentDetailMapper {
                 incident.getTimeOfIncident() != null ? incident.getTimeOfIncident().toString() : null,
                 incident.getIncidentLocation(),
                 incident.getFrequency(),
-                incident.getInjuriesDamagesDescription()
+                incident.getInjuriesDamagesDescription(),
+                incident.getRelatedBarangayService() != null ? incident.getRelatedBarangayService().name() : null
         );
     }
 
@@ -54,6 +55,14 @@ public class IncidentDetailMapper {
         incidentDetail.setFrequency(dto.frequencyOfIncident());
         incidentDetail.setIncidentLocation(dto.placeOfIncident());
         incidentDetail.setInjuriesDamagesDescription(dto.descriptionOfInjuries());
+
+        if (dto.relatedBarangayService() != null && !dto.relatedBarangayService().isBlank()) {
+            try {
+                incidentDetail.setRelatedBarangayService(
+                    com.barangay.zshared.enumerated.RelatedBarangayService.valueOf(dto.relatedBarangayService().trim().toUpperCase())
+                );
+            } catch (Exception ignored) {}
+        }
 
         if (dto.dateOfIncident() != null && !dto.dateOfIncident().isBlank()) {
             try {

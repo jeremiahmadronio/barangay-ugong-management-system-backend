@@ -573,4 +573,25 @@ public class BlotterController {
         BlotterCaseDetailResponse response = blotterCaseService.extendCase(caseId, request);
         return ResponseEntity.ok(response);
     }
+
+    /**
+     * Searches eligible issued FTJS certificates for Affidavit of Loss linkage.
+     */
+    @GetMapping("/search-ftjs")
+    public ResponseEntity<List<FtjsSearchDTO>> searchFtjsApplications(
+            @RequestParam(required = false) String query) {
+        return ResponseEntity.ok(blotterCaseService.searchFtjsApplications(query));
+    }
+
+    /**
+     * Verifies or rejects document reissuance clearance for a Blotter case.
+     */
+    @PostMapping("/{caseId}/verify-document-reissuance")
+    @LogAudit(module = AuditModule.BLOTTER, action = "VERIFY_DOCUMENT_REISSUANCE", severity = Severity.INFO)
+    public ResponseEntity<String> verifyDocumentReissuance(
+            @PathVariable Long caseId,
+            @Valid @RequestBody VerifyDocumentReissuanceDTO dto) {
+        blotterCaseService.verifyDocumentReissuance(caseId, dto);
+        return ResponseEntity.ok("Document reissuance status updated successfully.");
+    }
 }

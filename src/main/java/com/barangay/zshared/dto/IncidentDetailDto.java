@@ -10,5 +10,6 @@ public record IncidentDetailDto(
         String timeOfIncident,
         String placeOfIncident,
         String frequencyOfIncident,
-        String descriptionOfInjuries
+        String descriptionOfInjuries,
+        String relatedBarangayService
 ) {}

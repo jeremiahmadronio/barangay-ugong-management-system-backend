@@ -1,6 +1,11 @@
 package com.barangay.ftjs.service;
 
+import com.barangay.cases.shared.model.Case;
+import com.barangay.cases.shared.model.CaseEvidence;
+import com.barangay.cases.shared.repository.CaseEvidenceRepository;
+import com.barangay.cases.shared.repository.CaseRepository;
 import com.barangay.ftjs.dto.FtjsTimelineDto;
+import com.barangay.ftjs.dto.LinkedBlotterResponseDTO;
 import com.barangay.ftjs.dto.ReIssuanceHistoryDto;
 import com.barangay.ftjs.dto.ReIssuanceRequestDto;
 import com.barangay.ftjs.model.FirstTimeJobSeeker;
@@ -11,7 +16,9 @@ import com.barangay.ftjs.repository.FirstTimeJobSeekerRepository;
 import com.barangay.ftjs.repository.FirstTimeJobSeekerTimeLineRepository;
 import com.barangay.usermanagement.user.model.User;
 import com.barangay.usermanagement.user.repository.UserRepository;
+import com.barangay.zshared.enumerated.DocumentReissuanceStatus;
 import com.barangay.zshared.enumerated.FtjsStatus;
+import com.barangay.zshared.enumerated.RelatedBarangayService;
 import com.barangay.zshared.enumerated.TimeLineType;
 import com.barangay.zshared.exception.ResourceNotFoundException;
 import com.barangay.zshared.security.SecurityUtils;
@@ -22,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 @Service
@@ -33,18 +41,101 @@ public class FtjsReIssuanceService {
 
     private final FirstTimeJobSeekerRepository firstTimeJobSeekerRepository;
     private final FirstTimeJobSeekerAffidavitOfLossRepository firstTimeJobSeekerAffidavitOfLossRepository;
-    private final FirstTimeJobSeekerTimeLineRepository  firstTimeJobSeekerTimeLineRepository;
+    private final FirstTimeJobSeekerTimeLineRepository firstTimeJobSeekerTimeLineRepository;
     private final UserRepository userRepository;
+    private final CaseRepository caseRepository;
+    private final CaseEvidenceRepository caseEvidenceRepository;
 
+    @Transactional(readOnly = true)
+    public LinkedBlotterResponseDTO getLinkedBlotter(Long ftjsId) {
+        List<Case> blotters = caseRepository.findAllByFtjsApplicationIdAndRelatedBarangayServiceOrderByCreatedAtDesc(
+                ftjsId,
+                RelatedBarangayService.FTJS_REISSUANCE
+        );
+
+        if (blotters == null || blotters.isEmpty()) {
+            return null;
+        }
+
+        Case bc = blotters.stream()
+                .filter(b -> b.getDocumentReissuanceStatus() == DocumentReissuanceStatus.PENDING_VERIFICATION ||
+                             b.getDocumentReissuanceStatus() == DocumentReissuanceStatus.APPROVED_FOR_REISSUANCE)
+                .findFirst()
+                .orElse(blotters.get(0));
+
+        boolean isAlreadyReissued = firstTimeJobSeekerAffidavitOfLossRepository.findByFtjsIdOrderByIssuanceNumberDesc(ftjsId)
+                .stream().anyMatch(a -> a.getBlotterCase() != null && a.getBlotterCase().getId().equals(bc.getId()));
+
+        List<CaseEvidence> evidences = caseEvidenceRepository.findByCasesId(bc.getId());
+        CaseEvidence affidavitRecord = evidences.stream()
+                .filter(er -> er.getType() != null && er.getType().getName() != null &&
+                        er.getType().getName().toLowerCase().contains("affidavit") &&
+                        er.getFiles() != null && er.getFiles().length > 0)
+                .findFirst()
+                .orElse(evidences.stream().filter(er -> er.getFiles() != null && er.getFiles().length > 0).findFirst().orElse(null));
+
+        boolean hasAffidavit = affidavitRecord != null;
+        Long affidavitId = affidavitRecord != null ? affidavitRecord.getId() : null;
+        String affidavitFileName = affidavitRecord != null ? affidavitRecord.getFileName() : null;
+
+        LocalDate incidentDate = (bc.getIncidentDetail() != null && bc.getIncidentDetail().getDateOfIncident() != null)
+                ? bc.getIncidentDetail().getDateOfIncident()
+                : (bc.getCreatedAt() != null ? bc.getCreatedAt().toLocalDate() : LocalDate.now());
+
+        LocalTime incidentTime = (bc.getIncidentDetail() != null)
+                ? bc.getIncidentDetail().getTimeOfIncident()
+                : null;
+
+        String place = (bc.getIncidentDetail() != null && bc.getIncidentDetail().getIncidentLocation() != null)
+                ? bc.getIncidentDetail().getIncidentLocation()
+                : "Barangay Hall";
+        String nature = (bc.getIncidentDetail() != null && bc.getIncidentDetail().getNatureOfComplaint() != null)
+                ? bc.getIncidentDetail().getNatureOfComplaint()
+                : "Lost Document / Lost Certificate";
+
+        String reason = nature + " (Blotter Case #" + bc.getCaseNumber() + ")";
+        if (bc.getDocumentReissuanceRemarks() != null && !bc.getDocumentReissuanceRemarks().isBlank()) {
+            reason += " - " + bc.getDocumentReissuanceRemarks();
+        }
+
+        String reviewedBy = bc.getDocumentReissuanceReviewedBy() != null
+                ? formatUserFullName(bc.getDocumentReissuanceReviewedBy())
+                : null;
+        LocalDateTime reviewedAt = bc.getDocumentReissuanceReviewedAt();
+        DocumentReissuanceStatus effectiveStatus = bc.getDocumentReissuanceStatus();
+        if (effectiveStatus == null || effectiveStatus == DocumentReissuanceStatus.PENDING_VERIFICATION) {
+            effectiveStatus = DocumentReissuanceStatus.APPROVED_FOR_REISSUANCE;
+        }
+
+        return new LinkedBlotterResponseDTO(
+                bc.getId(),
+                bc.getCaseNumber(),
+                bc.getFilingType() != null ? bc.getFilingType().name() : "FOR_THE_RECORD",
+                bc.getCaseStatus() != null ? bc.getCaseStatus().name() : "RECORDED",
+                effectiveStatus.name(),
+                bc.getDocumentReissuanceRemarks(),
+                nature,
+                incidentDate,
+                incidentTime,
+                place,
+                reason,
+                hasAffidavit,
+                affidavitId,
+                affidavitFileName,
+                reviewedBy,
+                reviewedAt,
+                isAlreadyReissued
+        );
+    }
 
     @Transactional
     /**
      * Creates a re-issuance request for an FTJS certificate subject to 1-year validity rules.
      */
-    public ReIssuanceRequestDto createReIssuanceRequest(Long ftjsId,ReIssuanceRequestDto request) throws BadRequestException {
+    public ReIssuanceRequestDto createReIssuanceRequest(Long ftjsId, ReIssuanceRequestDto request) throws BadRequestException {
 
         FirstTimeJobSeeker ftjs = firstTimeJobSeekerRepository.findById(ftjsId).orElseThrow(()
-        -> new ResourceNotFoundException("ftjs not found"));
+                -> new ResourceNotFoundException("ftjs not found"));
 
         LocalDate originalDate = ftjs.getDateSubmitted() != null ? ftjs.getDateSubmitted() : ftjs.getCreatedAt().toLocalDate();
         if (originalDate != null && LocalDate.now().isAfter(originalDate.plusDays(365))) {
@@ -62,6 +153,26 @@ public class FtjsReIssuanceService {
                     .orElse(null);
         }
 
+        // 1. Resolve approved Blotter Case
+        Case linkedBlotter = null;
+        if (request.blotterCaseId() != null) {
+            linkedBlotter = caseRepository.findById(request.blotterCaseId()).orElse(null);
+        }
+        if (linkedBlotter == null) {
+            List<Case> approvedCases = caseRepository.findActiveDocumentReissuanceRequests(
+                    ftjsId,
+                    RelatedBarangayService.FTJS_REISSUANCE,
+                    List.of(DocumentReissuanceStatus.APPROVED_FOR_REISSUANCE, DocumentReissuanceStatus.PENDING_VERIFICATION)
+            );
+            if (!approvedCases.isEmpty()) {
+                linkedBlotter = approvedCases.get(0);
+            }
+        }
+
+        if (linkedBlotter == null && (request.affidavit() == null || request.affidavit().length == 0)) {
+            throw new BadRequestException("A cleared Blotter verification is required before this certificate can be reissued. Residents must report lost or damaged certificates to the Blotter Department.");
+        }
+
         int currentCount = (ftjs.getIssuanceCount() != null) ? ftjs.getIssuanceCount() : 1;
         int nextIssuanceCount = currentCount + 1;
 
@@ -71,12 +182,54 @@ public class FtjsReIssuanceService {
 
         FirstTimeJobSeekerAffidavitOfLoss affidavit = new FirstTimeJobSeekerAffidavitOfLoss();
         affidavit.setFtjs(updatedFtjs);
-        affidavit.setReason(request.reason());
-        affidavit.setDateOfLoss(request.dateOfLoss());
+
+        String resolvedReason = request.reason();
+        LocalDate resolvedDateOfLoss = request.dateOfLoss();
+        byte[] resolvedAffidavit = request.affidavit();
+
+        if (linkedBlotter != null) {
+            if (resolvedReason == null || resolvedReason.isBlank()) {
+                String nature = linkedBlotter.getIncidentDetail() != null && linkedBlotter.getIncidentDetail().getNatureOfComplaint() != null
+                        ? linkedBlotter.getIncidentDetail().getNatureOfComplaint()
+                        : "Lost Document";
+                resolvedReason = nature + " (Blotter Case #" + linkedBlotter.getCaseNumber() + ")";
+                if (linkedBlotter.getDocumentReissuanceRemarks() != null && !linkedBlotter.getDocumentReissuanceRemarks().isBlank()) {
+                    resolvedReason += " - " + linkedBlotter.getDocumentReissuanceRemarks();
+                }
+            }
+            if (resolvedDateOfLoss == null && linkedBlotter.getIncidentDetail() != null) {
+                resolvedDateOfLoss = linkedBlotter.getIncidentDetail().getDateOfIncident();
+            }
+            if (resolvedAffidavit == null || resolvedAffidavit.length == 0) {
+                List<CaseEvidence> evidences = caseEvidenceRepository.findByCasesId(linkedBlotter.getId());
+                CaseEvidence affidavitEv = evidences.stream()
+                        .filter(er -> er.getFiles() != null && er.getFiles().length > 0)
+                        .findFirst()
+                        .orElse(null);
+                if (affidavitEv != null) {
+                    resolvedAffidavit = affidavitEv.getFiles();
+                }
+            }
+
+            affidavit.setBlotterCase(linkedBlotter);
+            linkedBlotter.setDocumentReissuanceStatus(DocumentReissuanceStatus.COMPLETED);
+            linkedBlotter.setDocumentReissuanceRemarks("Re-issuance completed successfully. Replacement certificate issued under OR #" + request.orNumber());
+            caseRepository.save(linkedBlotter);
+        }
+
+        if (resolvedDateOfLoss == null) {
+            resolvedDateOfLoss = LocalDate.now();
+        }
+        if (resolvedReason == null || resolvedReason.isBlank()) {
+            resolvedReason = "Lost Certificate Re-issuance";
+        }
+
+        affidavit.setReason(resolvedReason);
+        affidavit.setDateOfLoss(resolvedDateOfLoss);
         affidavit.setOrNumber(request.orNumber());
         affidavit.setIssuanceNumber(nextIssuanceCount);
         affidavit.setCreatedBy(currentUser);
-        affidavit.setAffidavitFiles(request.affidavit());
+        affidavit.setAffidavitFiles(resolvedAffidavit);
 
         FirstTimeJobSeekerAffidavitOfLoss savedAffidavit = firstTimeJobSeekerAffidavitOfLossRepository.save(affidavit);
 
@@ -85,13 +238,13 @@ public class FtjsReIssuanceService {
         timeline.setTitle("Certificate Re-issued");
         timeline.setEventDate(LocalDateTime.now());
         timeline.setFtjs(updatedFtjs);
-        timeline.setDescription("Re-issued FTJS Certificate (Copy #" + nextIssuanceCount + ") under OR #" + request.orNumber());
+        timeline.setDescription("Re-issued FTJS Certificate (Copy #" + nextIssuanceCount + ") under OR #" + request.orNumber() +
+                (linkedBlotter != null ? " [Blotter Case #" + linkedBlotter.getCaseNumber() + "]" : ""));
         timeline.setCreatedBy(currentUser);
 
         firstTimeJobSeekerTimeLineRepository.save(timeline);
 
         return mapToDto(savedAffidavit);
-
     }
 
     private ReIssuanceRequestDto mapToDto(FirstTimeJobSeekerAffidavitOfLoss affidavit) {
@@ -100,11 +253,10 @@ public class FtjsReIssuanceService {
                 affidavit.getReason(),
                 affidavit.getDateOfLoss(),
                 affidavit.getOrNumber(),
-                affidavit.getAffidavitFiles()
+                affidavit.getAffidavitFiles(),
+                affidavit.getBlotterCase() != null ? affidavit.getBlotterCase().getId() : null
         );
     }
-
-
 
     @Transactional(readOnly = true)
     /**
@@ -144,7 +296,6 @@ public class FtjsReIssuanceService {
         return sb.toString().trim();
     }
 
-
     private String formatUserFullName(User user) {
         if (user == null) {
             return "System";
@@ -173,7 +324,6 @@ public class FtjsReIssuanceService {
         return sb.isEmpty() ? (user.getUsername() != null ? user.getUsername() : "System") : sb.toString();
     }
 
-
     @Transactional(readOnly = true)
     /**
      * Retrieves historical timeline audit events for a given FTJS application.
@@ -201,7 +351,6 @@ public class FtjsReIssuanceService {
         
         String residentName = formatResidentFullName(affidavit.getFtjs());
 
-        // 1. Check affidavit createdBy user
         if (affidavit.getCreatedBy() != null) {
             String name = formatUserFullName(affidavit.getCreatedBy());
             if (name != null && !name.isBlank() && !"System".equalsIgnoreCase(name)) {
@@ -211,7 +360,6 @@ public class FtjsReIssuanceService {
             }
         }
 
-        // 2. Check FTJS record verifiedBy user
         if (affidavit.getFtjs() != null && affidavit.getFtjs().getVerifiedBy() != null) {
             String name = formatUserFullName(affidavit.getFtjs().getVerifiedBy());
             if (name != null && !name.isBlank()) {
@@ -221,7 +369,6 @@ public class FtjsReIssuanceService {
             }
         }
 
-        // 3. Fallback to currently authenticated logged-in user if available
         User currentUser = SecurityUtils.getCurrentUser();
         if (currentUser != null) {
             String name = formatUserFullName(currentUser);

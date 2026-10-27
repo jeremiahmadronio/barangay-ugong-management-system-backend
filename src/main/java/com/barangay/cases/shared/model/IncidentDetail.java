@@ -41,4 +41,8 @@ public class IncidentDetail extends BaseEntity {
     @Convert(converter = EncryptedFieldConverter.class)
     @Column(columnDefinition = "TEXT", name = "injuries_damage_description")
     private String injuriesDamagesDescription;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "related_barangay_service", length = 50)
+    private com.barangay.zshared.enumerated.RelatedBarangayService relatedBarangayService;
 }

@@ -49,4 +49,8 @@ public class FirstTimeJobSeekerAffidavitOfLoss extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private User createdBy;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "blotter_case_id")
+    private com.barangay.cases.shared.model.Case blotterCase;
 }

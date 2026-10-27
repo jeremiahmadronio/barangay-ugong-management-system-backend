@@ -985,4 +985,24 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             @Param("startOfMonth") LocalDateTime startOfMonth,
             @Param("endOfMonth") LocalDateTime endOfMonth
     );
+
+    @Query("SELECT c FROM Case c WHERE c.ftjsApplication.id = :ftjsId " +
+           "AND c.relatedBarangayService = :service " +
+           "AND c.documentReissuanceStatus IN :statuses " +
+           "AND (c.isDeleted IS NULL OR c.isDeleted = false) " +
+           "AND (c.isArchived IS NULL OR c.isArchived = false) " +
+           "ORDER BY c.createdAt DESC")
+    List<Case> findActiveDocumentReissuanceRequests(
+            @Param("ftjsId") Long ftjsId,
+            @Param("service") com.barangay.zshared.enumerated.RelatedBarangayService service,
+            @Param("statuses") List<com.barangay.zshared.enumerated.DocumentReissuanceStatus> statuses
+    );
+
+    @Query("SELECT c FROM Case c WHERE c.ftjsApplication.id = :ftjsId " +
+           "AND c.relatedBarangayService = :service " +
+           "ORDER BY c.createdAt DESC")
+    List<Case> findAllByFtjsApplicationIdAndRelatedBarangayServiceOrderByCreatedAtDesc(
+            @Param("ftjsId") Long ftjsId,
+            @Param("service") com.barangay.zshared.enumerated.RelatedBarangayService service
+    );
 }
