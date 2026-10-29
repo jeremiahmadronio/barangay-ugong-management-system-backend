@@ -206,8 +206,9 @@ public class BlotterCaseService {
 
         // 2. Total For the Record Only
         long totalForTheRecord = caseRepository.countRootBlotterCasesByFilingType(FilingType.FOR_RECORD_ONLY);
-        double forTheRecordShare = totalCases > 0 ? ((double) totalForTheRecord / totalCases) * 100.0 : 0.0;
-        String totalForTheRecordTrend = String.format("%.1f%% of total cases", forTheRecordShare);
+        long currentForRecord = caseRepository.countRootBlotterCasesByFilingTypeAndCreatedAtGreaterThanEqual(FilingType.FOR_RECORD_ONLY, currentMonthStart);
+        long prevForRecord = caseRepository.countRootBlotterCasesByFilingTypeAndCreatedAtBetween(FilingType.FOR_RECORD_ONLY, prevMonthStart, prevMonthEnd);
+        String totalForTheRecordTrend = calculateMonthlyTrend(currentForRecord, prevForRecord);
 
         // 3. Under Mediation / In Progress
         List<CaseStatus> activeStatuses = List.of(CaseStatus.UNDER_MEDIATION);
@@ -608,6 +609,7 @@ public class BlotterCaseService {
 
     /**
      * Formats month-to-date count vs full previous month count trend.
+     * Formula: trend = ((thisMonth - lastMonth) / lastMonth) * 100
      */
     private String calculateMonthlyTrend(long currentCount, long prevCount) {
         if (prevCount == 0) {

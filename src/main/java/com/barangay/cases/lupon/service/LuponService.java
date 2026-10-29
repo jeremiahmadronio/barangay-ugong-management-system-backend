@@ -348,7 +348,7 @@ public class LuponService {
 
     private String calculateMonthlyTrend(long currentCount, long prevCount) {
         if (prevCount == 0) {
-            return currentCount > 0 ? "+100% vs last month" : "0% vs last month";
+            return currentCount > 0 ? "+100.0% vs last month" : "0.0% vs last month";
         }
         double diff = (double) (currentCount - prevCount) / prevCount * 100.0;
         if (diff > 0) {
@@ -356,7 +356,7 @@ public class LuponService {
         } else if (diff < 0) {
             return String.format("%.1f%% vs last month", diff);
         } else {
-            return "0% vs last month";
+            return "0.0% vs last month";
         }
     }
 
