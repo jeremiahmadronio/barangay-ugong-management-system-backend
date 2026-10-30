@@ -38,7 +38,7 @@ public class CaseTimelineService {
      */
     @Transactional(readOnly = true)
     public List<TimelineEventResponse> getTimelineForCase(Long caseId) {
-        return caseTimelineRepository.findByCasesIdOrderByEventDateDesc(caseId)
+        return caseTimelineRepository.findByCasesIdOrderByEventDateDescIdDesc(caseId)
                 .stream()
                 .map(this::toResponse)
                 .toList();

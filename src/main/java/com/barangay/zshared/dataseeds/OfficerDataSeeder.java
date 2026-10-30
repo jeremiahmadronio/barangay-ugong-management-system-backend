@@ -44,13 +44,10 @@ public class OfficerDataSeeder implements CommandLineRunner {
                 .orElseGet(() -> departmentRepository.save(new Department(null, "LUPON", "Lupong Tagapamayapa", true)));
         Department vawcDept = departmentRepository.findByName("VAWC")
                 .orElseGet(() -> departmentRepository.save(new Department(null, "VAWC", "Violence Against Women and Children", true)));
-        Department peaceDept = departmentRepository.findByName("PEACE_ORDER")
-                .orElseGet(() -> departmentRepository.save(new Department(null, "PEACE_ORDER", "Peace and Order", true)));
         Department adminDept = departmentRepository.findByName("ADMIN")
                 .orElseGet(() -> departmentRepository.save(new Department(null, "ADMIN", "Administration", true)));
 
         createOrGetOfficer("Carlos", "Santos", "Punong Barangay", adminDept, true);
-        createOrGetOfficer("Ramon", "Reyes", "Punong Barangay", peaceDept, false);
         createOrGetOfficer("Maria", "Cruz", "VAWC Desk Officer", vawcDept, false);
         createOrGetOfficer("Fernando", "Lopez", "Lupon Members", luponDept, false);
         createOrGetOfficer("Elena", "Gomez", "Lupon Secretary", luponDept, false);

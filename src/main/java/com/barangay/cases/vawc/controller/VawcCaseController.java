@@ -177,6 +177,19 @@ public class VawcCaseController {
     }
 
     /**
+     * Updates an existing VAWC Case entry.
+     */
+    @PutMapping("/{caseId}")
+    @LogAudit(module = AuditModule.VAWC, action = "UPDATE_VAWC_CASE", severity = Severity.INFO)
+    public ResponseEntity<VawcCaseDetailResponse> updateVawcCase(
+            @PathVariable Long caseId,
+            @Valid @RequestBody VawcCaseUpdateRequest request
+    ) {
+        VawcCaseDetailResponse response = vawcCaseService.updateVawcCase(caseId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Retrieves a single VAWC case detail by ID.
      *
      * @param id the case ID

@@ -143,7 +143,7 @@ public class CmsDataSeeder implements CommandLineRunner {
 
         Official o2 = new Official();
         o2.setName("Hon. Roberto S. Mendoza");
-        o2.setPosition("Barangay Kagawad - Committee on Peace & Order");
+        o2.setPosition("Barangay Kagawad - Committee on Public Safety");
         o2.setType("KAGAWAD");
         o2.setCreatedAt(LocalDateTime.now().minusDays(20));
         o2.setUpdatedAt(LocalDateTime.now());

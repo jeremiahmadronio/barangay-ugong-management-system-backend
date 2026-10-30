@@ -8,6 +8,5 @@ import java.util.List;
 
 @Repository
 public interface CaseTimelineRepository extends JpaRepository<CaseTimeline, Long> {
-    List<CaseTimeline> findByCasesIdOrderByEventDateDesc(Long caseId);
+    List<CaseTimeline> findByCasesIdOrderByEventDateDescIdDesc(Long caseId);
 }
-

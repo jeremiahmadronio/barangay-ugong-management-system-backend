@@ -225,7 +225,16 @@ public class VawcCaseService {
             }
         }
 
-        // 13. Violence Type & Barangay Protection Order (BPO) Linkage
+        // 13. Case Timeline Event Logging - Case Filed is logged first
+        caseTimelineService.logEvent(
+                savedCase,
+                TimelineEventType.CASE_FILED,
+                "VAWC Case Filed",
+                "VAWC Case #" + savedCase.getCaseNumber() + " was filed with Risk Level: " + savedCase.getRiskLevel(),
+                currentUser
+        );
+
+        // 14. Violence Type & Barangay Protection Order (BPO) Linkage
         boolean bpoRequested = request.immediateRequests() != null && request.immediateRequests().stream()
                 .anyMatch(r -> r.toLowerCase().contains("protection order") || r.toLowerCase().contains("bpo"));
 
@@ -268,15 +277,6 @@ public class VawcCaseService {
                     currentUser
             );
         }
-
-        // 14. Case Timeline Event Logging
-        caseTimelineService.logEvent(
-                savedCase,
-                TimelineEventType.CASE_FILED,
-                "VAWC Case Filed",
-                "VAWC Case #" + savedCase.getCaseNumber() + " was filed with Risk Level: " + savedCase.getRiskLevel(),
-                currentUser
-        );
 
         log.info("VAWC Case #{} successfully created with ID {}", savedCase.getCaseNumber(), savedCase.getId());
 
@@ -373,6 +373,203 @@ public class VawcCaseService {
     }
 
     /**
+     * Updates an existing VAWC Case record differentially (incident details, narrative, evidences, witnesses).
+     */
+    @Transactional
+    public VawcCaseDetailResponse updateVawcCase(Long caseId, VawcCaseUpdateRequest request) {
+        Case aCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("VAWC Case not found with ID: " + caseId));
+
+        User currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser != null) {
+            aCase.setCaseUpdatedBy(currentUser);
+        }
+
+        // 1. Update Respondent relationship & living status
+        if (aCase.getRespondent() != null) {
+            if (request.relationshipToComplainant() != null) {
+                aCase.getRespondent().setRelationshipToComplainant(request.relationshipToComplainant());
+            }
+            if (request.currentlyLivingWithComplainant() != null) {
+                aCase.getRespondent().setLivingWithComplainant(request.currentlyLivingWithComplainant());
+            }
+        }
+
+        // 2. Update Incident Details
+        if (request.incident() != null) {
+            IncidentDetail inc = incidentDetailMapper.fromCreateDto(request.incident());
+            aCase.setIncidentDetail(inc);
+        }
+
+        // 3. Update Narrative Statement
+        if (request.narrative() != null) {
+            if (aCase.getNarrativeStatement() == null) {
+                aCase.setNarrativeStatement(narrativeStatementMapper.fromCreateDto(request.narrative()));
+            } else {
+                NarrativeStatement narr = aCase.getNarrativeStatement();
+                if (request.narrative().statementSummary() != null) {
+                    narr.setStatementSummary(request.narrative().statementSummary());
+                }
+                if (request.narrative().fileName() != null && !request.narrative().fileName().isBlank()) {
+                    narr.setFileName(request.narrative().fileName());
+                }
+                if (request.narrative().fileData() != null && request.narrative().fileData().length > 0) {
+                    narr.setFileData(request.narrative().fileData());
+                }
+            }
+        }
+
+        // 4. Update Evidences (Selective update without losing existing evidence files)
+        if (request.evidences() != null) {
+            List<CaseEvidence> existingEvidences = caseEvidenceRepository.findByCasesId(aCase.getId());
+            java.util.Map<String, CaseEvidence> existingEvMapByName = new java.util.HashMap<>();
+            java.util.Map<Long, CaseEvidence> existingEvMapById = new java.util.HashMap<>();
+            for (CaseEvidence ce : existingEvidences) {
+                if (ce.getId() != null) {
+                    existingEvMapById.put(ce.getId(), ce);
+                }
+                if (ce.getType() != null && ce.getType().getName() != null) {
+                    existingEvMapByName.put(ce.getType().getName().trim().toLowerCase(), ce);
+                }
+            }
+
+            List<CaseEvidence> updatedEvidences = new ArrayList<>();
+            for (EvidenceCreateDto eDto : request.evidences()) {
+                String typeName = (eDto.evidenceTypeName() != null) ? eDto.evidenceTypeName().trim() : "General Evidence";
+                CaseEvidence targetEvidence = null;
+                if (eDto.id() != null && existingEvMapById.containsKey(eDto.id())) {
+                    targetEvidence = existingEvMapById.get(eDto.id());
+                } else if (existingEvMapByName.containsKey(typeName.toLowerCase())) {
+                    targetEvidence = existingEvMapByName.get(typeName.toLowerCase());
+                }
+
+                if (targetEvidence != null) {
+                    if (eDto.files() != null && eDto.files().length > 0) {
+                        targetEvidence.setFiles(eDto.files());
+                        if (eDto.fileName() != null && !eDto.fileName().isBlank()) {
+                            targetEvidence.setFileName(eDto.fileName().trim());
+                        }
+                    }
+                    if (eDto.description() != null) {
+                        targetEvidence.setDescription(eDto.description());
+                    }
+                    targetEvidence = caseEvidenceRepository.save(targetEvidence);
+                    updatedEvidences.add(targetEvidence);
+                } else {
+                    CaseEvidence newEv = caseEvidenceMapper.fromCreateDto(eDto, aCase);
+                    if (newEv != null) {
+                        newEv = caseEvidenceRepository.save(newEv);
+                        updatedEvidences.add(newEv);
+                    }
+                }
+            }
+
+            for (CaseEvidence ce : existingEvidences) {
+                if (!updatedEvidences.contains(ce)) {
+                    caseEvidenceRepository.delete(ce);
+                }
+            }
+        }
+
+        // 5. Update Witnesses (Selective in-place update without losing testimony files)
+        if (request.witnesses() != null) {
+            List<Witness> currentWitnessList = (aCase.getWitnesses() != null && !aCase.getWitnesses().isEmpty())
+                    ? new ArrayList<>(aCase.getWitnesses())
+                    : witnessRepository.findByCaseId(aCase.getId());
+
+            java.util.Map<Long, Witness> existingWitnessById = new java.util.HashMap<>();
+            java.util.Map<Integer, Witness> existingWitnessByIndex = new java.util.HashMap<>();
+            int idx = 0;
+            for (Witness w : currentWitnessList) {
+                if (w.getId() != null) {
+                    existingWitnessById.put(w.getId(), w);
+                }
+                existingWitnessByIndex.put(idx++, w);
+            }
+
+            List<Witness> updatedWitnessEntities = new ArrayList<>();
+            int dtoIndex = 0;
+            for (WitnessCreateDto wDto : request.witnesses()) {
+                Witness targetWitness = null;
+                if (wDto.id() != null && existingWitnessById.containsKey(wDto.id())) {
+                    targetWitness = existingWitnessById.get(wDto.id());
+                } else if (existingWitnessByIndex.containsKey(dtoIndex)) {
+                    targetWitness = existingWitnessByIndex.get(dtoIndex);
+                }
+
+                if (targetWitness != null) {
+                    Person p = targetWitness.getPerson();
+                    if (p == null) {
+                        p = new Person();
+                    }
+                    if (wDto.firstName() != null) p.setFirstName(wDto.firstName().trim());
+                    if (wDto.lastName() != null) p.setLastName(wDto.lastName().trim());
+                    if (wDto.contactNumber() != null) p.setContactNumber(wDto.contactNumber().trim());
+                    p = personRepository.save(p);
+                    targetWitness.setPerson(p);
+
+                    if (wDto.testimonyFile() != null && wDto.testimonyFile().length > 0) {
+                        targetWitness.setTestimonyFile(wDto.testimonyFile());
+                        if (wDto.testimonyFileName() != null && !wDto.testimonyFileName().isBlank()) {
+                            targetWitness.setTestimonyFileName(wDto.testimonyFileName().trim());
+                        }
+                    }
+                    targetWitness = witnessRepository.save(targetWitness);
+                    updatedWitnessEntities.add(targetWitness);
+                } else {
+                    Person newPerson = witnessMapper.toNewPerson(wDto);
+                    if (newPerson == null) {
+                        newPerson = new Person();
+                        newPerson.setFirstName(wDto.firstName() != null ? wDto.firstName().trim() : "Witness");
+                        newPerson.setLastName(wDto.lastName() != null ? wDto.lastName().trim() : "Statement");
+                        if (wDto.contactNumber() != null) newPerson.setContactNumber(wDto.contactNumber().trim());
+                    }
+                    newPerson = personRepository.save(newPerson);
+                    Witness newW = witnessMapper.toWitness(newPerson, aCase, wDto);
+                    newW = witnessRepository.save(newW);
+                    updatedWitnessEntities.add(newW);
+                }
+                dtoIndex++;
+            }
+
+            if (aCase.getWitnesses() != null) {
+                aCase.getWitnesses().clear();
+                aCase.getWitnesses().addAll(updatedWitnessEntities);
+            } else {
+                aCase.setWitnesses(new ArrayList<>(updatedWitnessEntities));
+            }
+        }
+
+        // 6. Danger assessments / violenceType
+        if (request.dangerAssessments() != null && !request.dangerAssessments().isEmpty()) {
+            String joined = String.join("; ", request.dangerAssessments());
+            if (request.otherDangerAssessment() != null && !request.otherDangerAssessment().isBlank()) {
+                joined += "; Other: " + request.otherDangerAssessment().trim();
+            }
+            aCase.setDangerAssessments(joined);
+        }
+        if (request.riskLevel() != null && !request.riskLevel().isBlank()) {
+            aCase.setRiskLevel(request.riskLevel().toUpperCase().trim());
+        }
+
+        Case updatedCase = caseRepository.save(aCase);
+
+        try {
+            caseTimelineService.logEvent(
+                    updatedCase,
+                    TimelineEventType.STATUS_CHANGED,
+                    "Case Details Updated",
+                    "Case details, evidences, or testimonies updated via Edit Case.",
+                    currentUser
+            );
+        } catch (Exception e) {
+            log.warn("Failed to log timeline event for case update [caseId={}]: {}", updatedCase.getId(), e.getMessage());
+        }
+
+        return toDetailResponse(updatedCase);
+    }
+
+    /**
      * Calculates VAWC KPI Statistics with month-to-date vs full previous calendar month trend percentage.
      *
      * @return {@link VawcStatsResponse}
@@ -451,6 +648,8 @@ public class VawcCaseService {
         String violenceTypeName = null;
         if (c.getBarangayProtectionOrder() != null && c.getBarangayProtectionOrder().getViolenceTypes() != null && !c.getBarangayProtectionOrder().getViolenceTypes().isEmpty()) {
             violenceTypeName = c.getBarangayProtectionOrder().getViolenceTypes().iterator().next().getName();
+        } else if (c.getIncidentDetail() != null && c.getIncidentDetail().getNatureOfComplaint() != null && !c.getIncidentDetail().getNatureOfComplaint().isBlank()) {
+            violenceTypeName = c.getIncidentDetail().getNatureOfComplaint().trim();
         }
 
         BpoDetailDto bpoDto = null;
