@@ -354,6 +354,7 @@ public class ResidentServiceImpl implements ResidentService {
                     var p = r.getPerson();
                     String fullName = p != null ? buildFullName(p.getFirstName(), p.getMiddleName(), p.getLastName(), p.getSuffix()) : "—";
                     String photoStr = p != null && p.getPhoto() != null ? Base64.getEncoder().encodeToString(p.getPhoto()) : null;
+                    String email = p != null ? p.getDisplayEmail() : null;
                     return new ResidentSearchOptionResponse(
                             r.getResidentId(),
                             p != null ? p.getId() : null,
@@ -362,7 +363,7 @@ public class ResidentServiceImpl implements ResidentService {
                             p != null ? p.getLastName() : null,
                             p != null ? p.getMiddleName() : null,
                             r.getBarangayIdNumber(),
-                            p != null ? p.getEmail() : null,
+                            email,
                             p != null ? p.getContactNumber() : null,
                             p != null ? p.getCompleteAddress() : null,
                             p != null ? p.getCalculatedAge() : null,

@@ -5,8 +5,12 @@ import com.barangay.cases.bcpc.dto.BcpcCarCaseDetailResponse;
 import com.barangay.cases.bcpc.dto.BcpcCiclAssessmentDto;
 import com.barangay.cases.bcpc.dto.BcpcCiclCaseCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcCiclCaseDetailResponse;
+import com.barangay.cases.bcpc.dto.BcpcFilterRequest;
 import com.barangay.cases.bcpc.dto.BcpcPersonDetailDto;
 import com.barangay.cases.bcpc.dto.BcpcPersonInputDto;
+import com.barangay.cases.bcpc.dto.BcpcStatsResponse;
+import com.barangay.cases.bcpc.dto.BcpcTableRowResponse;
+import com.barangay.cases.bcpc.dto.BcpcCaseUniversalDetailResponse;
 import com.barangay.cases.bcpc.model.BcpcCarAssessment;
 import com.barangay.cases.bcpc.model.BcpcCaseDetails;
 import com.barangay.cases.bcpc.model.BcpcCiclAssessment;
@@ -15,12 +19,16 @@ import com.barangay.cases.bcpc.repository.BcpcCaseDetailsRepository;
 import com.barangay.cases.bcpc.repository.BcpcCiclAssessmentRepository;
 import com.barangay.cases.shared.model.Case;
 import com.barangay.cases.shared.model.CaseEvidence;
+import com.barangay.cases.shared.model.CaseNote;
 import com.barangay.cases.shared.model.IncidentDetail;
 import com.barangay.cases.shared.model.NarrativeStatement;
 import com.barangay.cases.shared.repository.CaseEvidenceRepository;
+import com.barangay.cases.shared.repository.CaseNoteRepository;
 import com.barangay.cases.shared.repository.CaseRepository;
 import com.barangay.cases.shared.repository.EvidenceTypeRepository;
 import com.barangay.cases.shared.service.CaseTimelineService;
+import com.barangay.cases.blotter.dto.CaseNoteRequest;
+import com.barangay.cases.blotter.dto.CaseNoteResponse;
 import com.barangay.people.complainant.model.Complainant;
 import com.barangay.people.officer.model.Officer;
 import com.barangay.people.officer.repository.OfficerRepository;
@@ -49,13 +57,19 @@ import com.barangay.zshared.enumerated.PenaltyRoutingCategory;
 import com.barangay.zshared.enumerated.TimelineEventType;
 import com.barangay.zshared.mapper.CaseEvidenceMapper;
 import com.barangay.zshared.mapper.ComplainantMapper;
+import com.barangay.zshared.exception.ResourceNotFoundException;
 import com.barangay.zshared.mapper.IncidentDetailMapper;
 import com.barangay.zshared.mapper.NarrativeStatementMapper;
 import com.barangay.zshared.mapper.PersonMapper;
 import com.barangay.zshared.mapper.WitnessMapper;
+import com.barangay.zshared.mapper.PageResponse;
 import com.barangay.zshared.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,6 +77,8 @@ import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -90,6 +106,7 @@ public class BcpcCaseService {
     private final DepartmentRepository departmentRepository;
     private final OfficerRepository officerRepository;
     private final CaseTimelineService caseTimelineService;
+    private final CaseNoteRepository caseNoteRepository;
 
     // Shared Mappers
     private final PersonMapper personMapper;
@@ -255,7 +272,7 @@ public class BcpcCaseService {
                 savedCase,
                 TimelineEventType.CASE_FILED,
                 "BCPC Case Filed (CAR)",
-                "Child at Risk Case #" + savedCase.getCaseNumber() + " was formally filed for child " + personMapper.buildFullName(childPerson) + " with Risk Level: " + savedCase.getRiskLevel(),
+                "Child at Risk Case #" + savedCase.getCaseNumber() + " was formally filed for child " + personMapper.buildFullName(childPerson) + ".",
                 currentUser
         );
 
@@ -561,14 +578,64 @@ public class BcpcCaseService {
         if (dto.residentId() != null) {
             Optional<Resident> residentOpt = residentRepository.findById(dto.residentId());
             if (residentOpt.isPresent() && residentOpt.get().getPerson() != null) {
-                return residentOpt.get().getPerson();
+                Person person = residentOpt.get().getPerson();
+                boolean updated = false;
+                if ((person.getAge() == null || person.getAge() == 0) && person.getBirthDate() != null) {
+                    person.setAge((short) person.getCalculatedAge());
+                    updated = true;
+                } else if ((person.getAge() == null || person.getAge() == 0) && dto.age() != null) {
+                    person.setAge(dto.age());
+                    updated = true;
+                }
+                if (person.getEmail() == null || person.getEmail().isBlank()) {
+                    if (dto.email() != null && !dto.email().isBlank()) {
+                        person.setEmail(dto.email().trim());
+                        updated = true;
+                    } else if (person.getDisplayEmail() != null) {
+                        person.setEmail(person.getDisplayEmail());
+                        updated = true;
+                    }
+                }
+                if (dto.contactNumber() != null && !dto.contactNumber().isBlank() && (person.getContactNumber() == null || person.getContactNumber().isBlank())) {
+                    person.setContactNumber(dto.contactNumber().trim());
+                    updated = true;
+                }
+                if (updated) {
+                    person = personRepository.save(person);
+                }
+                return person;
             }
         }
 
         if (dto.personId() != null) {
             Optional<Person> personOpt = personRepository.findById(dto.personId());
             if (personOpt.isPresent()) {
-                return personOpt.get();
+                Person person = personOpt.get();
+                boolean updated = false;
+                if ((person.getAge() == null || person.getAge() == 0) && person.getBirthDate() != null) {
+                    person.setAge((short) person.getCalculatedAge());
+                    updated = true;
+                } else if ((person.getAge() == null || person.getAge() == 0) && dto.age() != null) {
+                    person.setAge(dto.age());
+                    updated = true;
+                }
+                if (person.getEmail() == null || person.getEmail().isBlank()) {
+                    if (dto.email() != null && !dto.email().isBlank()) {
+                        person.setEmail(dto.email().trim());
+                        updated = true;
+                    } else if (person.getDisplayEmail() != null) {
+                        person.setEmail(person.getDisplayEmail());
+                        updated = true;
+                    }
+                }
+                if (dto.contactNumber() != null && !dto.contactNumber().isBlank() && (person.getContactNumber() == null || person.getContactNumber().isBlank())) {
+                    person.setContactNumber(dto.contactNumber().trim());
+                    updated = true;
+                }
+                if (updated) {
+                    person = personRepository.save(person);
+                }
+                return person;
             }
         }
 
@@ -580,7 +647,11 @@ public class BcpcCaseService {
         person.setSuffix(dto.suffix() != null && !dto.suffix().isBlank() ? dto.suffix().trim() : null);
         person.setContactNumber(dto.contactNumber());
         person.setCompleteAddress(dto.completeAddress());
-        person.setAge(dto.age());
+        Short calculatedAge = dto.age();
+        if (calculatedAge == null && dto.birthDate() != null) {
+            calculatedAge = (short) Period.between(dto.birthDate(), LocalDate.now()).getYears();
+        }
+        person.setAge(calculatedAge);
         person.setGender(dto.gender());
         person.setBirthDate(dto.birthDate());
         person.setCivilStatus(dto.civilStatus());
@@ -592,6 +663,14 @@ public class BcpcCaseService {
 
     private BcpcPersonDetailDto toPersonDetailDto(Person p) {
         if (p == null) return null;
+        Short age = p.getAge();
+        if ((age == null || age == 0) && p.getBirthDate() != null) {
+            age = (short) p.getCalculatedAge();
+        }
+        String email = p.getEmail();
+        if (email == null || email.isBlank()) {
+            email = p.getDisplayEmail();
+        }
         return new BcpcPersonDetailDto(
                 p.getId(),
                 p.getFirstName(),
@@ -601,11 +680,11 @@ public class BcpcCaseService {
                 p.getSuffix(),
                 p.getContactNumber(),
                 p.getCompleteAddress(),
-                p.getAge(),
+                age,
                 p.getGender(),
                 p.getBirthDate(),
                 p.getCivilStatus(),
-                p.getEmail(),
+                email,
                 p.getIsResident()
         );
     }
@@ -766,5 +845,264 @@ public class BcpcCaseService {
             caseNumber = String.format("BU%02d-BCPC-%04d", twoDigitYear, randomNum);
         } while (caseRepository.existsByCaseNumber(caseNumber));
         return caseNumber;
+    }
+
+    // =========================================================================
+    // BCPC KPI Statistics
+    // =========================================================================
+
+    /**
+     * Calculates BCPC KPI Statistics with month-to-date vs full previous calendar month trend percentages.
+     * Excludes permanently deleted, deleted (trash), and archived cases.
+     *
+     * @return {@link BcpcStatsResponse}
+     */
+    @Transactional(readOnly = true)
+    public BcpcStatsResponse getBcpcStats() {
+        LocalDateTime currentMonthStart = YearMonth.now().atDay(1).atStartOfDay();
+        LocalDateTime prevMonthStart = YearMonth.now().minusMonths(1).atDay(1).atStartOfDay();
+        LocalDateTime prevMonthEnd = currentMonthStart.minusNanos(1);
+
+        // 1. Total BCPC Cases + Monthly Trend
+        long totalCases = caseRepository.countRootBcpcCases();
+        long currentTotal = caseRepository.countRootBcpcCasesByCreatedAtGreaterThanEqual(currentMonthStart);
+        long prevTotal = caseRepository.countRootBcpcCasesByCreatedAtBetween(prevMonthStart, prevMonthEnd);
+        String totalCasesTrend = calculateMonthlyTrend(currentTotal, prevTotal);
+
+        // 2. Active / Ongoing Cases (Pending, Reopened under BCPC intervention / diversion)
+        List<CaseStatus> activeStatuses = List.of(
+                CaseStatus.PENDING,
+                CaseStatus.REOPENED
+        );
+        long totalActiveCases = caseRepository.countLatestBcpcCasesByCaseStatusIn(activeStatuses);
+
+        // 3. Referred Cases
+        List<CaseStatus> referredStatuses = List.of(
+                CaseStatus.ISSUED_REFERRAL
+        );
+        long totalReferredCases = caseRepository.countLatestBcpcCasesByCaseStatusIn(referredStatuses);
+
+        // 4. Settled Cases
+        List<CaseStatus> settledStatuses = List.of(
+                CaseStatus.SETTLED
+        );
+        long totalSettledCases = caseRepository.countLatestBcpcCasesByCaseStatusIn(settledStatuses);
+
+        return new BcpcStatsResponse(
+                totalCases,
+                totalCasesTrend,
+                totalActiveCases,
+                totalReferredCases,
+                totalSettledCases
+        );
+    }
+
+    /**
+     * Formats month-to-date count vs full previous month count trend.
+     * Formula: trend = ((thisMonth - lastMonth) / lastMonth) * 100
+     */
+    private String calculateMonthlyTrend(long currentCount, long prevCount) {
+        if (prevCount == 0) {
+            if (currentCount > 0) return "+100.0% vs last month";
+            return "0.0% vs last month";
+        }
+        double percentChange = ((double) (currentCount - prevCount) / prevCount) * 100.0;
+        return String.format("%+.1f%% vs last month", percentChange);
+    }
+
+    // =========================================================================
+    // BCPC Case Table & Records
+    // =========================================================================
+
+    /**
+     * Retrieves paginated and filtered BCPC cases for the records table.
+     * Excludes archived, soft-deleted, and permanently deleted cases.
+     * Default page size is 5.
+     *
+     * @param filter filter criteria (search, status, category, page, size)
+     * @return {@link PageResponse} containing {@link BcpcTableRowResponse}
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<BcpcTableRowResponse> getBcpcCasesTable(BcpcFilterRequest filter) {
+        int page = filter != null ? filter.getPageNumber() : 0;
+        int size = filter != null ? filter.getPageSize() : 5;
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Case> casePage = caseRepository.findBcpcCasesFiltered(filter, pageable);
+
+        Page<BcpcTableRowResponse> dtoPage = casePage.map(this::toBcpcTableRowResponse);
+        return PageResponse.of(dtoPage);
+    }
+
+    /**
+     * Maps a {@link Case} entity to {@link BcpcTableRowResponse} for the BCPC records table.
+     */
+    public BcpcTableRowResponse toBcpcTableRowResponse(Case c) {
+        if (c == null) return null;
+
+        String childName = "—";
+        String category = "CAR";
+        String caseNature = "—";
+
+        if (c.getBcpcCaseDetails() != null) {
+            if (c.getBcpcCaseDetails().getChild() != null) {
+                childName = maskChildName(c.getBcpcCaseDetails().getChild());
+            }
+            if (c.getBcpcCaseDetails().getCategory() != null) {
+                category = c.getBcpcCaseDetails().getCategory().name();
+            }
+        }
+
+        if (c.getIncidentDetail() != null && c.getIncidentDetail().getNatureOfComplaint() != null && !c.getIncidentDetail().getNatureOfComplaint().isBlank()) {
+            caseNature = c.getIncidentDetail().getNatureOfComplaint().trim();
+            if (caseNature.toUpperCase().startsWith("CAR:")) {
+                caseNature = caseNature.substring(4).trim();
+            } else if (caseNature.toUpperCase().startsWith("CICL:")) {
+                caseNature = caseNature.substring(5).trim();
+            }
+        }
+
+        String dateFiled = c.getCreatedAt() != null
+                ? c.getCreatedAt().format(DateTimeFormatter.ofPattern("M/d/yyyy"))
+                : "—";
+
+        return new BcpcTableRowResponse(
+                c.getId(),
+                c.getCaseNumber(),
+                childName,
+                caseNature,
+                category,
+                c.getCaseStatus(),
+                dateFiled,
+                c.getCreatedAt()
+        );
+    }
+
+    /**
+     * Masks child's name for confidentiality (e.g., "P*****, J.").
+     */
+    private String maskChildName(Person p) {
+        if (p == null) return "—";
+        String first = p.getFirstName() != null ? p.getFirstName().trim() : "";
+        String last = p.getLastName() != null ? p.getLastName().trim() : "";
+        if (first.isEmpty() && last.isEmpty()) return "—";
+
+        String maskedLast;
+        if (last.length() <= 1) {
+            maskedLast = last.toUpperCase();
+        } else {
+            maskedLast = last.substring(0, 1).toUpperCase() + "*".repeat(Math.max(1, last.length() - 1));
+        }
+        String firstInitial = first.isEmpty() ? "" : first.substring(0, 1).toUpperCase() + ".";
+        return firstInitial.isEmpty() ? maskedLast : maskedLast + ", " + firstInitial;
+    }
+
+    /**
+     * Universal retrieval of a BCPC case details by ID (automatically detects CAR vs CICL).
+     */
+    @Transactional(readOnly = true)
+    public BcpcCaseUniversalDetailResponse getCaseDetailsById(Long caseId) {
+        Case aCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new IllegalArgumentException("Case not found with ID: " + caseId));
+
+        BcpcCaseDetails details = bcpcCaseDetailsRepository.findByCases(aCase)
+                .orElseThrow(() -> new IllegalArgumentException("BCPC details not found for case ID: " + caseId));
+
+        String category = details.getCategory() != null ? details.getCategory().name() : "CAR";
+        BcpcCarCaseDetailResponse car = null;
+        BcpcCiclCaseDetailResponse cicl = null;
+
+        if (details.getCategory() == BcpcCategory.CICL) {
+            cicl = getCiclCaseById(caseId);
+        } else {
+            car = getCarCaseById(caseId);
+        }
+
+        return new BcpcCaseUniversalDetailResponse(
+                aCase.getId(),
+                aCase.getCaseNumber(),
+                category,
+                aCase.getFilingType() != null ? aCase.getFilingType().name() : "FORMAL_COMPLAINT",
+                aCase.getCaseStatus() != null ? aCase.getCaseStatus().name() : "PENDING",
+                car,
+                cicl
+        );
+    }
+
+    // =========================================================================
+    // Dedicated BCPC Case Notes Management
+    // =========================================================================
+
+    /**
+     * Adds a dedicated confidential case note to a BCPC case.
+     *
+     * @param caseId  the BCPC case ID
+     * @param request the case note payload
+     * @return the created {@link CaseNoteResponse}
+     */
+    @Transactional
+    public CaseNoteResponse addCaseNote(Long caseId, CaseNoteRequest request) {
+        log.info("Adding BCPC case note to Case ID: {}", caseId);
+        Case caseEntity = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("BCPC Case not found with ID: " + caseId));
+
+        User currentUser = SecurityUtils.getCurrentUser();
+
+        CaseNote note = new CaseNote();
+        note.setCases(caseEntity);
+        note.setNote(request.getNote());
+        note.setCreatedBy(currentUser);
+
+        CaseNote saved = caseNoteRepository.save(note);
+
+        try {
+            caseTimelineService.logEvent(
+                    caseEntity,
+                    TimelineEventType.NOTE_ADDED,
+                    "BCPC Case Note Added",
+                    request.getNote(),
+                    currentUser
+            );
+        } catch (Exception e) {
+            log.warn("Failed to log timeline event for BCPC case note [caseId={}]: {}", caseEntity.getId(), e.getMessage());
+        }
+
+        return toCaseNoteResponse(saved);
+    }
+
+    /**
+     * Retrieves all confidential case notes for a BCPC case ordered by newest first.
+     *
+     * @param caseId the BCPC case ID
+     * @return list of {@link CaseNoteResponse}
+     */
+    @Transactional(readOnly = true)
+    public List<CaseNoteResponse> getCaseNotes(Long caseId) {
+        log.info("Retrieving BCPC case notes for Case ID: {}", caseId);
+        return caseNoteRepository.findByCasesIdOrderByCreatedAtDesc(caseId)
+                .stream()
+                .map(this::toCaseNoteResponse)
+                .toList();
+    }
+
+    private CaseNoteResponse toCaseNoteResponse(CaseNote n) {
+        String createdBy = null;
+        if (n.getCreatedBy() != null) {
+            User u = n.getCreatedBy();
+            if (u.getPerson() != null) {
+                String first = u.getPerson().getFirstName() != null ? u.getPerson().getFirstName() : "";
+                String last  = u.getPerson().getLastName()  != null ? u.getPerson().getLastName()  : "";
+                createdBy = (first + " " + last).trim();
+            } else {
+                createdBy = u.getUsername() != null ? u.getUsername() : u.getSystemEmail();
+            }
+        }
+        return CaseNoteResponse.builder()
+                .id(n.getId())
+                .caseId(n.getCases() != null ? n.getCases().getId() : null)
+                .note(n.getNote())
+                .createdBy(createdBy)
+                .createdAt(n.getCreatedAt())
+                .build();
     }
 }

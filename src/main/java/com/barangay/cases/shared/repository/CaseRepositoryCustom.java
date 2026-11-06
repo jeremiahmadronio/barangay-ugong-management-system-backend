@@ -6,6 +6,7 @@ import com.barangay.cases.blotter.dto.BlotterRecentDeleteItemResponse;
 import com.barangay.cases.blotter.dto.BlotterFilterRequest;
 import com.barangay.cases.shared.model.Case;
 import com.barangay.cases.lupon.dto.LuponFilterRequest;
+import com.barangay.cases.bcpc.dto.BcpcFilterRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -18,6 +19,8 @@ public interface CaseRepositoryCustom {
     Page<Case> findLuponCasesFiltered(LuponFilterRequest filter, Pageable pageable);
 
     Page<Case> findVawcCasesFiltered(VawcFilterRequest filter, Pageable pageable);
+
+    Page<Case> findBcpcCasesFiltered(BcpcFilterRequest filter, Pageable pageable);
 
     Page<BlotterArchiveItemResponse> findArchivedBlotterCases(BlotterArchiveFilterRequest filter, Pageable pageable);
 

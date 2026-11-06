@@ -2,9 +2,11 @@ package com.barangay.zshared.mapper;
 
 import com.barangay.people.complainant.model.Complainant;
 import com.barangay.people.person.model.Person;
+import com.barangay.usermanagement.user.repository.UserRepository;
 import com.barangay.zshared.dto.ComplainantCreateDto;
 import com.barangay.zshared.dto.ComplainantDetailDto;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 /**
@@ -19,10 +21,33 @@ import org.springframework.stereotype.Component;
 public class ComplainantMapper {
 
     private final PersonMapper personMapper;
+    private final ObjectProvider<UserRepository> userRepositoryProvider;
 
     public ComplainantDetailDto toDetailDto(Complainant complainant) {
         if (complainant == null || complainant.getPerson() == null) return null;
         Person p = complainant.getPerson();
+
+        Short age = p.getAge();
+        if ((age == null || age == 0) && p.getBirthDate() != null) {
+            age = (short) p.getCalculatedAge();
+        }
+
+        String email = p.getEmail();
+        if (email == null || email.isBlank()) {
+            email = p.getDisplayEmail();
+        }
+        if ((email == null || email.isBlank()) && p.getId() != null) {
+            UserRepository userRepo = userRepositoryProvider.getIfAvailable();
+            if (userRepo != null) {
+                email = userRepo.findFirstByPersonId(p.getId())
+                        .map(u -> u.getSystemEmail())
+                        .filter(e -> e != null && !e.isBlank())
+                        .orElse(null);
+            }
+        }
+        if ((email == null || email.isBlank()) && p.getResident() != null && p.getResident().getPerson() != null) {
+            email = p.getResident().getPerson().getEmail();
+        }
 
         return new ComplainantDetailDto(
                 complainant.getId(),
@@ -31,10 +56,10 @@ public class ComplainantMapper {
                 p.getMiddleName(),
                 personMapper.buildFullName(p),
                 p.getContactNumber(),
-                p.getAge(),
+                age,
                 p.getGender(),
                 p.getCivilStatus(),
-                p.getEmail(),
+                email,
                 personMapper.getCompleteAddress(p)
         );
     }

@@ -4,8 +4,10 @@ import com.barangay.people.complainant.model.Complainant;
 import com.barangay.people.resident.model.Resident;
 import com.barangay.people.respondent.model.Respondent;
 import com.barangay.people.witness.model.Witness;
+import com.barangay.usermanagement.user.model.User;
 import com.barangay.zshared.entity.BaseEntity;
 import com.barangay.zshared.security.EncryptedFieldConverter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
@@ -106,9 +108,24 @@ public class Person extends BaseEntity {
     @OneToMany(mappedBy = "person", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Relationship> relationships = new ArrayList<>();
 
+    @OneToOne(mappedBy = "person", fetch = FetchType.LAZY)
+    @JsonIgnore
+    private User user;
+
     @Transient
     public int getCalculatedAge() {
         if (birthDate == null) return age != null ? age : 0;
         return Period.between(birthDate, LocalDate.now()).getYears();
+    }
+
+    @Transient
+    public String getDisplayEmail() {
+        if (email != null && !email.isBlank()) {
+            return email.trim();
+        }
+        if (user != null && user.getSystemEmail() != null && !user.getSystemEmail().isBlank()) {
+            return user.getSystemEmail().trim();
+        }
+        return null;
     }
 }

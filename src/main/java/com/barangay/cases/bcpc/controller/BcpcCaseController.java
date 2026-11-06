@@ -4,17 +4,27 @@ import com.barangay.cases.bcpc.dto.BcpcCarCaseCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcCarCaseDetailResponse;
 import com.barangay.cases.bcpc.dto.BcpcCiclCaseCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcCiclCaseDetailResponse;
+import com.barangay.cases.bcpc.dto.BcpcFilterRequest;
+import com.barangay.cases.bcpc.dto.BcpcStatsResponse;
+import com.barangay.cases.bcpc.dto.BcpcTableRowResponse;
+import com.barangay.cases.bcpc.dto.BcpcCaseUniversalDetailResponse;
 import com.barangay.cases.bcpc.service.BcpcCaseService;
+import com.barangay.cases.blotter.dto.CaseNoteRequest;
+import com.barangay.cases.blotter.dto.CaseNoteResponse;
+import com.barangay.cases.blotter.dto.TimelineEventResponse;
 import com.barangay.cases.blotter.service.CaseFileService;
+import com.barangay.cases.shared.service.CaseTimelineService;
 import com.barangay.zshared.audit.annotations.LogAudit;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;
+import com.barangay.zshared.mapper.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -36,10 +46,44 @@ public class BcpcCaseController {
 
     private final BcpcCaseService bcpcCaseService;
     private final CaseFileService caseFileService;
+    private final CaseTimelineService caseTimelineService;
 
-    // =========================================================================
-    // Child at Risk (CAR) Endpoints
-    // =========================================================================
+    /**
+     * Retrieves BCPC KPI statistics (Total cases with month trend, active, referred, settled).
+     * Excludes permanently deleted, deleted (trash), and archived cases.
+     *
+     * @return the BCPC KPI statistics
+     */
+    @GetMapping("/stats")
+    public ResponseEntity<BcpcStatsResponse> getStats() {
+        BcpcStatsResponse response = bcpcCaseService.getBcpcStats();
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Retrieves paginated and filtered BCPC case table rows.
+     * Page size defaults to 5.
+     *
+     * @param filter the filtering criteria (search, status, category, page, size)
+     * @return {@link PageResponse} of {@link BcpcTableRowResponse}
+     */
+    @GetMapping("/table")
+    public ResponseEntity<PageResponse<BcpcTableRowResponse>> getBcpcTable(
+            @ModelAttribute BcpcFilterRequest filter
+    ) {
+        PageResponse<BcpcTableRowResponse> response = bcpcCaseService.getBcpcCasesTable(filter);
+        return ResponseEntity.ok(response);
+    }
+
+
+    /**
+     * Retrieves complete universal case details by ID (automatically detects CAR or CICL).
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<BcpcCaseUniversalDetailResponse> getCaseDetailsById(@PathVariable Long id) {
+        BcpcCaseUniversalDetailResponse response = bcpcCaseService.getCaseDetailsById(id);
+        return ResponseEntity.ok(response);
+    }
 
     /**
      * Files a new Child at Risk (CAR) case record under BCPC.
@@ -68,9 +112,6 @@ public class BcpcCaseController {
         return ResponseEntity.ok(response);
     }
 
-    // =========================================================================
-    // Child in Conflict with the Law (CICL) Endpoints
-    // =========================================================================
 
     /**
      * Files a new Child in Conflict with the Law (CICL) case record under BCPC.
@@ -99,10 +140,7 @@ public class BcpcCaseController {
         return ResponseEntity.ok(response);
     }
 
-    // =========================================================================
-    // File Download Endpoints (Narrative, Evidence, Witness)
-    // =========================================================================
-
+ 
     /**
      * Retrieves the narrative statement attachment for a given BCPC case.
      */
@@ -125,5 +163,34 @@ public class BcpcCaseController {
     @GetMapping("/files/witness/{witnessId}")
     public ResponseEntity<byte[]> getWitnessFile(@PathVariable Long witnessId) {
         return caseFileService.getWitnessFile(witnessId);
+    }
+
+    /**
+     * Retrieves all timeline events for a given BCPC case.
+     */
+    @GetMapping("/{caseId}/timeline")
+    public ResponseEntity<java.util.List<TimelineEventResponse>> getCaseTimeline(@PathVariable Long caseId) {
+        return ResponseEntity.ok(caseTimelineService.getTimelineForCase(caseId));
+    }
+
+    /**
+     * Retrieves all confidential case notes for a given BCPC case.
+     */
+    @GetMapping("/{caseId}/notes")
+    public ResponseEntity<java.util.List<CaseNoteResponse>> getCaseNotes(@PathVariable Long caseId) {
+        return ResponseEntity.ok(bcpcCaseService.getCaseNotes(caseId));
+    }
+
+    /**
+     * Adds a confidential case note to a given BCPC case.
+     */
+    @PostMapping("/{caseId}/notes")
+    @LogAudit(module = AuditModule.BCPC, action = "ADD_CASE_NOTE", severity = Severity.INFO)
+    public ResponseEntity<CaseNoteResponse> addCaseNote(
+            @PathVariable Long caseId,
+            @Valid @RequestBody CaseNoteRequest request
+    ) {
+        CaseNoteResponse response = bcpcCaseService.addCaseNote(caseId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

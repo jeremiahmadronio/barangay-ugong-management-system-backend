@@ -19,6 +19,15 @@ public class ResidentMapper {
         if (complainant == null || complainant.getPerson() == null) return null;
         Person p = complainant.getPerson();
 
+        Short age = p.getAge();
+        if ((age == null || age == 0) && p.getBirthDate() != null) {
+            age = (short) p.getCalculatedAge();
+        }
+        String email = p.getEmail();
+        if (email == null || email.isBlank()) {
+            email = p.getDisplayEmail();
+        }
+
         return new ResidentDetailDto(
                 complainant.getId(),
                 p.getLastName(),
@@ -26,14 +35,13 @@ public class ResidentMapper {
                 p.getMiddleName(),
                 personMapper.buildFullName(p),
                 p.getContactNumber(),
-                p.getAge(),
+                age,
                 p.getGender(),
                 p.getCivilStatus(),
-                p.getEmail(),
+                email,
                 personMapper.getCompleteAddress(p),
-                p.getResident().getDateOfResidency(),
-                p.getResident().getBarangayIdNumber()
-
+                p.getResident() != null ? p.getResident().getDateOfResidency() : null,
+                p.getResident() != null ? p.getResident().getBarangayIdNumber() : null
         );
     }
 
@@ -42,6 +50,15 @@ public class ResidentMapper {
         if (resident == null || resident.getPerson() == null) return null;
         Person p = resident.getPerson();
 
+        Short age = p.getAge();
+        if ((age == null || age == 0) && p.getBirthDate() != null) {
+            age = (short) p.getCalculatedAge();
+        }
+        String email = p.getEmail();
+        if (email == null || email.isBlank()) {
+            email = p.getDisplayEmail();
+        }
+
         return new ResidentDetailDto(
                 resident.getResidentId(),
                 p.getLastName(),
@@ -49,10 +66,10 @@ public class ResidentMapper {
                 p.getMiddleName(),
                 personMapper.buildFullName(p),
                 p.getContactNumber(),
-                p.getAge(),
+                age,
                 p.getGender(),
                 p.getCivilStatus(),
-                p.getEmail(),
+                email,
                 personMapper.getCompleteAddress(p),
                 resident.getDateOfResidency(),
                 resident.getBarangayIdNumber()

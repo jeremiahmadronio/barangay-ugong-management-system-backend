@@ -45,6 +45,14 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(u) > 0 FROM User u WHERE u.person.id = :personId AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)")
     boolean existsActiveOrRecentDeletedByPersonId(@org.springframework.data.repository.query.Param("personId") Long personId);
 
+    @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE u.person.id = :personId AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) ORDER BY u.id DESC")
+    java.util.List<User> findAllByPersonId(@org.springframework.data.repository.query.Param("personId") Long personId);
+
+    default Optional<User> findFirstByPersonId(Long personId) {
+        if (personId == null) return Optional.empty();
+        return findAllByPersonId(personId).stream().findFirst();
+    }
+
 
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(u) FROM User u LEFT JOIN u.role r WHERE (u.isArchived = false OR u.isArchived IS NULL) AND (u.status IS NULL OR u.status <> com.barangay.zshared.enumerated.UserStatus.ARCHIVED) AND (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) AND (u.isSystem = false OR u.isSystem IS NULL) AND (r.roleName IS NULL OR UPPER(r.roleName) NOT IN ('SYSTEM_ADMIN', 'ROOTADMIN', 'ROOT_ADMIN', 'ROLE_SYSTEM_ADMIN', 'ROLE_ROOT_ADMIN')) AND (u.username IS NULL OR LOWER(u.username) <> 'superadmin')")
     long countTotalUsers();

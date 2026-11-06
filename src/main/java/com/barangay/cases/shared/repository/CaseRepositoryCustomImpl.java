@@ -3,6 +3,7 @@ package com.barangay.cases.shared.repository;
 import com.barangay.cases.blotter.dto.BlotterArchiveFilterRequest;
 import com.barangay.cases.blotter.dto.BlotterArchiveItemResponse;
 import com.barangay.cases.blotter.dto.BlotterFilterRequest;
+import com.barangay.cases.bcpc.dto.BcpcFilterRequest;
 import com.barangay.cases.blotter.dto.BlotterRecentDeleteItemResponse;
 import com.barangay.cases.shared.model.Case;
 import com.barangay.cases.shared.model.IncidentDetail;
@@ -194,6 +195,117 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         if (filter.riskLevel() != null && !filter.riskLevel().isBlank() && !"all".equalsIgnoreCase(filter.riskLevel())) {
             String riskPattern = "%" + filter.riskLevel().trim().toUpperCase() + "%";
             predicates.add(cb.like(cb.upper(root.get("riskLevel")), riskPattern));
+        }
+
+        return predicates;
+    }
+
+    @Override
+    public Page<Case> findBcpcCasesFiltered(BcpcFilterRequest filter, Pageable pageable) {
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+
+        // 1. Data Query
+        CriteriaQuery<Case> cq = cb.createQuery(Case.class);
+        Root<Case> root = cq.from(Case.class);
+
+        List<Predicate> predicates = buildBcpcPredicates(filter, cb, root);
+        cq.where(predicates.toArray(new Predicate[0]));
+        cq.orderBy(cb.desc(root.get("createdAt")));
+
+        TypedQuery<Case> query = entityManager.createQuery(cq);
+        query.setFirstResult((int) pageable.getOffset());
+        query.setMaxResults(pageable.getPageSize());
+
+        List<Case> resultList = query.getResultList();
+
+        // 2. Count Query
+        CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
+        Root<Case> countRoot = countCq.from(Case.class);
+
+        List<Predicate> countPredicates = buildBcpcPredicates(filter, cb, countRoot);
+        countCq.select(cb.count(countRoot));
+        countCq.where(countPredicates.toArray(new Predicate[0]));
+
+        Long totalCount = entityManager.createQuery(countCq).getSingleResult();
+
+        return new PageImpl<>(resultList, pageable, totalCount);
+    }
+
+    private List<Predicate> buildBcpcPredicates(BcpcFilterRequest filter, CriteriaBuilder cb, Root<Case> root) {
+        List<Predicate> predicates = new ArrayList<>();
+
+        // Base criteria: non-deleted, non-permanently-deleted, non-archived & main root cases
+        predicates.add(cb.or(cb.isNull(root.get("isDeleted")), cb.equal(root.get("isDeleted"), false)));
+        predicates.add(cb.or(cb.isNull(root.get("isPermanentDeleted")), cb.equal(root.get("isPermanentDeleted"), false)));
+        predicates.add(cb.or(cb.isNull(root.get("isArchived")), cb.equal(root.get("isArchived"), false)));
+        predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
+
+        // Department/BCPC condition
+        Join<Case, com.barangay.usermanagement.department.model.Department> deptJoin = root.join("department", JoinType.LEFT);
+        Join<Case, com.barangay.cases.bcpc.model.BcpcCaseDetails> bcpcDetailsJoin = root.join("bcpcCaseDetails", JoinType.LEFT);
+
+        Predicate bcpcDept = cb.equal(cb.upper(deptJoin.get("name")), "BCPC");
+        Predicate bcpcDetailsNotNull = cb.isNotNull(bcpcDetailsJoin.get("id"));
+        Predicate bcpcCaseNumber = cb.like(cb.upper(root.get("caseNumber")), "%BCPC%");
+
+        predicates.add(cb.or(bcpcDept, bcpcDetailsNotNull, bcpcCaseNumber));
+
+        if (filter == null) {
+            return predicates;
+        }
+
+        // Search text (Case Number, Child Name, Complainant Name, Incident Nature)
+        if (filter.search() != null && !filter.search().isBlank()) {
+            String searchPattern = "%" + filter.search().trim().toLowerCase() + "%";
+
+            Join<com.barangay.cases.bcpc.model.BcpcCaseDetails, Person> childPersonJoin = bcpcDetailsJoin.join("child", JoinType.LEFT);
+            Join<Case, Complainant> compJoin = root.join("complainant", JoinType.LEFT);
+            Join<Complainant, Person> compPersonJoin = compJoin.join("person", JoinType.LEFT);
+            Join<Case, IncidentDetail> incJoin = root.join("incidentDetail", JoinType.LEFT);
+
+            Predicate caseNumberLike = cb.like(cb.lower(root.get("caseNumber")), searchPattern);
+            Predicate childFirstLike = cb.like(cb.lower(childPersonJoin.get("firstName")), searchPattern);
+            Predicate childLastLike = cb.like(cb.lower(childPersonJoin.get("lastName")), searchPattern);
+            Predicate compFirstLike = cb.like(cb.lower(compPersonJoin.get("firstName")), searchPattern);
+            Predicate compLastLike = cb.like(cb.lower(compPersonJoin.get("lastName")), searchPattern);
+            Predicate natureLike = cb.like(cb.lower(incJoin.get("natureOfComplaint")), searchPattern);
+
+            predicates.add(cb.or(caseNumberLike, childFirstLike, childLastLike, compFirstLike, compLastLike, natureLike));
+        }
+
+        // Status Filter
+        if (filter.status() != null && !filter.status().isBlank() && !"all".equalsIgnoreCase(filter.status())) {
+            String rawStatus = filter.status().trim().toUpperCase();
+            List<CaseStatus> matchedStatuses = new ArrayList<>();
+            if (rawStatus.contains("ONGOING") || rawStatus.contains("PENDING")) {
+                matchedStatuses.add(CaseStatus.PENDING);
+                matchedStatuses.add(CaseStatus.REOPENED);
+            } else if (rawStatus.contains("REFERRAL") || rawStatus.contains("REFERRED")) {
+                matchedStatuses.add(CaseStatus.ISSUED_REFERRAL);
+            } else if (rawStatus.contains("SETTLED") || rawStatus.contains("RESOLVED")) {
+                matchedStatuses.add(CaseStatus.SETTLED);
+            } else if (rawStatus.contains("DISMISSED")) {
+                matchedStatuses.add(CaseStatus.DISMISSED);
+            } else if (rawStatus.contains("WITHDRAWN")) {
+                matchedStatuses.add(CaseStatus.WITHDRAWN);
+            } else {
+                try {
+                    matchedStatuses.add(CaseStatus.valueOf(rawStatus));
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+            if (!matchedStatuses.isEmpty()) {
+                predicates.add(root.get("caseStatus").in(matchedStatuses));
+            }
+        }
+
+        // Category Filter (CAR vs CICL)
+        if (filter.category() != null && !filter.category().isBlank() && !"all".equalsIgnoreCase(filter.category())) {
+            try {
+                com.barangay.zshared.enumerated.BcpcCategory cat = com.barangay.zshared.enumerated.BcpcCategory.valueOf(filter.category().trim().toUpperCase());
+                predicates.add(cb.equal(bcpcDetailsJoin.get("category"), cat));
+            } catch (IllegalArgumentException ignored) {
+            }
         }
 
         return predicates;

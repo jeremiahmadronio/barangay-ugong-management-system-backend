@@ -269,6 +269,76 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
             @Param("end") LocalDateTime end
     );
 
+    // =========================================================================
+    // BCPC KPI Statistics Queries
+    // =========================================================================
+
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (
+            (d IS NOT NULL AND UPPER(d.name) = 'BCPC')
+            OR c.bcpcCaseDetails IS NOT NULL
+            OR UPPER(c.caseNumber) LIKE '%BCPC%'
+        )
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+    """)
+    long countRootBcpcCases();
+
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (
+            (d IS NOT NULL AND UPPER(d.name) = 'BCPC')
+            OR c.bcpcCaseDetails IS NOT NULL
+            OR UPPER(c.caseNumber) LIKE '%BCPC%'
+        )
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.createdAt >= :start
+    """)
+    long countRootBcpcCasesByCreatedAtGreaterThanEqual(@Param("start") LocalDateTime start);
+
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (
+            (d IS NOT NULL AND UPPER(d.name) = 'BCPC')
+            OR c.bcpcCaseDetails IS NOT NULL
+            OR UPPER(c.caseNumber) LIKE '%BCPC%'
+        )
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.createdAt BETWEEN :start AND :end
+    """)
+    long countRootBcpcCasesByCreatedAtBetween(
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
+
+    @Query("""
+        SELECT COUNT(c) FROM Case c
+        LEFT JOIN c.department d
+        WHERE (
+            (d IS NOT NULL AND UPPER(d.name) = 'BCPC')
+            OR c.bcpcCaseDetails IS NOT NULL
+            OR UPPER(c.caseNumber) LIKE '%BCPC%'
+        )
+          AND (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.caseStatus IN :statuses
+    """)
+    long countLatestBcpcCasesByCaseStatusIn(@Param("statuses") Collection<CaseStatus> statuses);
+
 
     @Query("SELECT c FROM Case c WHERE c.caseStatus IN :statuses AND (c.isArchived IS NULL OR c.isArchived = false) AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)")
     List<Case> findActiveCasesForExpirationCheck(@Param("statuses") Collection<CaseStatus> statuses);
