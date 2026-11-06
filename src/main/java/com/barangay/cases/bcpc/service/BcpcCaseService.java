@@ -5,12 +5,17 @@ import com.barangay.cases.bcpc.dto.BcpcCarCaseDetailResponse;
 import com.barangay.cases.bcpc.dto.BcpcCiclAssessmentDto;
 import com.barangay.cases.bcpc.dto.BcpcCiclCaseCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcCiclCaseDetailResponse;
+import com.barangay.cases.bcpc.dto.BcpcCustodyLogDto;
 import com.barangay.cases.bcpc.dto.BcpcFilterRequest;
 import com.barangay.cases.bcpc.dto.BcpcPersonDetailDto;
 import com.barangay.cases.bcpc.dto.BcpcPersonInputDto;
 import com.barangay.cases.bcpc.dto.BcpcStatsResponse;
 import com.barangay.cases.bcpc.dto.BcpcTableRowResponse;
 import com.barangay.cases.bcpc.dto.BcpcCaseUniversalDetailResponse;
+import com.barangay.cases.bcpc.dto.UpdateCiclCustodyLogDto;
+import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import com.barangay.cases.bcpc.model.BcpcCarAssessment;
 import com.barangay.cases.bcpc.model.BcpcCaseDetails;
 import com.barangay.cases.bcpc.model.BcpcCiclAssessment;
@@ -966,13 +971,25 @@ public class BcpcCaseService {
                 ? c.getCreatedAt().format(DateTimeFormatter.ofPattern("M/d/yyyy"))
                 : "—";
 
+        String effectiveStatus = c.getCaseStatus() != null ? c.getCaseStatus().name() : "PENDING";
+        if ("PENDING".equalsIgnoreCase(effectiveStatus) && c.getBcpcCaseDetails() != null) {
+            BcpcCaseDetails d = c.getBcpcCaseDetails();
+            boolean hasTurnover = (d.getTemporaryPlacement() != null && !d.getTemporaryPlacement().isBlank())
+                    || (d.getCustodyResolution() != null && !d.getCustodyResolution().isBlank() && !"Pending Resolution".equalsIgnoreCase(d.getCustodyResolution()))
+                    || Boolean.FALSE.equals(d.getWasApprehended())
+                    || (d.getCustodyStatus() != null && !"Pending Turnover".equalsIgnoreCase(d.getCustodyStatus()) && !"In Custody - Awaiting Turnover".equalsIgnoreCase(d.getCustodyStatus()));
+            if (hasTurnover) {
+                effectiveStatus = "UNDER_CUSTODY";
+            }
+        }
+
         return new BcpcTableRowResponse(
                 c.getId(),
                 c.getCaseNumber(),
                 childName,
                 caseNature,
                 category,
-                c.getCaseStatus(),
+                effectiveStatus,
                 dateFiled,
                 c.getCreatedAt()
         );
@@ -1018,12 +1035,23 @@ public class BcpcCaseService {
             car = getCarCaseById(caseId);
         }
 
+        String effectiveCaseStatus = aCase.getCaseStatus() != null ? aCase.getCaseStatus().name() : "PENDING";
+        if ("PENDING".equalsIgnoreCase(effectiveCaseStatus)) {
+            boolean hasTurnover = (details.getTemporaryPlacement() != null && !details.getTemporaryPlacement().isBlank())
+                    || (details.getCustodyResolution() != null && !details.getCustodyResolution().isBlank() && !"Pending Resolution".equalsIgnoreCase(details.getCustodyResolution()))
+                    || Boolean.FALSE.equals(details.getWasApprehended())
+                    || (details.getCustodyStatus() != null && !"Pending Turnover".equalsIgnoreCase(details.getCustodyStatus()) && !"In Custody - Awaiting Turnover".equalsIgnoreCase(details.getCustodyStatus()));
+            if (hasTurnover) {
+                effectiveCaseStatus = "UNDER_CUSTODY";
+            }
+        }
+
         return new BcpcCaseUniversalDetailResponse(
                 aCase.getId(),
                 aCase.getCaseNumber(),
                 category,
                 aCase.getFilingType() != null ? aCase.getFilingType().name() : "FORMAL_COMPLAINT",
-                aCase.getCaseStatus() != null ? aCase.getCaseStatus().name() : "PENDING",
+                effectiveCaseStatus,
                 car,
                 cicl
         );
@@ -1104,5 +1132,298 @@ public class BcpcCaseService {
                 .createdBy(createdBy)
                 .createdAt(n.getCreatedAt())
                 .build();
+    }
+
+    /**
+     * Retrieves the current Custody & Turnover log for a BCPC case.
+     */
+    @Transactional(readOnly = true)
+    public BcpcCustodyLogDto getCustodyLog(Long caseId) {
+        log.info("Retrieving Custody Log for BCPC Case ID: {}", caseId);
+        Case caseEntity = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("BCPC Case not found with ID: " + caseId));
+        BcpcCaseDetails details = bcpcCaseDetailsRepository.findByCasesId(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("BCPC Details not found for Case ID: " + caseId));
+
+        return toCustodyLogDto(details);
+    }
+
+    private BcpcCustodyLogDto toCustodyLogDto(BcpcCaseDetails details) {
+        String custodyStatus = details.getCustodyStatus();
+        if (custodyStatus == null || custodyStatus.isBlank()) {
+            if (details.getTemporaryPlacement() != null && !details.getTemporaryPlacement().isBlank()) {
+                if (CarTurnoverPolicy.TEMPORARY.equals(details.getTemporaryPlacement())) {
+                    custodyStatus = "Temporarily Accommodated";
+                } else {
+                    custodyStatus = "Turnover Completed";
+                }
+            } else if (details.getWasApprehended() != null) {
+                if (Boolean.FALSE.equals(details.getWasApprehended())) {
+                    custodyStatus = "Not in Custody";
+                } else if (details.getCustodyResolution() != null && !details.getCustodyResolution().isBlank() && !"Pending Resolution".equalsIgnoreCase(details.getCustodyResolution())) {
+                    custodyStatus = "Turnover Completed";
+                } else {
+                    custodyStatus = "In Custody - Awaiting Turnover";
+                }
+            } else {
+                custodyStatus = "Pending Turnover";
+            }
+        }
+
+        JsonNode receiverNode = CarTurnoverPolicy.receiver(details.getInitialResponsibility());
+        String fn = CarTurnoverPolicy.text(receiverNode, "firstName");
+        String mn = CarTurnoverPolicy.text(receiverNode, "middleName");
+        String ln = CarTurnoverPolicy.text(receiverNode, "lastName");
+        String receivingPersonName = (fn + " " + mn + " " + ln).trim().replaceAll(" +", " ");
+        if (receivingPersonName.isEmpty()) receivingPersonName = fn;
+
+        String receivingRelationship = CarTurnoverPolicy.text(receiverNode, "relationship");
+        if (CarTurnoverPolicy.TEMPORARY.equals(details.getTemporaryPlacement())) {
+            receivingRelationship = CarTurnoverPolicy.text(receiverNode, "officePosition");
+            if (receivingRelationship.isEmpty()) receivingRelationship = "Barangay Personnel";
+        }
+
+        String receivingOffice = CarTurnoverPolicy.text(receiverNode, "receivingOffice");
+        if (receivingOffice.isEmpty()) receivingOffice = CarTurnoverPolicy.text(receiverNode, "receivingBarangay");
+
+        String immediateActionNotes = CarTurnoverPolicy.text(receiverNode, "immediateActionNotes");
+
+        boolean carGuidanceApplicable = CarTurnoverPolicy.PARENT.equals(details.getTemporaryPlacement()) ||
+                (details.getCategory() == BcpcCategory.CAR && details.getTemporaryPlacement() == null);
+
+        // CICL info
+        String apprehOfficer = null;
+        String apprehPlace = null;
+        String apprehDate = null;
+        String apprehTime = null;
+        if (details.getCiclAssessment() != null) {
+            apprehOfficer = details.getCiclAssessment().getApprehendingOfficerName();
+            apprehPlace = details.getCiclAssessment().getApprehensionPlace();
+            if (details.getCiclAssessment().getApprehensionDateTime() != null) {
+                apprehDate = details.getCiclAssessment().getApprehensionDateTime().toLocalDate().toString();
+                apprehTime = details.getCiclAssessment().getApprehensionDateTime().toLocalTime().toString();
+            }
+        }
+
+        return BcpcCustodyLogDto.builder()
+                .turnoverAction("NEW_TURNOVER")
+                .custodyStatus(custodyStatus)
+                .needsMedicalAttention(details.getNeedsMedicalAttention())
+                .temporaryPlacement(details.getTemporaryPlacement())
+                .initialResponsibility(details.getInitialResponsibility())
+                .contactNumber(details.getContactNumber())
+                .transferDate(details.getTransferDate())
+                .transferTime(details.getTransferTime())
+                .temporaryPlacementReason(details.getTemporaryPlacementReason())
+                .transferNotes(details.getTransferNotes())
+                .healthCoordinationConfirmed(details.getHealthCoordinationConfirmed())
+                .childGuidanceProvided(details.getChildGuidanceProvided())
+                .parentAdviceProvided(details.getParentAdviceProvided())
+                .guidanceNotes(details.getGuidanceNotes())
+                .receivingPersonName(receivingPersonName)
+                .receivingRelationship(receivingRelationship)
+                .receivingOffice(receivingOffice)
+                .immediateActionNotes(immediateActionNotes)
+                .carGuidanceApplicable(carGuidanceApplicable)
+                .wasApprehended(details.getWasApprehended())
+                .apprehendingOfficerName(apprehOfficer)
+                .apprehensionPlace(apprehPlace)
+                .apprehensionDate(apprehDate)
+                .apprehensionTime(apprehTime)
+                .custodyResolution(details.getCustodyResolution())
+                .turnoverDate(details.getTurnoverDate())
+                .turnoverTime(details.getTurnoverTime())
+                .delayReason(details.getDelayReason())
+                .custodyRemarks(details.getCustodyRemarks())
+                .build();
+    }
+
+    /**
+     * Records or updates a Custody & Turnover entry for a BCPC case (primarily CAR handoff).
+     * Automatically logs an event to the Case Timeline and triggers audit logging.
+     */
+    @Transactional
+    public BcpcCustodyLogDto updateCustodyLog(Long caseId, BcpcCustodyLogDto request) {
+        log.info("Updating Custody Log for BCPC Case ID: {}", caseId);
+        Case caseEntity = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("BCPC Case not found with ID: " + caseId));
+        if (caseEntity.getCaseStatus() == CaseStatus.SETTLED || caseEntity.getCaseStatus() == CaseStatus.DISMISSED || caseEntity.getCaseStatus() == CaseStatus.WITHDRAWN) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot update custody for settled, dismissed, or withdrawn cases.");
+        }
+
+        BcpcCaseDetails details = bcpcCaseDetailsRepository.findByCasesId(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("BCPC Details not found for Case ID: " + caseId));
+
+        boolean existing = details.getTemporaryPlacement() != null && !details.getTemporaryPlacement().isBlank();
+        boolean correction = "CORRECTION".equalsIgnoreCase(request.getTurnoverAction());
+
+        if (correction) {
+            CarTurnoverPolicy.require(existing, "There is no saved turnover to correct.");
+            CarTurnoverPolicy.require(!CarTurnoverPolicy.blank(request.getEditReason()), "Reason for Edit is required for modifying a saved turnover record.");
+        }
+
+        boolean guidanceApplicable = CarTurnoverPolicy.PARENT.equals(request.getTemporaryPlacement());
+        CarTurnoverPolicy.validate(request, guidanceApplicable);
+
+        BcpcCustodyLogDto previousDto = toCustodyLogDto(details);
+        java.util.Map<String, String> beforeSnapshot = CarTurnoverPolicy.snapshot(previousDto);
+        java.util.Map<String, String> afterSnapshot = CarTurnoverPolicy.snapshot(request);
+        String changes = CarTurnoverPolicy.changes(beforeSnapshot, afterSnapshot);
+
+        if (correction && changes.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No turnover fields were changed.");
+        }
+
+        String determinedStatus = CarTurnoverPolicy.TEMPORARY.equals(request.getTemporaryPlacement())
+                ? "Temporarily Accommodated"
+                : "Turnover Completed";
+
+        details.setCustodyStatus(determinedStatus);
+        details.setTemporaryPlacement(request.getTemporaryPlacement());
+        details.setInitialResponsibility(request.getInitialResponsibility());
+        details.setContactNumber(request.getContactNumber());
+        details.setTransferDate(request.getTransferDate());
+        details.setTransferTime(request.getTransferTime());
+        details.setTemporaryPlacementReason(request.getTemporaryPlacementReason());
+        details.setTransferNotes(request.getTransferNotes());
+        details.setNeedsMedicalAttention(request.getNeedsMedicalAttention());
+        details.setHealthCoordinationConfirmed(request.getHealthCoordinationConfirmed());
+        details.setChildGuidanceProvided(request.getChildGuidanceProvided());
+        details.setParentAdviceProvided(request.getParentAdviceProvided());
+        details.setGuidanceNotes(request.getGuidanceNotes());
+
+        BcpcCaseDetails savedDetails = bcpcCaseDetailsRepository.save(details);
+
+        // Log Timeline Event
+        User currentUser = SecurityUtils.getCurrentUser();
+        String timelineTitle;
+        if (correction) {
+            timelineTitle = "TURNOVER RECORD UPDATED";
+        } else if (existing) {
+            timelineTitle = "NEW TURNOVER RECORDED";
+        } else {
+            timelineTitle = "CUSTODY / TURNOVER COMPLETED";
+        }
+
+        String timelineDescription = correction
+                ? "Reason for Edit: " + request.getEditReason().trim() + "\n\nChanged fields:\n" + changes
+                + "\n\nPrevious turnover:\n" + CarTurnoverPolicy.describe(beforeSnapshot)
+                + "\nCorrected record:\n" + CarTurnoverPolicy.describe(afterSnapshot)
+                : CarTurnoverPolicy.describe(afterSnapshot) + (existing ? "\nPrevious turnover:\n" + CarTurnoverPolicy.describe(beforeSnapshot) : "");
+
+        try {
+            caseTimelineService.logEvent(
+                    caseEntity,
+                    TimelineEventType.STATUS_CHANGED,
+                    timelineTitle,
+                    timelineDescription,
+                    currentUser
+            );
+        } catch (Exception e) {
+            log.warn("Failed to log timeline event for BCPC custody [caseId={}]: {}", caseId, e.getMessage());
+        }
+
+        return toCustodyLogDto(savedDetails);
+    }
+
+    /**
+     * Records or updates a CICL Custody / Apprehension log.
+     * Automatically logs an event to the Case Timeline and triggers audit logging.
+     */
+    @Transactional
+    public BcpcCustodyLogDto updateCiclCustodyLog(Long caseId, UpdateCiclCustodyLogDto request) {
+        log.info("Updating CICL Custody Log for Case ID: {}", caseId);
+        Case caseEntity = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("BCPC Case not found with ID: " + caseId));
+        if (caseEntity.getCaseStatus() == CaseStatus.SETTLED || caseEntity.getCaseStatus() == CaseStatus.DISMISSED || caseEntity.getCaseStatus() == CaseStatus.WITHDRAWN) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot update custody for settled, dismissed, or withdrawn cases.");
+        }
+
+        BcpcCaseDetails details = bcpcCaseDetailsRepository.findByCasesId(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("BCPC Details not found for Case ID: " + caseId));
+
+        User currentUser = SecurityUtils.getCurrentUser();
+
+        details.setWasApprehended(request.getWasApprehended());
+
+        if (Boolean.FALSE.equals(request.getWasApprehended())) {
+            details.setCustodyResolution("Not in Custody");
+            details.setCustodyStatus("Not in Custody");
+
+            BcpcCaseDetails saved = bcpcCaseDetailsRepository.save(details);
+
+            try {
+                caseTimelineService.logEvent(
+                        caseEntity,
+                        TimelineEventType.STATUS_CHANGED,
+                        "CICL CUSTODY RESOLVED: NOT IN CUSTODY",
+                        "Child officially recorded as Not in Custody. Legal case proceedings continue without physical detention.",
+                        currentUser
+                );
+            } catch (Exception e) {
+                log.warn("Failed to log timeline event for CICL custody not apprehended [caseId={}]: {}", caseId, e.getMessage());
+            }
+
+            return toCustodyLogDto(saved);
+        }
+
+        // Child was apprehended
+        if (request.getCustodyResolution() != null && !request.getCustodyResolution().isBlank()
+                && !"Pending Resolution".equalsIgnoreCase(request.getCustodyResolution())) {
+            details.setCustodyResolution(request.getCustodyResolution());
+            details.setTurnoverDate(request.getTurnoverDate());
+            details.setTurnoverTime(request.getTurnoverTime());
+            details.setTurnedOverTo(request.getTurnedOverTo());
+            details.setTurnedOverToSpecify(request.getTurnedOverToSpecify());
+            details.setDelayReason(request.getDelayReason());
+            details.setCustodyRemarks(request.getCustodyRemarks());
+            details.setCustodyStatus("Turnover Completed");
+
+            BcpcCaseDetails saved = bcpcCaseDetailsRepository.save(details);
+
+            StringBuilder desc = new StringBuilder();
+            desc.append("Resolution: ").append(request.getCustodyResolution()).append("\n");
+            if (request.getTurnedOverTo() != null) desc.append("Turned Over To: ").append(request.getTurnedOverTo()).append("\n");
+            if (request.getTurnoverDate() != null) desc.append("Turnover Date: ").append(request.getTurnoverDate()).append("\n");
+            if (request.getTurnoverTime() != null) desc.append("Turnover Time: ").append(request.getTurnoverTime()).append("\n");
+            if (request.getReleasedTo() != null) desc.append("Recipient: ").append(request.getReleasedTo()).append("\n");
+            if (request.getRecipientRelationship() != null) desc.append("Relationship: ").append(request.getRecipientRelationship()).append("\n");
+            if (request.getContactNumber() != null) desc.append("Contact: ").append(request.getContactNumber()).append("\n");
+            if (request.getDelayReason() != null && !request.getDelayReason().isBlank()) desc.append("Delay Reason: ").append(request.getDelayReason()).append("\n");
+            if (request.getCustodyRemarks() != null && !request.getCustodyRemarks().isBlank()) desc.append("Remarks: ").append(request.getCustodyRemarks()).append("\n");
+
+            try {
+                caseTimelineService.logEvent(
+                        caseEntity,
+                        TimelineEventType.STATUS_CHANGED,
+                        "CICL PHYSICAL TURNOVER COMPLETED",
+                        desc.toString(),
+                        currentUser
+                );
+            } catch (Exception e) {
+                log.warn("Failed to log timeline event for CICL turnover [caseId={}]: {}", caseId, e.getMessage());
+            }
+
+            return toCustodyLogDto(saved);
+        } else {
+            details.setCustodyResolution("Pending Resolution");
+            details.setCustodyStatus("In Custody - Awaiting Turnover");
+
+            BcpcCaseDetails saved = bcpcCaseDetailsRepository.save(details);
+
+            try {
+                caseTimelineService.logEvent(
+                        caseEntity,
+                        TimelineEventType.STATUS_CHANGED,
+                        "CICL APPREHENSION RECORDED",
+                        "Child was officially recorded as taken into custody. 8-hour statutory turnover window initiated.",
+                        currentUser
+                );
+            } catch (Exception e) {
+                log.warn("Failed to log timeline event for CICL apprehension [caseId={}]: {}", caseId, e.getMessage());
+            }
+
+            return toCustodyLogDto(saved);
+        }
     }
 }

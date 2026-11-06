@@ -84,4 +84,69 @@ public class BcpcCaseDetails extends BaseEntity {
      */
     @OneToMany(mappedBy = "bcpcCaseDetails", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private List<BcpcIntervention> interventions = new ArrayList<>();
+
+    // --- Custody & Turnover Tracking ---
+    @Column(name = "custody_status", length = 50)
+    private String custodyStatus;
+
+    @Column(name = "temporary_placement", length = 150)
+    private String temporaryPlacement;
+
+    @Column(name = "initial_responsibility", columnDefinition = "TEXT")
+    private String initialResponsibility;
+
+    @Column(name = "contact_number", length = 50)
+    private String contactNumber;
+
+    @Column(name = "transfer_date")
+    private java.time.LocalDate transferDate;
+
+    @Column(name = "transfer_time", length = 20)
+    private String transferTime;
+
+    @Column(name = "temporary_placement_reason", columnDefinition = "TEXT")
+    private String temporaryPlacementReason;
+
+    @Column(name = "transfer_notes", columnDefinition = "TEXT")
+    private String transferNotes;
+
+    @Column(name = "needs_medical_attention")
+    private Boolean needsMedicalAttention;
+
+    @Column(name = "health_coordination_confirmed")
+    private Boolean healthCoordinationConfirmed;
+
+    @Column(name = "child_guidance_provided")
+    private Boolean childGuidanceProvided;
+
+    @Column(name = "parent_advice_provided")
+    private Boolean parentAdviceProvided;
+
+    @Column(name = "guidance_notes", columnDefinition = "TEXT")
+    private String guidanceNotes;
+
+    // --- CICL Specific Custody Fields ---
+    @Column(name = "was_apprehended")
+    private Boolean wasApprehended;
+
+    @Column(name = "custody_resolution", length = 100)
+    private String custodyResolution;
+
+    @Column(name = "cicl_turnover_date")
+    private String turnoverDate;
+
+    @Column(name = "cicl_turnover_time", length = 20)
+    private String turnoverTime;
+
+    @Column(name = "turned_over_to", length = 150)
+    private String turnedOverTo;
+
+    @Column(name = "turned_over_to_specify", length = 150)
+    private String turnedOverToSpecify;
+
+    @Column(name = "delay_reason", columnDefinition = "TEXT")
+    private String delayReason;
+
+    @Column(name = "custody_remarks", columnDefinition = "TEXT")
+    private String custodyRemarks;
 }

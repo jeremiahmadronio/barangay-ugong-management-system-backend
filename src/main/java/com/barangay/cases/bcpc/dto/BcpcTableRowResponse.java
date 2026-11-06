@@ -1,6 +1,5 @@
 package com.barangay.cases.bcpc.dto;
 
-import com.barangay.zshared.enumerated.CaseStatus;
 import java.time.LocalDateTime;
 
 public record BcpcTableRowResponse(
@@ -9,7 +8,7 @@ public record BcpcTableRowResponse(
         String childName,
         String caseNature,
         String category,
-        CaseStatus status,
+        String status,
         String dateFiled,
         LocalDateTime createdAt
 ) {}

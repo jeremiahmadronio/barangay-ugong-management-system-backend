@@ -4,10 +4,12 @@ import com.barangay.cases.bcpc.dto.BcpcCarCaseCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcCarCaseDetailResponse;
 import com.barangay.cases.bcpc.dto.BcpcCiclCaseCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcCiclCaseDetailResponse;
+import com.barangay.cases.bcpc.dto.BcpcCustodyLogDto;
 import com.barangay.cases.bcpc.dto.BcpcFilterRequest;
 import com.barangay.cases.bcpc.dto.BcpcStatsResponse;
 import com.barangay.cases.bcpc.dto.BcpcTableRowResponse;
 import com.barangay.cases.bcpc.dto.BcpcCaseUniversalDetailResponse;
+import com.barangay.cases.bcpc.dto.UpdateCiclCustodyLogDto;
 import com.barangay.cases.bcpc.service.BcpcCaseService;
 import com.barangay.cases.blotter.dto.CaseNoteRequest;
 import com.barangay.cases.blotter.dto.CaseNoteResponse;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -192,5 +195,39 @@ public class BcpcCaseController {
     ) {
         CaseNoteResponse response = bcpcCaseService.addCaseNote(caseId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * Retrieves the Custody & Turnover record for a BCPC case.
+     */
+    @GetMapping("/{caseId}/custody-log")
+    public ResponseEntity<BcpcCustodyLogDto> getCustodyLog(@PathVariable Long caseId) {
+        return ResponseEntity.ok(bcpcCaseService.getCustodyLog(caseId));
+    }
+
+    /**
+     * Records or updates a Custody & Turnover entry for a BCPC case (primarily CAR placement).
+     */
+    @PutMapping("/{caseId}/custody-log")
+    @LogAudit(module = AuditModule.BCPC, action = "BCPC_CUSTODY_TURNOVER_RECORDED", severity = Severity.INFO)
+    public ResponseEntity<BcpcCustodyLogDto> updateCustodyLog(
+            @PathVariable Long caseId,
+            @RequestBody BcpcCustodyLogDto request
+    ) {
+        BcpcCustodyLogDto response = bcpcCaseService.updateCustodyLog(caseId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Records or updates a CICL Custody / Apprehension log.
+     */
+    @PutMapping("/{caseId}/cicl-custody-log")
+    @LogAudit(module = AuditModule.BCPC, action = "CICL_CUSTODY_RECORDED", severity = Severity.INFO)
+    public ResponseEntity<BcpcCustodyLogDto> updateCiclCustodyLog(
+            @PathVariable Long caseId,
+            @RequestBody UpdateCiclCustodyLogDto request
+    ) {
+        BcpcCustodyLogDto response = bcpcCaseService.updateCiclCustodyLog(caseId, request);
+        return ResponseEntity.ok(response);
     }
 }
