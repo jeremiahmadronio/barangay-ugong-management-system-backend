@@ -369,7 +369,8 @@ public class ResidentServiceImpl implements ResidentService {
                             p != null ? p.getGender() : null,
                             p != null ? p.getCivilStatus() : null,
                             r.getStatus() != null ? r.getStatus().name() : "ACTIVE",
-                            photoStr
+                            photoStr,
+                            p != null ? p.getBirthDate() : null
                     );
                 })
                 .collect(Collectors.toList());
@@ -727,4 +728,5 @@ public class ResidentServiceImpl implements ResidentService {
         return sb.toString().trim();
     }
 }
+
 

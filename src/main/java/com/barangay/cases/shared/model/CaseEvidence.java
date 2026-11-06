@@ -6,6 +6,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import java.sql.Types;
 
 @Entity
 @Table(name = "case_evidences")
@@ -27,8 +29,9 @@ public class CaseEvidence extends BaseEntity {
     @JoinColumn(name = "evidence_type_id", nullable = false)
     private EvidenceType type;
 
-    @Lob
-    @Column(name = "files", length = 500)
+    @JdbcTypeCode(Types.VARBINARY)
+    @Basic(fetch = FetchType.LAZY)
+    @Column(name = "files", columnDefinition = "bytea")
     private byte[] files;
 
     @Column(name = "fileName")

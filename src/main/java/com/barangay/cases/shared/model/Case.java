@@ -149,6 +149,9 @@ public class Case extends BaseEntity implements Archivable {
     @OneToOne(mappedBy = "cases", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private BarangayProtectionOrder barangayProtectionOrder;
 
+    @OneToOne(mappedBy = "cases", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private com.barangay.cases.bcpc.model.BcpcCaseDetails bcpcCaseDetails;
+
     @OneToMany(mappedBy = "cases", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private List<ChildInvolved> children = new ArrayList<>();
 
