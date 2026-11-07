@@ -15,8 +15,11 @@ public interface BcpcReferralRepository extends JpaRepository<BcpcReferral, Long
 
     List<BcpcReferral> findByCasesId(Long caseId);
 
+    List<BcpcReferral> findByCasesIdOrderByReferralDateDesc(Long caseId);
+
+    long countByCasesId(Long caseId);
+
     Optional<BcpcReferral> findByReferralControlNumber(String referralControlNumber);
 
     boolean existsByReferralControlNumber(String referralControlNumber);
 }
-

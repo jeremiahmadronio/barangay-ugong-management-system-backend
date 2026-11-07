@@ -9,7 +9,12 @@ import com.barangay.cases.bcpc.dto.BcpcFilterRequest;
 import com.barangay.cases.bcpc.dto.BcpcStatsResponse;
 import com.barangay.cases.bcpc.dto.BcpcTableRowResponse;
 import com.barangay.cases.bcpc.dto.BcpcCaseUniversalDetailResponse;
+import com.barangay.cases.bcpc.dto.BcpcReferralCancelRequest;
+import com.barangay.cases.bcpc.dto.BcpcReferralCreateRequest;
+import com.barangay.cases.bcpc.dto.BcpcReferralFeedbackRequest;
+import com.barangay.cases.bcpc.dto.BcpcReferralResponse;
 import com.barangay.cases.bcpc.dto.UpdateCiclCustodyLogDto;
+import java.util.List;
 import com.barangay.cases.bcpc.service.BcpcCaseService;
 import com.barangay.cases.blotter.dto.CaseNoteRequest;
 import com.barangay.cases.blotter.dto.CaseNoteResponse;
@@ -228,6 +233,55 @@ public class BcpcCaseController {
             @RequestBody UpdateCiclCustodyLogDto request
     ) {
         BcpcCustodyLogDto response = bcpcCaseService.updateCiclCustodyLog(caseId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Retrieves all inter-agency referrals for a BCPC case.
+     */
+    @GetMapping("/{caseId}/referrals")
+    public ResponseEntity<List<BcpcReferralResponse>> getReferrals(@PathVariable Long caseId) {
+        return ResponseEntity.ok(bcpcCaseService.getReferrals(caseId));
+    }
+
+    /**
+     * Issues an official inter-agency referral.
+     */
+    @PostMapping("/{caseId}/referrals")
+    @LogAudit(module = AuditModule.BCPC, action = "BCPC_REFERRAL_ISSUED", severity = Severity.INFO)
+    public ResponseEntity<BcpcReferralResponse> issueReferral(
+            @PathVariable Long caseId,
+            @Valid @RequestBody BcpcReferralCreateRequest request
+    ) {
+        BcpcReferralResponse response = bcpcCaseService.issueReferral(caseId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * Records official feedback received from receiving agency.
+     */
+    @PostMapping("/{caseId}/referrals/{referralId}/feedback")
+    @LogAudit(module = AuditModule.BCPC, action = "BCPC_REFERRAL_FEEDBACK_RECORDED", severity = Severity.INFO)
+    public ResponseEntity<BcpcReferralResponse> recordReferralFeedback(
+            @PathVariable Long caseId,
+            @PathVariable Long referralId,
+            @Valid @RequestBody BcpcReferralFeedbackRequest request
+    ) {
+        BcpcReferralResponse response = bcpcCaseService.recordReferralFeedback(caseId, referralId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Cancels an issued referral.
+     */
+    @PostMapping("/{caseId}/referrals/{referralId}/cancel")
+    @LogAudit(module = AuditModule.BCPC, action = "BCPC_REFERRAL_CANCELLED", severity = Severity.INFO)
+    public ResponseEntity<BcpcReferralResponse> cancelReferral(
+            @PathVariable Long caseId,
+            @PathVariable Long referralId,
+            @Valid @RequestBody BcpcReferralCancelRequest request
+    ) {
+        BcpcReferralResponse response = bcpcCaseService.cancelReferral(caseId, referralId, request);
         return ResponseEntity.ok(response);
     }
 }

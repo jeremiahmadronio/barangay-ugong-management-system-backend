@@ -19,9 +19,19 @@ import org.springframework.web.server.ResponseStatusException;
 import com.barangay.cases.bcpc.model.BcpcCarAssessment;
 import com.barangay.cases.bcpc.model.BcpcCaseDetails;
 import com.barangay.cases.bcpc.model.BcpcCiclAssessment;
+import com.barangay.cases.bcpc.model.BcpcReferral;
+import com.barangay.cases.bcpc.model.BcpcReferralFeedback;
+import com.barangay.cases.bcpc.dto.BcpcReferralCreateRequest;
+import com.barangay.cases.bcpc.dto.BcpcReferralFeedbackRequest;
+import com.barangay.cases.bcpc.dto.BcpcReferralFeedbackDto;
+import com.barangay.cases.bcpc.dto.BcpcReferralCancelRequest;
+import com.barangay.cases.bcpc.dto.BcpcReferralResponse;
 import com.barangay.cases.bcpc.repository.BcpcCarAssessmentRepository;
 import com.barangay.cases.bcpc.repository.BcpcCaseDetailsRepository;
 import com.barangay.cases.bcpc.repository.BcpcCiclAssessmentRepository;
+import com.barangay.cases.bcpc.repository.BcpcReferralRepository;
+import com.barangay.cases.bcpc.repository.BcpcReferralFeedbackRepository;
+import java.time.LocalDate;
 import com.barangay.cases.shared.model.Case;
 import com.barangay.cases.shared.model.CaseEvidence;
 import com.barangay.cases.shared.model.CaseNote;
@@ -112,6 +122,8 @@ public class BcpcCaseService {
     private final OfficerRepository officerRepository;
     private final CaseTimelineService caseTimelineService;
     private final CaseNoteRepository caseNoteRepository;
+    private final BcpcReferralRepository bcpcReferralRepository;
+    private final BcpcReferralFeedbackRepository bcpcReferralFeedbackRepository;
 
     // Shared Mappers
     private final PersonMapper personMapper;
@@ -1298,18 +1310,22 @@ public class BcpcCaseService {
         User currentUser = SecurityUtils.getCurrentUser();
         String timelineTitle;
         if (correction) {
-            timelineTitle = "TURNOVER RECORD UPDATED";
+            timelineTitle = "Turnover Record Updated";
         } else if (existing) {
-            timelineTitle = "NEW TURNOVER RECORDED";
+            timelineTitle = "Turnover Record Added";
         } else {
-            timelineTitle = "CUSTODY / TURNOVER COMPLETED";
+            timelineTitle = "Custody / Turnover Completed";
         }
 
-        String timelineDescription = correction
-                ? "Reason for Edit: " + request.getEditReason().trim() + "\n\nChanged fields:\n" + changes
-                + "\n\nPrevious turnover:\n" + CarTurnoverPolicy.describe(beforeSnapshot)
-                + "\nCorrected record:\n" + CarTurnoverPolicy.describe(afterSnapshot)
-                : CarTurnoverPolicy.describe(afterSnapshot) + (existing ? "\nPrevious turnover:\n" + CarTurnoverPolicy.describe(beforeSnapshot) : "");
+        String timelineDescription;
+        if (CarTurnoverPolicy.TEMPORARY.equals(request.getTemporaryPlacement())) {
+            timelineDescription = "Child temporarily accommodated at the barangay while awaiting turnover.";
+        } else {
+            com.fasterxml.jackson.databind.JsonNode person = CarTurnoverPolicy.receiver(request.getInitialResponsibility());
+            String name = (CarTurnoverPolicy.text(person, "firstName") + " " + CarTurnoverPolicy.text(person, "lastName")).trim();
+            String role = CarTurnoverPolicy.text(person, "relationship");
+            timelineDescription = "Child turned over" + (!name.isBlank() ? " to " + name : "") + (!role.isBlank() ? " (" + role + ")" : "") + ".";
+        }
 
         try {
             caseTimelineService.logEvent(
@@ -1381,23 +1397,16 @@ public class BcpcCaseService {
 
             BcpcCaseDetails saved = bcpcCaseDetailsRepository.save(details);
 
-            StringBuilder desc = new StringBuilder();
-            desc.append("Resolution: ").append(request.getCustodyResolution()).append("\n");
-            if (request.getTurnedOverTo() != null) desc.append("Turned Over To: ").append(request.getTurnedOverTo()).append("\n");
-            if (request.getTurnoverDate() != null) desc.append("Turnover Date: ").append(request.getTurnoverDate()).append("\n");
-            if (request.getTurnoverTime() != null) desc.append("Turnover Time: ").append(request.getTurnoverTime()).append("\n");
-            if (request.getReleasedTo() != null) desc.append("Recipient: ").append(request.getReleasedTo()).append("\n");
-            if (request.getRecipientRelationship() != null) desc.append("Relationship: ").append(request.getRecipientRelationship()).append("\n");
-            if (request.getContactNumber() != null) desc.append("Contact: ").append(request.getContactNumber()).append("\n");
-            if (request.getDelayReason() != null && !request.getDelayReason().isBlank()) desc.append("Delay Reason: ").append(request.getDelayReason()).append("\n");
-            if (request.getCustodyRemarks() != null && !request.getCustodyRemarks().isBlank()) desc.append("Remarks: ").append(request.getCustodyRemarks()).append("\n");
+            String receiver = request.getReleasedTo() != null ? request.getReleasedTo() : request.getTurnedOverTo();
+            String rel = request.getRecipientRelationship();
+            String desc = "Child turned over" + (receiver != null && !receiver.isBlank() ? " to " + receiver : "") + (rel != null && !rel.isBlank() ? " (" + rel + ")" : "") + ".";
 
             try {
                 caseTimelineService.logEvent(
                         caseEntity,
                         TimelineEventType.STATUS_CHANGED,
-                        "CICL PHYSICAL TURNOVER COMPLETED",
-                        desc.toString(),
+                        "Custody / Turnover Completed",
+                        desc,
                         currentUser
                 );
             } catch (Exception e) {
@@ -1425,5 +1434,322 @@ public class BcpcCaseService {
 
             return toCustodyLogDto(saved);
         }
+    }
+
+    // =========================================================================
+    // Inter-Agency Referrals Management (LSWDO, PNP WCPD, Bahay Pag-asa, etc.)
+    // =========================================================================
+
+    /**
+     * Retrieves all inter-agency referrals issued for a given BCPC case.
+     */
+    @Transactional(readOnly = true)
+    public List<BcpcReferralResponse> getReferrals(Long caseId) {
+        if (!caseRepository.existsById(caseId)) {
+            throw new ResourceNotFoundException("BCPC Case not found with ID: " + caseId);
+        }
+        return bcpcReferralRepository.findByCasesIdOrderByReferralDateDesc(caseId).stream()
+                .map(this::toReferralResponse)
+                .toList();
+    }
+
+    /**
+     * Issues an official inter-agency referral letter / endorsement to an external partner agency.
+     */
+    @Transactional
+    public BcpcReferralResponse issueReferral(Long caseId, BcpcReferralCreateRequest request) {
+        Case caseEntity = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("BCPC Case not found with ID: " + caseId));
+
+        User currentUser = SecurityUtils.getCurrentUser();
+        String referredBy = request.getReferredBy();
+        if (referredBy == null || referredBy.isBlank()) {
+            referredBy = (currentUser != null && currentUser.getUsername() != null)
+                    ? currentUser.getUsername()
+                    : "BCPC Officer";
+        }
+
+        String controlNumber = generateReferralControlNumber(caseEntity);
+        LocalDateTime referralDate = request.getReferralDate() != null
+                ? request.getReferralDate()
+                : LocalDateTime.now();
+
+        BcpcReferral referral = new BcpcReferral();
+        referral.setCases(caseEntity);
+        referral.setReferralControlNumber(controlNumber);
+        referral.setReferredTo(request.getReferredTo());
+        referral.setReferredToOther(request.getReferredToOther());
+        referral.setPurpose(request.getPurpose());
+        referral.setPurposeOther(request.getPurposeOther());
+        referral.setGrounds(request.getGrounds());
+        referral.setReferredBy(referredBy);
+        referral.setReferralDate(referralDate);
+        referral.setStatus("Active");
+
+        BcpcReferral saved = bcpcReferralRepository.save(referral);
+
+        // Update Case status to ISSUED_REFERRAL if active / pending / under custody
+        if (caseEntity.getCaseStatus() == CaseStatus.PENDING || caseEntity.getCaseStatus() == CaseStatus.RECORDED) {
+            caseEntity.setCaseStatus(CaseStatus.ISSUED_REFERRAL);
+            caseRepository.save(caseEntity);
+        }
+
+        // Case Timeline Event Logging
+        try {
+            String targetAgency = (referral.getReferredToOther() != null && !referral.getReferredToOther().isBlank())
+                    ? referral.getReferredToOther()
+                    : referral.getReferredTo();
+            String purpose = (referral.getPurposeOther() != null && !referral.getPurposeOther().isBlank())
+                    ? referral.getPurposeOther()
+                    : referral.getPurpose();
+
+            String desc = "Issued referral to " + targetAgency + " for " + purpose + ".";
+
+            caseTimelineService.logEvent(
+                    caseEntity,
+                    TimelineEventType.STATUS_CHANGED,
+                    "Inter-Agency Referral Issued (" + targetAgency + ")",
+                    desc,
+                    currentUser
+            );
+        } catch (Exception e) {
+            log.warn("Failed to log timeline event for referral issue [caseId={}]: {}", caseId, e.getMessage());
+        }
+
+        return toReferralResponse(saved);
+    }
+
+    /**
+     * Records official feedback or response received from the receiving partner agency.
+     */
+    @Transactional
+    public BcpcReferralResponse recordReferralFeedback(Long caseId, Long referralId, BcpcReferralFeedbackRequest request) {
+        Case caseEntity = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("BCPC Case not found with ID: " + caseId));
+
+        BcpcReferral referral = bcpcReferralRepository.findById(referralId)
+                .orElseThrow(() -> new ResourceNotFoundException("Referral not found with ID: " + referralId));
+
+        if (!referral.getCases().getId().equals(caseId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Referral does not belong to case ID: " + caseId);
+        }
+
+        User currentUser = SecurityUtils.getCurrentUser();
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime feedbackDate = request.getFeedbackDate() != null ? request.getFeedbackDate() : now;
+
+        // Resolve response status
+        boolean isAccepted = Boolean.TRUE.equals(request.getAcceptedByAgency())
+                || "Accepted".equalsIgnoreCase(request.getFeedbackResponse());
+        boolean isDeclined = Boolean.TRUE.equals(request.getDeclinedByAgency())
+                || "Declined".equalsIgnoreCase(request.getFeedbackResponse());
+
+        String responseType = isAccepted ? "Accepted" : (isDeclined ? "Declined" : "Status Update");
+
+        referral.setFeedbackResponse(responseType);
+        referral.setFeedbackNotes(request.getDetails() != null ? request.getDetails() : request.getFeedbackNotes());
+        referral.setFeedbackOfficer(request.getSocialWorkerName() != null ? request.getSocialWorkerName() : request.getFeedbackOfficer());
+        referral.setFeedbackDate(feedbackDate);
+
+        if (isAccepted) {
+            referral.setStatus("Accepted");
+        } else if (isDeclined) {
+            referral.setStatus("Declined");
+        }
+
+        BcpcReferral savedReferral = bcpcReferralRepository.save(referral);
+
+        // Save new BcpcReferralFeedback entry
+        BcpcReferralFeedback fb = new BcpcReferralFeedback();
+        fb.setCases(caseEntity);
+        fb.setReferral(savedReferral);
+        fb.setDetails(request.getDetails() != null ? request.getDetails() : request.getFeedbackNotes());
+        fb.setResolvesCase(Boolean.TRUE.equals(request.getIsResolved()));
+        fb.setResolutionType(request.getResolutionType());
+        fb.setProofFileData(request.getProofFileData());
+        fb.setProofFileName(request.getProofFileName());
+        fb.setDeclinedByAgency(isDeclined);
+        fb.setAcceptedByAgency(isAccepted);
+        fb.setReasonForDecline(request.getReasonForDecline());
+        fb.setFeedbackTypeCode(request.getFeedbackTypeCode());
+        fb.setFeedbackTypeOther(request.getFeedbackTypeOther());
+        fb.setAssessmentFindings(request.getAssessmentFindings());
+        fb.setAssessmentType(request.getAssessmentType());
+        fb.setDiscernmentResult(request.getDiscernmentResult());
+        fb.setAssessmentDate(request.getAssessmentDate());
+        fb.setSocialWorkerName(request.getSocialWorkerName() != null ? request.getSocialWorkerName() : request.getFeedbackOfficer());
+        fb.setRecommendationType(request.getRecommendationType());
+        fb.setRecommendationTypeOther(request.getRecommendationTypeOther());
+        fb.setRecommendedSocialWorker(request.getRecommendedSocialWorker());
+        fb.setExternalRepresentativeName(request.getExternalRepresentativeName());
+        fb.setExternalRepresentativeOffice(request.getExternalRepresentativeOffice());
+        fb.setExternalRepresentativePosition(request.getExternalRepresentativePosition());
+        fb.setExternalRepresentativeContact(request.getExternalRepresentativeContact());
+        fb.setRecommendationDate(request.getRecommendationDate());
+        fb.setRecommendedFamilySupport(request.getRecommendedFamilySupport());
+        fb.setRecommendedPsychosocialAction(request.getRecommendedPsychosocialAction());
+        
+        if (request.getDateReceived() != null && !request.getDateReceived().isBlank()) {
+            try {
+                fb.setDateReceived(LocalDate.parse(request.getDateReceived()));
+            } catch (Exception ignored) {
+                fb.setDateReceived(LocalDate.now());
+            }
+        } else {
+            fb.setDateReceived(LocalDate.now());
+        }
+
+        bcpcReferralFeedbackRepository.save(fb);
+
+        // Timeline event
+        try {
+            String feedbackSummary = "Referral " + (Boolean.TRUE.equals(fb.getAcceptedByAgency()) ? "accepted" : Boolean.TRUE.equals(fb.getDeclinedByAgency()) ? "declined" : "status updated") + " by agency.";
+            if (fb.getSocialWorkerName() != null && !fb.getSocialWorkerName().isBlank()) {
+                feedbackSummary += " Assessed by " + fb.getSocialWorkerName() + ".";
+            }
+
+            caseTimelineService.logEvent(
+                    caseEntity,
+                    TimelineEventType.STATUS_CHANGED,
+                    "Referral Feedback Received (" + referral.getReferralControlNumber() + ")",
+                    feedbackSummary,
+                    currentUser
+            );
+        } catch (Exception e) {
+            log.warn("Failed to log timeline event for referral feedback [caseId={}]: {}", caseId, e.getMessage());
+        }
+
+        return toReferralResponse(savedReferral);
+    }
+
+    /**
+     * Cancels an issued referral (e.g. if issued in error or party settled beforehand).
+     */
+    @Transactional
+    public BcpcReferralResponse cancelReferral(Long caseId, Long referralId, BcpcReferralCancelRequest request) {
+        Case caseEntity = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("BCPC Case not found with ID: " + caseId));
+
+        BcpcReferral referral = bcpcReferralRepository.findById(referralId)
+                .orElseThrow(() -> new ResourceNotFoundException("Referral not found with ID: " + referralId));
+
+        if (!referral.getCases().getId().equals(caseId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Referral does not belong to case ID: " + caseId);
+        }
+
+        User currentUser = SecurityUtils.getCurrentUser();
+        referral.setStatus("Cancelled");
+        referral.setCancellationReason(request.getCancellationReason());
+
+        String cancelledByName = "BCPC Officer";
+        if (request.getCancelledBy() != null && !request.getCancelledBy().isBlank()) {
+            cancelledByName = request.getCancelledBy().trim();
+        } else if (currentUser != null) {
+            if (currentUser.getPerson() != null) {
+                String first = currentUser.getPerson().getFirstName() != null ? currentUser.getPerson().getFirstName() : "";
+                String last = currentUser.getPerson().getLastName() != null ? currentUser.getPerson().getLastName() : "";
+                String full = (first + " " + last).trim();
+                cancelledByName = !full.isEmpty() ? full : currentUser.getUsername();
+            } else {
+                cancelledByName = currentUser.getUsername();
+            }
+        }
+        referral.setCancelledBy(cancelledByName);
+        referral.setCancelledAt(LocalDateTime.now());
+
+        BcpcReferral saved = bcpcReferralRepository.save(referral);
+
+        try {
+            caseTimelineService.logEvent(
+                    caseEntity,
+                    TimelineEventType.STATUS_CHANGED,
+                    "Referral Cancelled (" + referral.getReferralControlNumber() + ")",
+                    "Referral was cancelled. Reason: " + request.getCancellationReason(),
+                    currentUser
+            );
+        } catch (Exception e) {
+            log.warn("Failed to log timeline event for referral cancel [caseId={}]: {}", caseId, e.getMessage());
+        }
+
+        return toReferralResponse(saved);
+    }
+
+    private String generateReferralControlNumber(Case caseEntity) {
+        long count = bcpcReferralRepository.countByCasesId(caseEntity.getId());
+        String base = "REF-" + caseEntity.getCaseNumber() + "-" + String.format("%02d", count + 1);
+        String candidate = base;
+        int seq = 1;
+        while (bcpcReferralRepository.existsByReferralControlNumber(candidate)) {
+            candidate = base + "-" + seq++;
+        }
+        return candidate;
+    }
+
+    private BcpcReferralResponse toReferralResponse(BcpcReferral r) {
+        List<BcpcReferralFeedbackDto> feedbackDtos = null;
+        if (r.getId() != null) {
+            feedbackDtos = bcpcReferralFeedbackRepository.findByReferralIdOrderByCreatedAtDesc(r.getId()).stream()
+                    .map(this::toReferralFeedbackDto)
+                    .toList();
+        }
+
+        return BcpcReferralResponse.builder()
+                .id(r.getId())
+                .caseId(r.getCases() != null ? r.getCases().getId() : null)
+                .caseNumber(r.getCases() != null ? r.getCases().getCaseNumber() : null)
+                .referralControlNumber(r.getReferralControlNumber())
+                .referredTo(r.getReferredTo())
+                .referredToOther(r.getReferredToOther())
+                .purpose(r.getPurpose())
+                .purposeOther(r.getPurposeOther())
+                .grounds(r.getGrounds())
+                .status(r.getStatus())
+                .referredBy(r.getReferredBy())
+                .referralDate(r.getReferralDate())
+                .feedbackResponse(r.getFeedbackResponse())
+                .feedbackNotes(r.getFeedbackNotes())
+                .feedbackOfficer(r.getFeedbackOfficer())
+                .feedbackDate(r.getFeedbackDate())
+                .feedbacks(feedbackDtos)
+                .cancellationReason(r.getCancellationReason())
+                .cancelledBy(r.getCancelledBy())
+                .cancelledAt(r.getCancelledAt())
+                .createdAt(r.getCreatedAt())
+                .build();
+    }
+
+    private BcpcReferralFeedbackDto toReferralFeedbackDto(BcpcReferralFeedback fb) {
+        return BcpcReferralFeedbackDto.builder()
+                .id(fb.getId())
+                .caseId(fb.getCases() != null ? fb.getCases().getId() : null)
+                .referralId(fb.getReferral() != null ? fb.getReferral().getId() : null)
+                .details(fb.getDetails())
+                .resolvesCase(fb.getResolvesCase())
+                .resolutionType(fb.getResolutionType())
+                .proofFileData(fb.getProofFileData())
+                .proofFileName(fb.getProofFileName())
+                .declinedByAgency(fb.getDeclinedByAgency())
+                .acceptedByAgency(fb.getAcceptedByAgency())
+                .reasonForDecline(fb.getReasonForDecline())
+                .feedbackTypeCode(fb.getFeedbackTypeCode())
+                .feedbackTypeOther(fb.getFeedbackTypeOther())
+                .assessmentFindings(fb.getAssessmentFindings())
+                .assessmentType(fb.getAssessmentType())
+                .discernmentResult(fb.getDiscernmentResult())
+                .assessmentDate(fb.getAssessmentDate())
+                .socialWorkerName(fb.getSocialWorkerName())
+                .recommendationType(fb.getRecommendationType())
+                .recommendationTypeOther(fb.getRecommendationTypeOther())
+                .recommendedSocialWorker(fb.getRecommendedSocialWorker())
+                .externalRepresentativeName(fb.getExternalRepresentativeName())
+                .externalRepresentativeOffice(fb.getExternalRepresentativeOffice())
+                .externalRepresentativePosition(fb.getExternalRepresentativePosition())
+                .externalRepresentativeContact(fb.getExternalRepresentativeContact())
+                .recommendationDate(fb.getRecommendationDate())
+                .recommendedFamilySupport(fb.getRecommendedFamilySupport())
+                .recommendedPsychosocialAction(fb.getRecommendedPsychosocialAction())
+                .dateReceived(fb.getDateReceived())
+                .createdAt(fb.getCreatedAt())
+                .build();
     }
 }
