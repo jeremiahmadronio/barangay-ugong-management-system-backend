@@ -2,88 +2,42 @@ package com.barangay.cases.bcpc.service;
 
 import com.barangay.cases.bcpc.dto.BcpcCarCaseCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcCarCaseDetailResponse;
-import com.barangay.cases.bcpc.dto.BcpcCiclAssessmentDto;
+import com.barangay.cases.bcpc.dto.BcpcCarCaseUpdateRequest;
+import com.barangay.cases.bcpc.dto.BcpcCaseUniversalDetailResponse;
 import com.barangay.cases.bcpc.dto.BcpcCiclCaseCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcCiclCaseDetailResponse;
+import com.barangay.cases.bcpc.dto.BcpcCiclCaseUpdateRequest;
 import com.barangay.cases.bcpc.dto.BcpcCustodyLogDto;
 import com.barangay.cases.bcpc.dto.BcpcFilterRequest;
-import com.barangay.cases.bcpc.dto.BcpcPersonDetailDto;
-import com.barangay.cases.bcpc.dto.BcpcPersonInputDto;
-import com.barangay.cases.bcpc.dto.BcpcStatsResponse;
-import com.barangay.cases.bcpc.dto.BcpcTableRowResponse;
-import com.barangay.cases.bcpc.dto.BcpcCaseUniversalDetailResponse;
-import com.barangay.cases.bcpc.dto.UpdateCiclCustodyLogDto;
-import com.fasterxml.jackson.databind.JsonNode;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
-import com.barangay.cases.bcpc.model.BcpcIntervention;
-import com.barangay.cases.bcpc.repository.BcpcInterventionRepository;
-import com.barangay.cases.bcpc.dto.BcpcInterventionDto;
 import com.barangay.cases.bcpc.dto.BcpcInterventionCreateRequest;
-import com.barangay.cases.bcpc.dto.BcpcInterventionUpdateRequest;
+import com.barangay.cases.bcpc.dto.BcpcInterventionDto;
 import com.barangay.cases.bcpc.dto.BcpcInterventionProgressRequest;
-import com.barangay.zshared.enumerated.BcpcInterventionType;
-import com.barangay.cases.bcpc.model.BcpcCarAssessment;
-import com.barangay.cases.bcpc.model.BcpcCaseDetails;
-import com.barangay.cases.bcpc.model.BcpcCiclAssessment;
-import com.barangay.cases.bcpc.model.BcpcReferral;
-import com.barangay.cases.bcpc.model.BcpcReferralFeedback;
+import com.barangay.cases.bcpc.dto.BcpcInterventionUpdateRequest;
+import com.barangay.cases.bcpc.dto.BcpcPersonInputDto;
+import com.barangay.cases.bcpc.dto.BcpcReferralCancelRequest;
 import com.barangay.cases.bcpc.dto.BcpcReferralCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcReferralFeedbackRequest;
-import com.barangay.cases.bcpc.dto.BcpcReferralFeedbackDto;
-import com.barangay.cases.bcpc.dto.BcpcReferralCancelRequest;
 import com.barangay.cases.bcpc.dto.BcpcReferralResponse;
-import com.barangay.cases.bcpc.repository.BcpcCarAssessmentRepository;
+import com.barangay.cases.bcpc.dto.BcpcStatsResponse;
+import com.barangay.cases.bcpc.dto.BcpcTableRowResponse;
+import com.barangay.cases.bcpc.dto.UpdateCiclCustodyLogDto;
+import com.barangay.cases.bcpc.model.BcpcCaseDetails;
 import com.barangay.cases.bcpc.repository.BcpcCaseDetailsRepository;
-import com.barangay.cases.bcpc.repository.BcpcCiclAssessmentRepository;
+import com.barangay.cases.bcpc.repository.BcpcInterventionRepository;
 import com.barangay.cases.bcpc.repository.BcpcReferralRepository;
-import com.barangay.cases.bcpc.repository.BcpcReferralFeedbackRepository;
-import java.time.LocalDate;
-import com.barangay.cases.shared.model.Case;
-import com.barangay.cases.shared.model.CaseEvidence;
-import com.barangay.cases.shared.model.CaseNote;
-import com.barangay.cases.shared.model.IncidentDetail;
-import com.barangay.cases.shared.model.NarrativeStatement;
-import com.barangay.cases.shared.repository.CaseEvidenceRepository;
-import com.barangay.cases.shared.repository.CaseNoteRepository;
-import com.barangay.cases.shared.repository.CaseRepository;
-import com.barangay.cases.shared.repository.EvidenceTypeRepository;
-import com.barangay.cases.shared.service.CaseTimelineService;
 import com.barangay.cases.blotter.dto.CaseNoteRequest;
 import com.barangay.cases.blotter.dto.CaseNoteResponse;
-import com.barangay.people.complainant.model.Complainant;
-import com.barangay.people.officer.model.Officer;
-import com.barangay.people.officer.repository.OfficerRepository;
+import com.barangay.cases.shared.model.CaseNote;
+import com.barangay.cases.shared.repository.CaseNoteRepository;
+import com.barangay.cases.shared.model.Case;
+import com.barangay.cases.shared.repository.CaseRepository;
+import com.barangay.cases.shared.service.CaseTimelineService;
 import com.barangay.people.person.model.Person;
-import com.barangay.people.person.repository.PersonRepository;
-import com.barangay.people.resident.model.Resident;
-import com.barangay.people.resident.repository.ResidentRepository;
-import com.barangay.people.respondent.model.Respondent;
-import com.barangay.people.witness.model.Witness;
-import com.barangay.people.witness.repository.WitnessRepository;
-import com.barangay.usermanagement.department.model.Department;
-import com.barangay.usermanagement.department.repository.DepartmentRepository;
 import com.barangay.usermanagement.user.model.User;
-import com.barangay.zshared.dto.EvidenceCreateDto;
-import com.barangay.zshared.dto.EvidenceDetailDto;
-import com.barangay.zshared.dto.WitnessCreateDto;
-import com.barangay.zshared.dto.WitnessDetailDto;
 import com.barangay.zshared.enumerated.BcpcCategory;
-import com.barangay.zshared.enumerated.CarOccurrenceCategory;
 import com.barangay.zshared.enumerated.CaseStatus;
-import com.barangay.zshared.enumerated.CiclPathway;
-import com.barangay.zshared.enumerated.DiscernmentStatus;
-import com.barangay.zshared.enumerated.DiversionAuthority;
-import com.barangay.zshared.enumerated.FilingType;
-import com.barangay.zshared.enumerated.PenaltyRoutingCategory;
 import com.barangay.zshared.enumerated.TimelineEventType;
-import com.barangay.zshared.mapper.CaseEvidenceMapper;
-import com.barangay.zshared.mapper.ComplainantMapper;
 import com.barangay.zshared.exception.ResourceNotFoundException;
-import com.barangay.zshared.mapper.IncidentDetailMapper;
-import com.barangay.zshared.mapper.NarrativeStatementMapper;
-import com.barangay.zshared.mapper.PersonMapper;
-import com.barangay.zshared.mapper.WitnessMapper;
 import com.barangay.zshared.mapper.PageResponse;
 import com.barangay.zshared.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
@@ -95,21 +49,20 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.SecureRandom;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.Period;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 /**
- * Service managing cases under the Barangay Council for the Protection of Children (BCPC).
- * Implements normalized and legally aligned workflows for:
- * 1. Child at Risk (CAR) - vulnerability, juvenile status offenses, protection concerns
- * 2. Child in Conflict with the Law (CICL) - alleged offenses under RA 9344 / RA 10630, age exemption, discernment, and diversion routing
+ * High-level coordinator and general facade for BCPC case operations.
+ * Delegates specialized category operations to dedicated domain services:
+ * - {@link BcpcCarCaseService} for Child at Risk (CAR) cases
+ * - {@link BcpcCiclCaseService} for Child in Conflict with the Law (CICL) cases
+ * - {@link BcpcCustodyService} for Custody & Turnover logs
+ * - {@link BcpcReferralService} for Inter-agency Referrals
+ * - {@link BcpcInterventionService} for Interventions & Monitoring
+ * - {@link BcpcCommonService} for Shared Person and Entity Utilities
  */
 @Service
 @RequiredArgsConstructor
@@ -118,787 +71,225 @@ public class BcpcCaseService {
 
     private final CaseRepository caseRepository;
     private final BcpcCaseDetailsRepository bcpcCaseDetailsRepository;
-    private final BcpcCarAssessmentRepository bcpcCarAssessmentRepository;
-    private final BcpcCiclAssessmentRepository bcpcCiclAssessmentRepository;
-    private final PersonRepository personRepository;
-    private final ResidentRepository residentRepository;
-    private final WitnessRepository witnessRepository;
-    private final EvidenceTypeRepository evidenceTypeRepository;
-    private final CaseEvidenceRepository caseEvidenceRepository;
-    private final DepartmentRepository departmentRepository;
-    private final OfficerRepository officerRepository;
-    private final CaseTimelineService caseTimelineService;
-    private final CaseNoteRepository caseNoteRepository;
     private final BcpcReferralRepository bcpcReferralRepository;
-    private final BcpcReferralFeedbackRepository bcpcReferralFeedbackRepository;
     private final BcpcInterventionRepository bcpcInterventionRepository;
+    private final CaseNoteRepository caseNoteRepository;
+    private final CaseTimelineService caseTimelineService;
 
-    // Shared Mappers
-    private final PersonMapper personMapper;
-    private final ComplainantMapper complainantMapper;
-    private final IncidentDetailMapper incidentDetailMapper;
-    private final NarrativeStatementMapper narrativeStatementMapper;
-    private final WitnessMapper witnessMapper;
-    private final CaseEvidenceMapper caseEvidenceMapper;
-
-    private static final SecureRandom RANDOM = new SecureRandom();
+    // Specialized Domain Services
+    private final BcpcCarCaseService bcpcCarCaseService;
+    private final BcpcCiclCaseService bcpcCiclCaseService;
+    private final BcpcCustodyService bcpcCustodyService;
+    private final BcpcReferralService bcpcReferralService;
+    private final BcpcInterventionService bcpcInterventionService;
+    private final BcpcCommonService bcpcCommonService;
 
     // =========================================================================
-    // CAR (Child at Risk) Case Filing & Retrieval
+    // CAR Case Delegation
     // =========================================================================
 
-    /**
-     * Files a new Child at Risk (CAR) case.
-     * Maps the reporter as complainant, child as subject CAR minor, and records safety/welfare assessments.
-     *
-     * @param request the CAR intake payload
-     * @return the created case detail response
-     */
-    @Transactional
     public BcpcCarCaseDetailResponse createCarCase(BcpcCarCaseCreateRequest request) {
-        log.info("Creating new BCPC Child at Risk (CAR) case...");
-
-        Case aCase = new Case();
-
-        // 1. Filing Type & Status
-        aCase.setFilingType(FilingType.FORMAL_COMPLAINT);
-        aCase.setCaseStatus(CaseStatus.PENDING);
-        aCase.setIsArchived(false);
-
-        // 2. Case Number
-        String caseNumber = request.caseNumber();
-        if (caseNumber == null || caseNumber.isBlank() || caseRepository.existsByCaseNumber(caseNumber.trim())) {
-            caseNumber = generateUniqueBcpcCaseNumber();
-        }
-        aCase.setCaseNumber(caseNumber);
-
-        // 3. Department & Reporting User
-        departmentRepository.findByName("BCPC").ifPresent(aCase::setDepartment);
-        User currentUser = SecurityUtils.getCurrentUser();
-        if (currentUser != null) {
-            aCase.setCaseFilledBy(currentUser);
-        }
-
-        // 4. Assigned Officer
-        if (request.assignedOfficerId() != null) {
-            officerRepository.findById(request.assignedOfficerId()).ifPresent(aCase::setOfficer);
-        } else if (request.assignedOfficer() != null && !request.assignedOfficer().isBlank()) {
-            resolveOfficerByName(request.assignedOfficer()).ifPresent(aCase::setOfficer);
-        }
-
-        // 5. C1: Reporter / Complainant (The person who reported the Child at Risk)
-        Person reporterPerson = resolveOrCreatePerson(request.reporter());
-        if (reporterPerson != null) {
-            Complainant complainant = new Complainant();
-            complainant.setPerson(reporterPerson);
-            complainant.setRelationshipToChild(request.reporterRelationshipToChild());
-            aCase.setComplainant(complainant);
-        }
-
-        // 6. E: Incident Details
-        if (request.incident() != null) {
-            IncidentDetail incidentDetail = incidentDetailMapper.fromCreateDto(request.incident());
-            aCase.setIncidentDetail(incidentDetail);
-        }
-
-        // 7. F: Narrative Statement
-        if (request.narrative() != null) {
-            NarrativeStatement narrativeStatement = narrativeStatementMapper.fromCreateDto(request.narrative());
-            aCase.setNarrativeStatement(narrativeStatement);
-        }
-
-        // 8. Risk Level & Attestation
-        String riskLevel = request.riskLevel() != null && !request.riskLevel().isBlank()
-                ? request.riskLevel().toUpperCase()
-                : (Boolean.TRUE.equals(request.hasSafetyWelfareConcerns()) ? "MODERATE" : "LOW");
-        aCase.setRiskLevel(riskLevel);
-
-        aCase.setIsAttested(Boolean.TRUE.equals(request.certifiedTrue()));
-        if (Boolean.TRUE.equals(aCase.getIsAttested())) {
-            aCase.setAttestedAt(LocalDateTime.now());
-        }
-
-        // 9. Initial Save of Case
-        Case savedCase = caseRepository.save(aCase);
-
-        // 10. H: Witnesses
-        if (request.witnesses() != null && !request.witnesses().isEmpty()) {
-            List<Witness> witnessList = new ArrayList<>();
-            for (WitnessCreateDto wDto : request.witnesses()) {
-                Person wPerson = null;
-                if (wDto.personId() != null) {
-                    wPerson = personRepository.findById(wDto.personId()).orElse(null);
-                }
-                if (wPerson == null && wDto.firstName() != null && !wDto.firstName().isBlank()) {
-                    wPerson = new Person();
-                    wPerson.setFirstName(wDto.firstName().trim());
-                    wPerson.setLastName(wDto.lastName() != null ? wDto.lastName().trim() : "");
-                    wPerson.setContactNumber(wDto.contactNumber());
-                    wPerson.setCompleteAddress(wDto.completeAddress());
-                    wPerson.setIsResident(false);
-                    wPerson = personRepository.save(wPerson);
-                }
-                if (wPerson != null) {
-                    Witness witness = witnessMapper.toWitness(wPerson, savedCase, wDto);
-                    witness = witnessRepository.save(witness);
-                    witnessList.add(witness);
-                }
-            }
-            savedCase.setWitnesses(witnessList);
-        }
-
-        // 11. G: Supporting Evidences
-        if (request.evidences() != null && !request.evidences().isEmpty()) {
-            for (EvidenceCreateDto eDto : request.evidences()) {
-                CaseEvidence evidence = caseEvidenceMapper.fromCreateDto(eDto, savedCase);
-                if (evidence != null) {
-                    caseEvidenceRepository.save(evidence);
-                }
-            }
-        }
-
-        // 12. C2 & D: BCPC Intake Profile (Child & Guardian)
-        Person childPerson = resolveOrCreatePerson(request.child());
-        if (childPerson == null) {
-            throw new IllegalArgumentException("Child information is required for BCPC cases.");
-        }
-
-        boolean isGuardianAvailable = request.isGuardianAvailable() != null ? request.isGuardianAvailable() : true;
-        Person guardianPerson = isGuardianAvailable ? resolveOrCreatePerson(request.guardian()) : null;
-
-        BcpcCaseDetails bcpcDetails = new BcpcCaseDetails();
-        bcpcDetails.setCases(savedCase);
-        bcpcDetails.setCategory(BcpcCategory.CAR);
-        bcpcDetails.setChild(childPerson);
-        bcpcDetails.setGradeLevel(request.gradeLevel());
-        bcpcDetails.setSchoolName(request.schoolName());
-        bcpcDetails.setGuardian(guardianPerson);
-        bcpcDetails.setGuardianRelationship(request.guardianRelationship());
-        bcpcDetails.setIsGuardianPresentAtIntake(isGuardianAvailable);
-        bcpcDetails.setGuardianUnavailableReason(request.guardianUnavailableReason());
-        BcpcCaseDetails savedBcpcDetails = bcpcCaseDetailsRepository.save(bcpcDetails);
-
-        // 13. E: CAR Specific Assessment & Welfare
-        BcpcCarAssessment carAssessment = new BcpcCarAssessment();
-        carAssessment.setBcpcCaseDetails(savedBcpcDetails);
-        carAssessment.setCarActCategory(request.carActCategory());
-        carAssessment.setSpecificCarAct(request.specificCarAct());
-        carAssessment.setSpecificCarActOther(request.specificCarActOther());
-        carAssessment.setCarOccurrenceCategory(
-                request.carOccurrenceCategory() != null ? request.carOccurrenceCategory() : CarOccurrenceCategory.FIRST_OCCURRENCE
-        );
-        carAssessment.setNeedsProtectiveCustody(Boolean.TRUE.equals(request.hasSafetyWelfareConcerns()));
-        carAssessment.setSafetyAndWelfareNotes(request.safetyWelfareNotes());
-        carAssessment.setRiskLevel(riskLevel);
-        BcpcCarAssessment savedCarAssessment = bcpcCarAssessmentRepository.save(carAssessment);
-
-        // 14. Case Timeline Event Logging
-        caseTimelineService.logEvent(
-                savedCase,
-                TimelineEventType.CASE_FILED,
-                "BCPC Case Filed (CAR)",
-                "Child at Risk Case #" + savedCase.getCaseNumber() + " was formally filed for child " + personMapper.buildFullName(childPerson) + ".",
-                currentUser
-        );
-
-        log.info("BCPC CAR Case #{} created successfully.", savedCase.getCaseNumber());
-        return mapToCarDetailResponse(savedCase, savedBcpcDetails, savedCarAssessment);
+        return bcpcCarCaseService.createCarCase(request);
     }
 
-    /**
-     * Retrieves a single BCPC CAR case detail by Case ID.
-     */
-    @Transactional(readOnly = true)
     public BcpcCarCaseDetailResponse getCarCaseById(Long caseId) {
-        Case aCase = caseRepository.findById(caseId)
-                .orElseThrow(() -> new IllegalArgumentException("Case not found with ID: " + caseId));
+        return bcpcCarCaseService.getCarCaseById(caseId);
+    }
 
-        BcpcCaseDetails details = bcpcCaseDetailsRepository.findByCases(aCase)
-                .orElseThrow(() -> new IllegalArgumentException("BCPC details not found for case ID: " + caseId));
-
-        if (details.getCategory() != BcpcCategory.CAR) {
-            throw new IllegalArgumentException("Case ID " + caseId + " is not classified as a CAR case.");
-        }
-
-        BcpcCarAssessment car = bcpcCarAssessmentRepository.findByBcpcCaseDetails(details)
-                .orElse(null);
-
-        return mapToCarDetailResponse(aCase, details, car);
+    public BcpcCarCaseDetailResponse updateCarCase(Long caseId, BcpcCarCaseUpdateRequest request) {
+        return bcpcCarCaseService.updateCarCase(caseId, request);
     }
 
     // =========================================================================
-    // CICL (Child in Conflict with the Law) Case Filing & Retrieval
+    // CICL Case Delegation
     // =========================================================================
 
-    /**
-     * Files a new Child in Conflict with the Law (CICL) case.
-     * Enforces Philippine Juvenile Justice and Welfare Act (RA 9344 / RA 10630):
-     * - Child is the Respondent minor alleged to have committed an offense.
-     * - Victim is the Complainant (or tanod/officer if victimless offense).
-     * - Enforces age exemption (<= 15 years old exempt from criminal liability -> Intervention only).
-     * - Enforces discernment and diversion routing.
-     *
-     * @param request the CICL intake payload
-     * @return the created CICL case detail response
-     */
-    @Transactional
     public BcpcCiclCaseDetailResponse createCiclCase(BcpcCiclCaseCreateRequest request) {
-        log.info("Creating new BCPC Child in Conflict with the Law (CICL) case...");
-
-        // 1. Resolve Child Person (Mandatory)
-        Person childPerson = resolveOrCreatePerson(request.child());
-        if (childPerson == null) {
-            throw new IllegalArgumentException("Child information is required for BCPC cases.");
-        }
-
-        // 2. Validate Minor Status (Must be below 18 years old)
-        LocalDate incidentDate = null;
-        if (request.incident() != null && request.incident().dateOfIncident() != null && !request.incident().dateOfIncident().isBlank()) {
-            try {
-                incidentDate = LocalDate.parse(request.incident().dateOfIncident().trim());
-            } catch (Exception ignored) {}
-        }
-
-        int calculatedAge = 0;
-        if (childPerson.getBirthDate() != null && incidentDate != null) {
-            calculatedAge = Period.between(childPerson.getBirthDate(), incidentDate).getYears();
-        } else if (childPerson.getAge() != null) {
-            calculatedAge = childPerson.getAge();
-        } else if (request.ageAtIncident() != null) {
-            calculatedAge = request.ageAtIncident();
-        }
-
-        if (calculatedAge >= 18) {
-            throw new IllegalArgumentException("The individual was " + calculatedAge + " years old at the time of the incident and cannot be processed as a Child in Conflict with the Law (CICL). Adult criminal proceedings apply.");
-        }
-
-        // 3. Resolve Victim / Complainant
-        Person victimPerson = null;
-        if (!Boolean.TRUE.equals(request.isVictimlessOffense()) && request.victim() != null) {
-            victimPerson = resolveOrCreatePerson(request.victim());
-            if (victimPerson != null && childPerson.getId() != null && victimPerson.getId() != null) {
-                if (victimPerson.getId().equals(childPerson.getId())) {
-                    throw new IllegalArgumentException("The Victim/Offended Party and CICL Child cannot be the same resident in this case.");
-                }
-            }
-        }
-
-        // 4. Determine Legal Pathway & Routing under RA 9344 / RA 10630
-        CiclPathway determinedPathway = request.ciclPathway() != null ? request.ciclPathway() : CiclPathway.PENDING;
-        DiscernmentStatus discernment = request.discernmentStatus() != null ? request.discernmentStatus() : DiscernmentStatus.PENDING_LSWDO_EVALUATION;
-        PenaltyRoutingCategory penaltyRouting = request.penaltyRoutingCategory() != null ? request.penaltyRoutingCategory() : PenaltyRoutingCategory.UNDETERMINED;
-        DiversionAuthority authority = request.diversionAuthority() != null ? request.diversionAuthority() : DiversionAuthority.UNDETERMINED;
-        boolean isDiversionEligible = Boolean.TRUE.equals(request.isDiversionEligible());
-
-        if (calculatedAge > 0 && calculatedAge <= 15) {
-            // Under RA 9344 Sec. 20 (as amended by RA 10630), child 15 or below is exempt from criminal liability -> INTERVENTION
-            determinedPathway = CiclPathway.INTERVENTION;
-            isDiversionEligible = false;
-            discernment = DiscernmentStatus.WITHOUT_DISCERNMENT;
-        } else if (calculatedAge > 15 && calculatedAge < 18) {
-            if (discernment == DiscernmentStatus.WITHOUT_DISCERNMENT) {
-                determinedPathway = CiclPathway.INTERVENTION;
-                isDiversionEligible = false;
-            } else if (discernment == DiscernmentStatus.WITH_DISCERNMENT) {
-                if (penaltyRouting == PenaltyRoutingCategory.SIX_YEARS_OR_LESS) {
-                    determinedPathway = CiclPathway.DIVERSION;
-                    isDiversionEligible = true;
-                    if (authority == DiversionAuthority.UNDETERMINED) {
-                        authority = DiversionAuthority.BARANGAY;
-                    }
-                } else if (penaltyRouting == PenaltyRoutingCategory.ABOVE_SIX_YEARS) {
-                    determinedPathway = CiclPathway.DIVERSION;
-                    isDiversionEligible = false;
-                    if (authority == DiversionAuthority.UNDETERMINED) {
-                        authority = DiversionAuthority.COURT;
-                    }
-                }
-            }
-        }
-
-        // 5. Initialize Universal Case Entity
-        Case aCase = new Case();
-        aCase.setFilingType(FilingType.FORMAL_COMPLAINT);
-        aCase.setCaseStatus(CaseStatus.PENDING);
-        aCase.setIsArchived(false);
-
-        // Case Number
-        String caseNumber = request.caseNumber();
-        if (caseNumber == null || caseNumber.isBlank() || caseRepository.existsByCaseNumber(caseNumber.trim())) {
-            caseNumber = generateUniqueBcpcCaseNumber();
-        }
-        aCase.setCaseNumber(caseNumber);
-
-        // Department & Reporting User
-        departmentRepository.findByName("BCPC").ifPresent(aCase::setDepartment);
-        User currentUser = SecurityUtils.getCurrentUser();
-        if (currentUser != null) {
-            aCase.setCaseFilledBy(currentUser);
-        }
-
-        // Assigned Officer
-        if (request.assignedOfficerId() != null) {
-            officerRepository.findById(request.assignedOfficerId()).ifPresent(aCase::setOfficer);
-        } else if (request.assignedOfficer() != null && !request.assignedOfficer().isBlank()) {
-            resolveOfficerByName(request.assignedOfficer()).ifPresent(aCase::setOfficer);
-        }
-
-        // 6. Set Parties (Complainant = Victim, Respondent = CICL Child)
-        if (victimPerson != null) {
-            Complainant complainant = new Complainant();
-            complainant.setPerson(victimPerson);
-            complainant.setRelationshipToChild(request.victimRelationshipToChild());
-            aCase.setComplainant(complainant);
-        }
-
-        Respondent respondent = new Respondent();
-        respondent.setPerson(childPerson);
-        if (request.victimRelationshipToChild() != null) {
-            respondent.setRelationshipToComplainant(request.victimRelationshipToChild());
-        }
-        aCase.setRespondent(respondent);
-
-        // 7. Incident Details & Alleged Violation
-        if (request.incident() != null) {
-            IncidentDetail incidentDetail = incidentDetailMapper.fromCreateDto(request.incident());
-            if (incidentDetail.getNatureOfComplaint() == null || incidentDetail.getNatureOfComplaint().isBlank()) {
-                incidentDetail.setNatureOfComplaint(request.allegedViolation());
-            }
-            aCase.setIncidentDetail(incidentDetail);
-        }
-
-        // 8. Narrative Statement
-        if (request.narrative() != null) {
-            NarrativeStatement narrativeStatement = narrativeStatementMapper.fromCreateDto(request.narrative());
-            aCase.setNarrativeStatement(narrativeStatement);
-        }
-
-        // 9. Risk Level & Attestation
-        String riskLevel = Boolean.TRUE.equals(request.isRepeatOffender()) ? "HIGH" : "MODERATE";
-        aCase.setRiskLevel(riskLevel);
-
-        aCase.setIsAttested(Boolean.TRUE.equals(request.certifiedTrue()));
-        if (Boolean.TRUE.equals(aCase.getIsAttested())) {
-            aCase.setAttestedAt(LocalDateTime.now());
-        }
-
-        // 10. Initial Save of Case
-        Case savedCase = caseRepository.save(aCase);
-
-        // 11. Witnesses
-        if (request.witnesses() != null && !request.witnesses().isEmpty()) {
-            List<Witness> witnessList = new ArrayList<>();
-            for (WitnessCreateDto wDto : request.witnesses()) {
-                Person wPerson = null;
-                if (wDto.personId() != null) {
-                    wPerson = personRepository.findById(wDto.personId()).orElse(null);
-                }
-                if (wPerson == null && wDto.firstName() != null && !wDto.firstName().isBlank()) {
-                    wPerson = new Person();
-                    wPerson.setFirstName(wDto.firstName().trim());
-                    wPerson.setLastName(wDto.lastName() != null ? wDto.lastName().trim() : "");
-                    wPerson.setContactNumber(wDto.contactNumber());
-                    wPerson.setCompleteAddress(wDto.completeAddress());
-                    wPerson.setIsResident(false);
-                    wPerson = personRepository.save(wPerson);
-                }
-                if (wPerson != null) {
-                    Witness witness = witnessMapper.toWitness(wPerson, savedCase, wDto);
-                    witness = witnessRepository.save(witness);
-                    witnessList.add(witness);
-                }
-            }
-            savedCase.setWitnesses(witnessList);
-        }
-
-        // 12. Supporting Evidences
-        if (request.evidences() != null && !request.evidences().isEmpty()) {
-            for (EvidenceCreateDto eDto : request.evidences()) {
-                CaseEvidence evidence = caseEvidenceMapper.fromCreateDto(eDto, savedCase);
-                if (evidence != null) {
-                    caseEvidenceRepository.save(evidence);
-                }
-            }
-        }
-
-        // 13. Parent / Guardian Details
-        boolean isGuardianAvailable = request.isGuardianAvailable() != null ? request.isGuardianAvailable() : true;
-        Person guardianPerson = isGuardianAvailable ? resolveOrCreatePerson(request.guardian()) : null;
-
-        BcpcCaseDetails bcpcDetails = new BcpcCaseDetails();
-        bcpcDetails.setCases(savedCase);
-        bcpcDetails.setCategory(BcpcCategory.CICL);
-        bcpcDetails.setChild(childPerson);
-        bcpcDetails.setGradeLevel(request.gradeLevel());
-        bcpcDetails.setSchoolName(request.schoolName());
-        bcpcDetails.setGuardian(guardianPerson);
-        bcpcDetails.setGuardianRelationship(request.guardianRelationship());
-        bcpcDetails.setIsGuardianPresentAtIntake(isGuardianAvailable);
-        bcpcDetails.setGuardianUnavailableReason(request.guardianUnavailableReason());
-        BcpcCaseDetails savedBcpcDetails = bcpcCaseDetailsRepository.save(bcpcDetails);
-
-        // 14. CICL Legal Assessment & Routing
-        BcpcCiclAssessment ciclAssessment = new BcpcCiclAssessment();
-        ciclAssessment.setBcpcCaseDetails(savedBcpcDetails);
-        ciclAssessment.setAgeAtIncident(calculatedAge);
-        ciclAssessment.setCiclPathway(determinedPathway);
-        ciclAssessment.setDiscernmentStatus(discernment);
-        ciclAssessment.setPenaltyRoutingCategory(penaltyRouting);
-        ciclAssessment.setDiversionAuthority(authority);
-        ciclAssessment.setIsDiversionEligible(isDiversionEligible);
-        ciclAssessment.setAdmittedOffense(Boolean.TRUE.equals(request.admittedOffense()));
-        ciclAssessment.setIsRepeatOffender(Boolean.TRUE.equals(request.isRepeatOffender()));
-        ciclAssessment.setAllegedViolation(request.allegedViolation());
-        ciclAssessment.setApprehendingOfficerName(request.apprehendingOfficerName());
-        ciclAssessment.setApprehendingOfficerOffice(request.apprehendingOfficerOffice());
-        ciclAssessment.setApprehendingOfficerContact(request.apprehendingOfficerContact());
-        ciclAssessment.setApprehensionDateTime(request.apprehensionDateTime());
-        ciclAssessment.setApprehensionPlace(request.apprehensionPlace());
-        BcpcCiclAssessment savedCiclAssessment = bcpcCiclAssessmentRepository.save(ciclAssessment);
-
-        // 15. Case Timeline Event Logging
-        caseTimelineService.logEvent(
-                savedCase,
-                TimelineEventType.CASE_FILED,
-                "BCPC Case Filed (CICL)",
-                "Child in Conflict with the Law Case #" + savedCase.getCaseNumber() + " was formally filed for minor " + personMapper.buildFullName(childPerson) + ". Alleged violation: " + request.allegedViolation() + ". Legal pathway: " + determinedPathway,
-                currentUser
-        );
-
-        log.info("BCPC CICL Case #{} created successfully.", savedCase.getCaseNumber());
-        return mapToCiclDetailResponse(savedCase, savedBcpcDetails, savedCiclAssessment);
+        return bcpcCiclCaseService.createCiclCase(request);
     }
 
-    /**
-     * Retrieves a single BCPC CICL case detail by Case ID.
-     */
-    @Transactional(readOnly = true)
     public BcpcCiclCaseDetailResponse getCiclCaseById(Long caseId) {
+        return bcpcCiclCaseService.getCiclCaseById(caseId);
+    }
+
+    public BcpcCiclCaseDetailResponse updateCiclCase(Long caseId, BcpcCiclCaseUpdateRequest request) {
+        return bcpcCiclCaseService.updateCiclCase(caseId, request);
+    }
+
+    // =========================================================================
+    // Custody Delegation
+    // =========================================================================
+
+    public BcpcCustodyLogDto getCustodyLog(Long caseId) {
+        return bcpcCustodyService.getCustodyLog(caseId);
+    }
+
+    public BcpcCustodyLogDto updateCustodyLog(Long caseId, BcpcCustodyLogDto request) {
+        return bcpcCustodyService.updateCustodyLog(caseId, request);
+    }
+
+    public BcpcCustodyLogDto updateCiclCustodyLog(Long caseId, UpdateCiclCustodyLogDto request) {
+        return bcpcCustodyService.updateCiclCustodyLog(caseId, request);
+    }
+
+    // =========================================================================
+    // Referral Delegation
+    // =========================================================================
+
+    public List<BcpcReferralResponse> getReferrals(Long caseId) {
+        return bcpcReferralService.getReferrals(caseId);
+    }
+
+    public BcpcReferralResponse issueReferral(Long caseId, BcpcReferralCreateRequest request) {
+        return bcpcReferralService.issueReferral(caseId, request);
+    }
+
+    public BcpcReferralResponse recordReferralFeedback(Long caseId, Long referralId, BcpcReferralFeedbackRequest request) {
+        return bcpcReferralService.recordReferralFeedback(caseId, referralId, request);
+    }
+
+    public BcpcReferralResponse cancelReferral(Long caseId, Long referralId, BcpcReferralCancelRequest request) {
+        return bcpcReferralService.cancelReferral(caseId, referralId, request);
+    }
+
+    // =========================================================================
+    // Intervention Delegation
+    // =========================================================================
+
+    public List<BcpcInterventionDto> getInterventionsByCaseId(Long caseId) {
+        return bcpcInterventionService.getInterventionsByCaseId(caseId);
+    }
+
+    public BcpcInterventionDto createIntervention(Long caseId, BcpcInterventionCreateRequest request) {
+        return bcpcInterventionService.createIntervention(caseId, request);
+    }
+
+    public BcpcInterventionDto updateIntervention(Long caseId, Long interventionId, BcpcInterventionUpdateRequest request) {
+        return bcpcInterventionService.updateIntervention(caseId, interventionId, request);
+    }
+
+    public BcpcInterventionDto recordInterventionProgress(Long caseId, Long interventionId, BcpcInterventionProgressRequest request) {
+        return bcpcInterventionService.recordInterventionProgress(caseId, interventionId, request);
+    }
+
+    // =========================================================================
+    // Common Person Utility Delegation
+    // =========================================================================
+
+    public Person resolveOrCreatePerson(BcpcPersonInputDto dto) {
+        return bcpcCommonService.resolveOrCreatePerson(dto);
+    }
+
+    // =========================================================================
+    // Universal Details & Case Notes
+    // =========================================================================
+
+    @Transactional(readOnly = true)
+    public BcpcCaseUniversalDetailResponse getCaseDetailsById(Long caseId) {
         Case aCase = caseRepository.findById(caseId)
-                .orElseThrow(() -> new IllegalArgumentException("Case not found with ID: " + caseId));
+                .orElseThrow(() -> new ResourceNotFoundException("Case not found with ID: " + caseId));
 
         BcpcCaseDetails details = bcpcCaseDetailsRepository.findByCases(aCase)
-                .orElseThrow(() -> new IllegalArgumentException("BCPC details not found for case ID: " + caseId));
+                .orElseThrow(() -> new ResourceNotFoundException("BCPC details not found for case ID: " + caseId));
 
-        if (details.getCategory() != BcpcCategory.CICL) {
-            throw new IllegalArgumentException("Case ID " + caseId + " is not classified as a CICL case.");
+        String category = details.getCategory() != null ? details.getCategory().name() : "CAR";
+        BcpcCarCaseDetailResponse car = null;
+        BcpcCiclCaseDetailResponse cicl = null;
+
+        if (details.getCategory() == BcpcCategory.CICL) {
+            cicl = bcpcCiclCaseService.getCiclCaseById(caseId);
+        } else {
+            car = bcpcCarCaseService.getCarCaseById(caseId);
         }
 
-        BcpcCiclAssessment cicl = bcpcCiclAssessmentRepository.findByBcpcCaseDetails(details)
-                .orElse(null);
+        String effectiveCaseStatus = resolveEffectiveStatus(aCase, details);
 
-        return mapToCiclDetailResponse(aCase, details, cicl);
-    }
-
-    // =========================================================================
-    // Person Resolution & Shared Utilities
-    // =========================================================================
-
-    /**
-     * Resolves a Person by residentId, personId, or creates a new Person entity if manual.
-     */
-    public Person resolveOrCreatePerson(BcpcPersonInputDto dto) {
-        if (dto == null) return null;
-
-        if (dto.residentId() != null) {
-            Optional<Resident> residentOpt = residentRepository.findById(dto.residentId());
-            if (residentOpt.isPresent() && residentOpt.get().getPerson() != null) {
-                Person person = residentOpt.get().getPerson();
-                boolean updated = false;
-                if ((person.getAge() == null || person.getAge() == 0) && person.getBirthDate() != null) {
-                    person.setAge((short) person.getCalculatedAge());
-                    updated = true;
-                } else if ((person.getAge() == null || person.getAge() == 0) && dto.age() != null) {
-                    person.setAge(dto.age());
-                    updated = true;
-                }
-                if (person.getEmail() == null || person.getEmail().isBlank()) {
-                    if (dto.email() != null && !dto.email().isBlank()) {
-                        person.setEmail(dto.email().trim());
-                        updated = true;
-                    } else if (person.getDisplayEmail() != null) {
-                        person.setEmail(person.getDisplayEmail());
-                        updated = true;
-                    }
-                }
-                if (dto.contactNumber() != null && !dto.contactNumber().isBlank() && (person.getContactNumber() == null || person.getContactNumber().isBlank())) {
-                    person.setContactNumber(dto.contactNumber().trim());
-                    updated = true;
-                }
-                if (updated) {
-                    person = personRepository.save(person);
-                }
-                return person;
-            }
-        }
-
-        if (dto.personId() != null) {
-            Optional<Person> personOpt = personRepository.findById(dto.personId());
-            if (personOpt.isPresent()) {
-                Person person = personOpt.get();
-                boolean updated = false;
-                if ((person.getAge() == null || person.getAge() == 0) && person.getBirthDate() != null) {
-                    person.setAge((short) person.getCalculatedAge());
-                    updated = true;
-                } else if ((person.getAge() == null || person.getAge() == 0) && dto.age() != null) {
-                    person.setAge(dto.age());
-                    updated = true;
-                }
-                if (person.getEmail() == null || person.getEmail().isBlank()) {
-                    if (dto.email() != null && !dto.email().isBlank()) {
-                        person.setEmail(dto.email().trim());
-                        updated = true;
-                    } else if (person.getDisplayEmail() != null) {
-                        person.setEmail(person.getDisplayEmail());
-                        updated = true;
-                    }
-                }
-                if (dto.contactNumber() != null && !dto.contactNumber().isBlank() && (person.getContactNumber() == null || person.getContactNumber().isBlank())) {
-                    person.setContactNumber(dto.contactNumber().trim());
-                    updated = true;
-                }
-                if (updated) {
-                    person = personRepository.save(person);
-                }
-                return person;
-            }
-        }
-
-        // Manual Input: create new Person
-        Person person = new Person();
-        person.setFirstName(dto.firstName() != null ? dto.firstName().trim() : null);
-        person.setLastName(dto.lastName() != null ? dto.lastName().trim() : null);
-        person.setMiddleName(dto.middleName() != null && !dto.middleName().isBlank() ? dto.middleName().trim() : null);
-        person.setSuffix(dto.suffix() != null && !dto.suffix().isBlank() ? dto.suffix().trim() : null);
-        person.setContactNumber(dto.contactNumber());
-        person.setCompleteAddress(dto.completeAddress());
-        Short calculatedAge = dto.age();
-        if (calculatedAge == null && dto.birthDate() != null) {
-            calculatedAge = (short) Period.between(dto.birthDate(), LocalDate.now()).getYears();
-        }
-        person.setAge(calculatedAge);
-        person.setGender(dto.gender());
-        person.setBirthDate(dto.birthDate());
-        person.setCivilStatus(dto.civilStatus());
-        person.setEmail(dto.email());
-        person.setIsResident(false);
-
-        return personRepository.save(person);
-    }
-
-    private BcpcPersonDetailDto toPersonDetailDto(Person p) {
-        if (p == null) return null;
-        Short age = p.getAge();
-        if ((age == null || age == 0) && p.getBirthDate() != null) {
-            age = (short) p.getCalculatedAge();
-        }
-        String email = p.getEmail();
-        if (email == null || email.isBlank()) {
-            email = p.getDisplayEmail();
-        }
-        return new BcpcPersonDetailDto(
-                p.getId(),
-                p.getFirstName(),
-                p.getMiddleName(),
-                p.getLastName(),
-                personMapper.buildFullName(p),
-                p.getSuffix(),
-                p.getContactNumber(),
-                p.getCompleteAddress(),
-                age,
-                p.getGender(),
-                p.getBirthDate(),
-                p.getCivilStatus(),
-                email,
-                p.getIsResident()
-        );
-    }
-
-    private BcpcCarCaseDetailResponse mapToCarDetailResponse(Case aCase, BcpcCaseDetails details, BcpcCarAssessment car) {
-        var reporterDto = aCase.getComplainant() != null ? complainantMapper.toDetailDto(aCase.getComplainant()) : null;
-        String reporterRel = aCase.getComplainant() != null ? aCase.getComplainant().getRelationshipToChild() : null;
-        var incidentDto = aCase.getIncidentDetail() != null ? incidentDetailMapper.toDetailDto(aCase.getIncidentDetail()) : null;
-        var narrativeDto = aCase.getNarrativeStatement() != null ? narrativeStatementMapper.toDetailDto(aCase.getNarrativeStatement()) : null;
-
-        List<EvidenceDetailDto> evidenceDtos = caseEvidenceRepository.findByCasesId(aCase.getId()).stream()
-                .map(caseEvidenceMapper::toDetailDto)
-                .toList();
-
-        List<WitnessDetailDto> witnessDtos = witnessRepository.findByCaseId(aCase.getId()).stream()
-                .map(witnessMapper::toDetailDto)
-                .toList();
-
-        String reportingOfficer = aCase.getCaseFilledBy() != null && aCase.getCaseFilledBy().getPerson() != null
-                ? personMapper.buildFullName(aCase.getCaseFilledBy().getPerson())
-                : (aCase.getCaseFilledBy() != null ? aCase.getCaseFilledBy().getUsername() : "BCPC Officer");
-
-        String assignedOfficer = aCase.getOfficer() != null && aCase.getOfficer().getPerson() != null
-                ? personMapper.buildFullName(aCase.getOfficer().getPerson())
-                : null;
-
-        String caseStatus = resolveEffectiveStatus(aCase, details);
-
-        return new BcpcCarCaseDetailResponse(
+        return new BcpcCaseUniversalDetailResponse(
                 aCase.getId(),
                 aCase.getCaseNumber(),
+                category,
                 aCase.getFilingType() != null ? aCase.getFilingType().name() : "FORMAL_COMPLAINT",
-                caseStatus,
-                aCase.getCaseStatusRemarks(),
-                aCase.getRiskLevel(),
-                aCase.getCreatedAt(),
-                reportingOfficer,
-                assignedOfficer,
-
-                reporterDto,
-                null,
-                reporterRel,
-
-                toPersonDetailDto(details != null ? details.getChild() : null),
-                details != null ? details.getGradeLevel() : null,
-                details != null ? details.getSchoolName() : null,
-
-                toPersonDetailDto(details != null ? details.getGuardian() : null),
-                details != null ? details.getGuardianRelationship() : null,
-                details != null ? details.getIsGuardianPresentAtIntake() : true,
-                details != null ? details.getGuardianUnavailableReason() : null,
-
-                incidentDto,
-                car != null ? car.getCarActCategory() : null,
-                car != null ? car.getSpecificCarAct() : null,
-                car != null ? car.getSpecificCarActOther() : null,
-                car != null ? car.getCarOccurrenceCategory() : null,
-                car != null ? car.getNeedsProtectiveCustody() : false,
-                car != null ? car.getTemporaryShelterPlacement() : null,
-                car != null ? car.getSafetyAndWelfareNotes() : null,
-
-                narrativeDto,
-                evidenceDtos,
-                witnessDtos,
-                aCase.getIsAttested(),
-                aCase.getAttestedAt()
+                effectiveCaseStatus,
+                car,
+                cicl
         );
     }
 
-    private BcpcCiclCaseDetailResponse mapToCiclDetailResponse(Case aCase, BcpcCaseDetails details, BcpcCiclAssessment cicl) {
-        var victimDto = aCase.getComplainant() != null ? complainantMapper.toDetailDto(aCase.getComplainant()) : null;
-        String victimRel = aCase.getComplainant() != null ? aCase.getComplainant().getRelationshipToChild() : null;
-        var incidentDto = aCase.getIncidentDetail() != null ? incidentDetailMapper.toDetailDto(aCase.getIncidentDetail()) : null;
-        var narrativeDto = aCase.getNarrativeStatement() != null ? narrativeStatementMapper.toDetailDto(aCase.getNarrativeStatement()) : null;
+    @Transactional
+    public CaseNoteResponse addCaseNote(Long caseId, CaseNoteRequest request) {
+        log.info("Adding BCPC case note to Case ID: {}", caseId);
+        Case caseEntity = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("BCPC Case not found with ID: " + caseId));
 
-        List<EvidenceDetailDto> evidenceDtos = caseEvidenceRepository.findByCasesId(aCase.getId()).stream()
-                .map(caseEvidenceMapper::toDetailDto)
-                .toList();
+        User currentUser = SecurityUtils.getCurrentUser();
 
-        List<WitnessDetailDto> witnessDtos = witnessRepository.findByCaseId(aCase.getId()).stream()
-                .map(witnessMapper::toDetailDto)
-                .toList();
+        CaseNote note = new CaseNote();
+        note.setCases(caseEntity);
+        note.setNote(request.getNote());
+        note.setCreatedBy(currentUser);
 
-        String reportingOfficer = aCase.getCaseFilledBy() != null && aCase.getCaseFilledBy().getPerson() != null
-                ? personMapper.buildFullName(aCase.getCaseFilledBy().getPerson())
-                : (aCase.getCaseFilledBy() != null ? aCase.getCaseFilledBy().getUsername() : "BCPC Officer");
+        CaseNote saved = caseNoteRepository.save(note);
 
-        String assignedOfficer = aCase.getOfficer() != null && aCase.getOfficer().getPerson() != null
-                ? personMapper.buildFullName(aCase.getOfficer().getPerson())
-                : null;
+        try {
+            caseTimelineService.logEvent(
+                    caseEntity,
+                    TimelineEventType.NOTE_ADDED,
+                    "BCPC Case Note Added",
+                    request.getNote(),
+                    currentUser
+            );
+        } catch (Exception e) {
+            log.warn("Failed to log timeline event for BCPC case note [caseId={}]: {}", caseEntity.getId(), e.getMessage());
+        }
 
-        BcpcCiclAssessmentDto ciclDto = cicl != null ? new BcpcCiclAssessmentDto(
-                cicl.getAgeAtIncident(),
-                cicl.getCiclPathway(),
-                cicl.getDiscernmentStatus(),
-                cicl.getPenaltyRoutingCategory(),
-                cicl.getDiversionAuthority(),
-                cicl.getIsDiversionEligible(),
-                cicl.getAdmittedOffense(),
-                cicl.getIsRepeatOffender(),
-                cicl.getAllegedViolation(),
-                cicl.getApprehendingOfficerName(),
-                cicl.getApprehendingOfficerOffice(),
-                cicl.getApprehendingOfficerContact(),
-                cicl.getApprehensionDateTime(),
-                cicl.getApprehensionPlace()
-        ) : null;
-
-        String caseStatus = resolveEffectiveStatus(aCase, details);
-
-        return new BcpcCiclCaseDetailResponse(
-                aCase.getId(),
-                aCase.getCaseNumber(),
-                aCase.getFilingType() != null ? aCase.getFilingType().name() : "FORMAL_COMPLAINT",
-                caseStatus,
-                aCase.getCaseStatusRemarks(),
-                aCase.getRiskLevel(),
-                aCase.getCreatedAt(),
-                reportingOfficer,
-                assignedOfficer,
-
-                victimDto,
-                aCase.getComplainant() == null,
-                null,
-                victimRel,
-
-                toPersonDetailDto(details != null ? details.getChild() : null),
-                details != null ? details.getGradeLevel() : null,
-                details != null ? details.getSchoolName() : null,
-
-                toPersonDetailDto(details != null ? details.getGuardian() : null),
-                details != null ? details.getGuardianRelationship() : null,
-                details != null ? details.getIsGuardianPresentAtIntake() : true,
-                details != null ? details.getGuardianUnavailableReason() : null,
-
-                ciclDto,
-                incidentDto,
-                narrativeDto,
-                evidenceDtos,
-                witnessDtos,
-                aCase.getIsAttested(),
-                aCase.getAttestedAt()
-        );
+        return toCaseNoteResponse(saved);
     }
 
-    private Optional<Officer> resolveOfficerByName(String officerName) {
-        String clean = officerName.trim().toLowerCase();
-        return officerRepository.findAll().stream()
-                .filter(o -> o.getPerson() != null && (
-                        personMapper.buildFullName(o.getPerson()).toLowerCase().contains(clean) ||
-                                clean.contains(o.getPerson().getLastName().toLowerCase())
-                ))
-                .findFirst();
+    @Transactional(readOnly = true)
+    public List<CaseNoteResponse> getCaseNotes(Long caseId) {
+        log.info("Retrieving BCPC case notes for Case ID: {}", caseId);
+        return caseNoteRepository.findByCasesIdOrderByCreatedAtDesc(caseId)
+                .stream()
+                .map(this::toCaseNoteResponse)
+                .toList();
     }
 
-    private String generateUniqueBcpcCaseNumber() {
-        int fullYear = LocalDate.now().getYear();
-        int twoDigitYear = fullYear % 100;
-        String caseNumber;
-        do {
-            int randomNum = RANDOM.nextInt(9000) + 1;
-            caseNumber = String.format("BU%02d-BCPC-%04d", twoDigitYear, randomNum);
-        } while (caseRepository.existsByCaseNumber(caseNumber));
-        return caseNumber;
+    private CaseNoteResponse toCaseNoteResponse(CaseNote n) {
+        String createdBy = null;
+        if (n.getCreatedBy() != null) {
+            User u = n.getCreatedBy();
+            if (u.getPerson() != null) {
+                String first = u.getPerson().getFirstName() != null ? u.getPerson().getFirstName() : "";
+                String last  = u.getPerson().getLastName()  != null ? u.getPerson().getLastName()  : "";
+                createdBy = (first + " " + last).trim();
+            } else {
+                createdBy = u.getUsername() != null ? u.getUsername() : u.getSystemEmail();
+            }
+        }
+        return CaseNoteResponse.builder()
+                .id(n.getId())
+                .caseId(n.getCases() != null ? n.getCases().getId() : null)
+                .note(n.getNote())
+                .createdBy(createdBy)
+                .createdAt(n.getCreatedAt())
+                .build();
     }
 
     // =========================================================================
-    // BCPC KPI Statistics
+    // Statistics & Case Records Table
     // =========================================================================
 
-    /**
-     * Calculates BCPC KPI Statistics with month-to-date vs full previous calendar month trend percentages.
-     * Excludes permanently deleted, deleted (trash), and archived cases.
-     *
-     * @return {@link BcpcStatsResponse}
-     */
     @Transactional(readOnly = true)
     public BcpcStatsResponse getBcpcStats() {
         LocalDateTime currentMonthStart = YearMonth.now().atDay(1).atStartOfDay();
         LocalDateTime prevMonthStart = YearMonth.now().minusMonths(1).atDay(1).atStartOfDay();
         LocalDateTime prevMonthEnd = currentMonthStart.minusNanos(1);
 
-        // 1. Total BCPC Cases + Monthly Trend
         long totalCases = caseRepository.countRootBcpcCases();
         long currentTotal = caseRepository.countRootBcpcCasesByCreatedAtGreaterThanEqual(currentMonthStart);
         long prevTotal = caseRepository.countRootBcpcCasesByCreatedAtBetween(prevMonthStart, prevMonthEnd);
         String totalCasesTrend = calculateMonthlyTrend(currentTotal, prevTotal);
 
-        // 2. Active / Ongoing Cases (Pending, Ongoing, Reopened under BCPC intervention / diversion)
         List<CaseStatus> activeStatuses = List.of(
                 CaseStatus.PENDING,
                 CaseStatus.ONGOING,
@@ -906,15 +297,8 @@ public class BcpcCaseService {
                 CaseStatus.ISSUED_REFERRAL
         );
         long totalActiveCases = caseRepository.countLatestBcpcCasesByCaseStatusIn(activeStatuses);
-
-        // 3. Referred Cases (Count distinct cases with active referrals)
         long totalReferredCases = bcpcReferralRepository.countDistinctReferredCases();
-
-        // 4. Settled Cases
-        List<CaseStatus> settledStatuses = List.of(
-                CaseStatus.SETTLED
-        );
-        long totalSettledCases = caseRepository.countLatestBcpcCasesByCaseStatusIn(settledStatuses);
+        long totalSettledCases = caseRepository.countLatestBcpcCasesByCaseStatusIn(List.of(CaseStatus.SETTLED));
 
         return new BcpcStatsResponse(
                 totalCases,
@@ -925,10 +309,6 @@ public class BcpcCaseService {
         );
     }
 
-    /**
-     * Formats month-to-date count vs full previous month count trend.
-     * Formula: trend = ((thisMonth - lastMonth) / lastMonth) * 100
-     */
     private String calculateMonthlyTrend(long currentCount, long prevCount) {
         if (prevCount == 0) {
             if (currentCount > 0) return "+100.0% vs last month";
@@ -938,18 +318,6 @@ public class BcpcCaseService {
         return String.format("%+.1f%% vs last month", percentChange);
     }
 
-    // =========================================================================
-    // BCPC Case Table & Records
-    // =========================================================================
-
-    /**
-     * Retrieves paginated and filtered BCPC cases for the records table.
-     * Excludes archived, soft-deleted, and permanently deleted cases.
-     * Default page size is 5.
-     *
-     * @param filter filter criteria (search, status, category, page, size)
-     * @return {@link PageResponse} containing {@link BcpcTableRowResponse}
-     */
     @Transactional(readOnly = true)
     public PageResponse<BcpcTableRowResponse> getBcpcCasesTable(BcpcFilterRequest filter) {
         int page = filter != null ? filter.getPageNumber() : 0;
@@ -962,12 +330,6 @@ public class BcpcCaseService {
         return PageResponse.of(dtoPage);
     }
 
-    /**
-     * Determines the effective display status for a BCPC case.
-     * Newly filed cases with no recorded custody turnover, referrals, or interventions remain PENDING.
-     * Once any process (custody, referral, intervention) is initiated/recorded, the status is ONGOING,
-     * unless terminal (SETTLED, DISMISSED, WITHDRAWN).
-     */
     public String resolveEffectiveStatus(Case c, BcpcCaseDetails details) {
         if (c == null) return "PENDING";
         CaseStatus raw = c.getCaseStatus();
@@ -978,14 +340,12 @@ public class BcpcCaseService {
 
         Long caseId = c.getId();
 
-        // 1. Check Referrals
         try {
             if (bcpcReferralRepository.countByCasesId(caseId) > 0) {
                 return "ONGOING";
             }
         } catch (Exception ignored) {}
 
-        // 2. Check Interventions
         try {
             Long detailsId = details != null ? details.getId() : null;
             if (detailsId == null) {
@@ -997,7 +357,6 @@ public class BcpcCaseService {
             }
         } catch (Exception ignored) {}
 
-        // 3. Check Custody Turnover
         try {
             if (details != null) {
                 boolean hasCustody = (details.getTemporaryPlacement() != null && !details.getTemporaryPlacement().isBlank()) ||
@@ -1013,9 +372,6 @@ public class BcpcCaseService {
         return "PENDING";
     }
 
-    /**
-     * Maps a {@link Case} entity to {@link BcpcTableRowResponse} for the BCPC records table.
-     */
     public BcpcTableRowResponse toBcpcTableRowResponse(Case c) {
         if (c == null) return null;
 
@@ -1059,9 +415,6 @@ public class BcpcCaseService {
         );
     }
 
-    /**
-     * Masks child's name for confidentiality (e.g., "P*****, J.").
-     */
     private String maskChildName(Person p) {
         if (p == null) return "—";
         String first = p.getFirstName() != null ? p.getFirstName().trim() : "";
@@ -1076,975 +429,5 @@ public class BcpcCaseService {
         }
         String firstInitial = first.isEmpty() ? "" : first.substring(0, 1).toUpperCase() + ".";
         return firstInitial.isEmpty() ? maskedLast : maskedLast + ", " + firstInitial;
-    }
-
-    /**
-     * Universal retrieval of a BCPC case details by ID (automatically detects CAR vs CICL).
-     */
-    @Transactional(readOnly = true)
-    public BcpcCaseUniversalDetailResponse getCaseDetailsById(Long caseId) {
-        Case aCase = caseRepository.findById(caseId)
-                .orElseThrow(() -> new IllegalArgumentException("Case not found with ID: " + caseId));
-
-        BcpcCaseDetails details = bcpcCaseDetailsRepository.findByCases(aCase)
-                .orElseThrow(() -> new IllegalArgumentException("BCPC details not found for case ID: " + caseId));
-
-        String category = details.getCategory() != null ? details.getCategory().name() : "CAR";
-        BcpcCarCaseDetailResponse car = null;
-        BcpcCiclCaseDetailResponse cicl = null;
-
-        if (details.getCategory() == BcpcCategory.CICL) {
-            cicl = getCiclCaseById(caseId);
-        } else {
-            car = getCarCaseById(caseId);
-        }
-
-        String effectiveCaseStatus = resolveEffectiveStatus(aCase, details);
-
-        return new BcpcCaseUniversalDetailResponse(
-                aCase.getId(),
-                aCase.getCaseNumber(),
-                category,
-                aCase.getFilingType() != null ? aCase.getFilingType().name() : "FORMAL_COMPLAINT",
-                effectiveCaseStatus,
-                car,
-                cicl
-        );
-    }
-
-    // =========================================================================
-    // Dedicated BCPC Case Notes Management
-    // =========================================================================
-
-    /**
-     * Adds a dedicated confidential case note to a BCPC case.
-     *
-     * @param caseId  the BCPC case ID
-     * @param request the case note payload
-     * @return the created {@link CaseNoteResponse}
-     */
-    @Transactional
-    public CaseNoteResponse addCaseNote(Long caseId, CaseNoteRequest request) {
-        log.info("Adding BCPC case note to Case ID: {}", caseId);
-        Case caseEntity = caseRepository.findById(caseId)
-                .orElseThrow(() -> new ResourceNotFoundException("BCPC Case not found with ID: " + caseId));
-
-        User currentUser = SecurityUtils.getCurrentUser();
-
-        CaseNote note = new CaseNote();
-        note.setCases(caseEntity);
-        note.setNote(request.getNote());
-        note.setCreatedBy(currentUser);
-
-        CaseNote saved = caseNoteRepository.save(note);
-
-        try {
-            caseTimelineService.logEvent(
-                    caseEntity,
-                    TimelineEventType.NOTE_ADDED,
-                    "BCPC Case Note Added",
-                    request.getNote(),
-                    currentUser
-            );
-        } catch (Exception e) {
-            log.warn("Failed to log timeline event for BCPC case note [caseId={}]: {}", caseEntity.getId(), e.getMessage());
-        }
-
-        return toCaseNoteResponse(saved);
-    }
-
-    /**
-     * Retrieves all confidential case notes for a BCPC case ordered by newest first.
-     *
-     * @param caseId the BCPC case ID
-     * @return list of {@link CaseNoteResponse}
-     */
-    @Transactional(readOnly = true)
-    public List<CaseNoteResponse> getCaseNotes(Long caseId) {
-        log.info("Retrieving BCPC case notes for Case ID: {}", caseId);
-        return caseNoteRepository.findByCasesIdOrderByCreatedAtDesc(caseId)
-                .stream()
-                .map(this::toCaseNoteResponse)
-                .toList();
-    }
-
-    private CaseNoteResponse toCaseNoteResponse(CaseNote n) {
-        String createdBy = null;
-        if (n.getCreatedBy() != null) {
-            User u = n.getCreatedBy();
-            if (u.getPerson() != null) {
-                String first = u.getPerson().getFirstName() != null ? u.getPerson().getFirstName() : "";
-                String last  = u.getPerson().getLastName()  != null ? u.getPerson().getLastName()  : "";
-                createdBy = (first + " " + last).trim();
-            } else {
-                createdBy = u.getUsername() != null ? u.getUsername() : u.getSystemEmail();
-            }
-        }
-        return CaseNoteResponse.builder()
-                .id(n.getId())
-                .caseId(n.getCases() != null ? n.getCases().getId() : null)
-                .note(n.getNote())
-                .createdBy(createdBy)
-                .createdAt(n.getCreatedAt())
-                .build();
-    }
-
-    /**
-     * Retrieves the current Custody & Turnover log for a BCPC case.
-     */
-    @Transactional(readOnly = true)
-    public BcpcCustodyLogDto getCustodyLog(Long caseId) {
-        log.info("Retrieving Custody Log for BCPC Case ID: {}", caseId);
-        Case caseEntity = caseRepository.findById(caseId)
-                .orElseThrow(() -> new ResourceNotFoundException("BCPC Case not found with ID: " + caseId));
-        BcpcCaseDetails details = bcpcCaseDetailsRepository.findByCasesId(caseId)
-                .orElseThrow(() -> new ResourceNotFoundException("BCPC Details not found for Case ID: " + caseId));
-
-        return toCustodyLogDto(details);
-    }
-
-    private BcpcCustodyLogDto toCustodyLogDto(BcpcCaseDetails details) {
-        String custodyStatus = details.getCustodyStatus();
-        if (custodyStatus == null || custodyStatus.isBlank()) {
-            if (details.getTemporaryPlacement() != null && !details.getTemporaryPlacement().isBlank()) {
-                if (CarTurnoverPolicy.TEMPORARY.equals(details.getTemporaryPlacement())) {
-                    custodyStatus = "Temporarily Accommodated";
-                } else {
-                    custodyStatus = "Turnover Completed";
-                }
-            } else if (details.getWasApprehended() != null) {
-                if (Boolean.FALSE.equals(details.getWasApprehended())) {
-                    custodyStatus = "Not in Custody";
-                } else if (details.getCustodyResolution() != null && !details.getCustodyResolution().isBlank() && !"Pending Resolution".equalsIgnoreCase(details.getCustodyResolution())) {
-                    custodyStatus = "Turnover Completed";
-                } else {
-                    custodyStatus = "In Custody - Awaiting Turnover";
-                }
-            } else {
-                custodyStatus = "Pending Turnover";
-            }
-        }
-
-        JsonNode receiverNode = CarTurnoverPolicy.receiver(details.getInitialResponsibility());
-        String fn = CarTurnoverPolicy.text(receiverNode, "firstName");
-        String mn = CarTurnoverPolicy.text(receiverNode, "middleName");
-        String ln = CarTurnoverPolicy.text(receiverNode, "lastName");
-        String receivingPersonName = (fn + " " + mn + " " + ln).trim().replaceAll(" +", " ");
-        if (receivingPersonName.isEmpty()) receivingPersonName = fn;
-
-        String receivingRelationship = CarTurnoverPolicy.text(receiverNode, "relationship");
-        if (CarTurnoverPolicy.TEMPORARY.equals(details.getTemporaryPlacement())) {
-            receivingRelationship = CarTurnoverPolicy.text(receiverNode, "officePosition");
-            if (receivingRelationship.isEmpty()) receivingRelationship = "Barangay Personnel";
-        }
-
-        String receivingOffice = CarTurnoverPolicy.text(receiverNode, "receivingOffice");
-        if (receivingOffice.isEmpty()) receivingOffice = CarTurnoverPolicy.text(receiverNode, "receivingBarangay");
-
-        String immediateActionNotes = CarTurnoverPolicy.text(receiverNode, "immediateActionNotes");
-
-        boolean carGuidanceApplicable = CarTurnoverPolicy.PARENT.equals(details.getTemporaryPlacement()) ||
-                (details.getCategory() == BcpcCategory.CAR && details.getTemporaryPlacement() == null);
-
-        // CICL info
-        String apprehOfficer = null;
-        String apprehPlace = null;
-        String apprehDate = null;
-        String apprehTime = null;
-        if (details.getCiclAssessment() != null) {
-            apprehOfficer = details.getCiclAssessment().getApprehendingOfficerName();
-            apprehPlace = details.getCiclAssessment().getApprehensionPlace();
-            if (details.getCiclAssessment().getApprehensionDateTime() != null) {
-                apprehDate = details.getCiclAssessment().getApprehensionDateTime().toLocalDate().toString();
-                apprehTime = details.getCiclAssessment().getApprehensionDateTime().toLocalTime().toString();
-            }
-        }
-
-        return BcpcCustodyLogDto.builder()
-                .turnoverAction("NEW_TURNOVER")
-                .custodyStatus(custodyStatus)
-                .needsMedicalAttention(details.getNeedsMedicalAttention())
-                .temporaryPlacement(details.getTemporaryPlacement() != null ? details.getTemporaryPlacement() : details.getCustodyResolution())
-                .initialResponsibility(details.getInitialResponsibility())
-                .contactNumber(details.getContactNumber())
-                .transferDate(details.getTransferDate())
-                .transferTime(details.getTransferTime())
-                .temporaryPlacementReason(details.getTemporaryPlacementReason() != null ? details.getTemporaryPlacementReason() : details.getDelayReason())
-                .transferNotes(details.getTransferNotes() != null ? details.getTransferNotes() : details.getCustodyRemarks())
-                .healthCoordinationConfirmed(details.getHealthCoordinationConfirmed())
-                .childGuidanceProvided(details.getChildGuidanceProvided())
-                .parentAdviceProvided(details.getParentAdviceProvided())
-                .guidanceNotes(details.getGuidanceNotes())
-                .receivingPersonName(receivingPersonName)
-                .receivingRelationship(receivingRelationship)
-                .receivingOffice(receivingOffice)
-                .immediateActionNotes(immediateActionNotes)
-                .carGuidanceApplicable(carGuidanceApplicable)
-                .wasApprehended(details.getWasApprehended())
-                .apprehendingOfficerName(apprehOfficer)
-                .apprehensionPlace(apprehPlace)
-                .apprehensionDate(apprehDate)
-                .apprehensionTime(apprehTime)
-                .custodyResolution(details.getCustodyResolution())
-                .turnoverDate(details.getTurnoverDate())
-                .turnoverTime(details.getTurnoverTime())
-                .delayReason(details.getDelayReason())
-                .custodyRemarks(details.getCustodyRemarks())
-                .build();
-    }
-
-    /**
-     * Records or updates a Custody & Turnover entry for a BCPC case (primarily CAR handoff).
-     * Automatically logs an event to the Case Timeline and triggers audit logging.
-     */
-    @Transactional
-    public BcpcCustodyLogDto updateCustodyLog(Long caseId, BcpcCustodyLogDto request) {
-        log.info("Updating Custody Log for BCPC Case ID: {}", caseId);
-        Case caseEntity = caseRepository.findById(caseId)
-                .orElseThrow(() -> new ResourceNotFoundException("BCPC Case not found with ID: " + caseId));
-        if (caseEntity.getCaseStatus() == CaseStatus.SETTLED || caseEntity.getCaseStatus() == CaseStatus.DISMISSED || caseEntity.getCaseStatus() == CaseStatus.WITHDRAWN) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot update custody for settled, dismissed, or withdrawn cases.");
-        }
-
-        BcpcCaseDetails details = bcpcCaseDetailsRepository.findByCasesId(caseId)
-                .orElseThrow(() -> new ResourceNotFoundException("BCPC Details not found for Case ID: " + caseId));
-
-        boolean existing = details.getTemporaryPlacement() != null && !details.getTemporaryPlacement().isBlank();
-        boolean correction = "CORRECTION".equalsIgnoreCase(request.getTurnoverAction());
-
-        if (correction) {
-            CarTurnoverPolicy.require(existing, "There is no saved turnover to correct.");
-            CarTurnoverPolicy.require(!CarTurnoverPolicy.blank(request.getEditReason()), "Reason for Edit is required for modifying a saved turnover record.");
-        }
-
-        boolean guidanceApplicable = CarTurnoverPolicy.PARENT.equals(request.getTemporaryPlacement());
-        CarTurnoverPolicy.validate(request, guidanceApplicable);
-
-        BcpcCustodyLogDto previousDto = toCustodyLogDto(details);
-        java.util.Map<String, String> beforeSnapshot = CarTurnoverPolicy.snapshot(previousDto);
-        java.util.Map<String, String> afterSnapshot = CarTurnoverPolicy.snapshot(request);
-        String changes = CarTurnoverPolicy.changes(beforeSnapshot, afterSnapshot);
-
-        if (correction && changes.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No turnover fields were changed.");
-        }
-
-        String determinedStatus = CarTurnoverPolicy.TEMPORARY.equals(request.getTemporaryPlacement())
-                ? "Temporarily Accommodated"
-                : "Turnover Completed";
-
-        details.setCustodyStatus(determinedStatus);
-        details.setTemporaryPlacement(request.getTemporaryPlacement());
-        details.setInitialResponsibility(request.getInitialResponsibility());
-        details.setContactNumber(request.getContactNumber());
-        details.setTransferDate(request.getTransferDate());
-        details.setTransferTime(request.getTransferTime());
-        details.setTemporaryPlacementReason(request.getTemporaryPlacementReason());
-        details.setTransferNotes(request.getTransferNotes());
-        details.setNeedsMedicalAttention(request.getNeedsMedicalAttention());
-        details.setHealthCoordinationConfirmed(request.getHealthCoordinationConfirmed());
-        details.setChildGuidanceProvided(request.getChildGuidanceProvided());
-        details.setParentAdviceProvided(request.getParentAdviceProvided());
-        details.setGuidanceNotes(request.getGuidanceNotes());
-
-        BcpcCaseDetails savedDetails = bcpcCaseDetailsRepository.save(details);
-
-        // Transition Case status to ONGOING if PENDING
-        if (caseEntity.getCaseStatus() == CaseStatus.PENDING) {
-            caseEntity.setCaseStatus(CaseStatus.ONGOING);
-            caseRepository.save(caseEntity);
-        }
-
-        // Log Timeline Event
-        User currentUser = SecurityUtils.getCurrentUser();
-        String timelineTitle;
-        if (correction) {
-            timelineTitle = "Turnover Record Updated";
-        } else if (existing) {
-            timelineTitle = "Turnover Record Added";
-        } else {
-            timelineTitle = "Custody / Turnover Completed";
-        }
-
-        String timelineDescription;
-        if (CarTurnoverPolicy.TEMPORARY.equals(request.getTemporaryPlacement())) {
-            timelineDescription = "Child temporarily accommodated at the barangay while awaiting turnover.";
-        } else {
-            com.fasterxml.jackson.databind.JsonNode person = CarTurnoverPolicy.receiver(request.getInitialResponsibility());
-            String name = (CarTurnoverPolicy.text(person, "firstName") + " " + CarTurnoverPolicy.text(person, "lastName")).trim();
-            String role = CarTurnoverPolicy.text(person, "relationship");
-            timelineDescription = "Child turned over" + (!name.isBlank() ? " to " + name : "") + (!role.isBlank() ? " (" + role + ")" : "") + ".";
-        }
-
-        try {
-            caseTimelineService.logEvent(
-                    caseEntity,
-                    TimelineEventType.STATUS_CHANGED,
-                    timelineTitle,
-                    timelineDescription,
-                    currentUser
-            );
-        } catch (Exception e) {
-            log.warn("Failed to log timeline event for BCPC custody [caseId={}]: {}", caseId, e.getMessage());
-        }
-
-        return toCustodyLogDto(savedDetails);
-    }
-
-    /**
-     * Records or updates a CICL Custody / Apprehension log.
-     * Automatically logs an event to the Case Timeline and triggers audit logging.
-     */
-    @Transactional
-    public BcpcCustodyLogDto updateCiclCustodyLog(Long caseId, UpdateCiclCustodyLogDto request) {
-        log.info("Updating CICL Custody Log for Case ID: {}", caseId);
-        Case caseEntity = caseRepository.findById(caseId)
-                .orElseThrow(() -> new ResourceNotFoundException("BCPC Case not found with ID: " + caseId));
-        if (caseEntity.getCaseStatus() == CaseStatus.SETTLED || caseEntity.getCaseStatus() == CaseStatus.DISMISSED || caseEntity.getCaseStatus() == CaseStatus.WITHDRAWN) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot update custody for settled, dismissed, or withdrawn cases.");
-        }
-
-        BcpcCaseDetails details = bcpcCaseDetailsRepository.findByCasesId(caseId)
-                .orElseThrow(() -> new ResourceNotFoundException("BCPC Details not found for Case ID: " + caseId));
-
-        if (caseEntity.getCaseStatus() == CaseStatus.PENDING) {
-            caseEntity.setCaseStatus(CaseStatus.ONGOING);
-            caseRepository.save(caseEntity);
-        }
-
-        User currentUser = SecurityUtils.getCurrentUser();
-
-        details.setWasApprehended(request.getWasApprehended());
-
-        if (Boolean.FALSE.equals(request.getWasApprehended())) {
-            details.setCustodyResolution("Not in Custody");
-            details.setCustodyStatus("Not in Custody");
-
-            BcpcCaseDetails saved = bcpcCaseDetailsRepository.save(details);
-
-            try {
-                caseTimelineService.logEvent(
-                        caseEntity,
-                        TimelineEventType.STATUS_CHANGED,
-                        "CICL CUSTODY RESOLVED: NOT IN CUSTODY",
-                        "Child officially recorded as Not in Custody. Legal case proceedings continue without physical detention.",
-                        currentUser
-                );
-            } catch (Exception e) {
-                log.warn("Failed to log timeline event for CICL custody not apprehended [caseId={}]: {}", caseId, e.getMessage());
-            }
-
-            return toCustodyLogDto(saved);
-        }
-
-        // Child was apprehended
-        if (request.getCustodyResolution() != null && !request.getCustodyResolution().isBlank()
-                && !"Pending Resolution".equalsIgnoreCase(request.getCustodyResolution())) {
-            details.setCustodyResolution(request.getCustodyResolution());
-            details.setTurnoverDate(request.getTurnoverDate());
-            details.setTurnoverTime(request.getTurnoverTime());
-            details.setTurnedOverTo(request.getTurnedOverTo());
-            details.setTurnedOverToSpecify(request.getTurnedOverToSpecify());
-            details.setDelayReason(request.getDelayReason());
-            details.setCustodyRemarks(request.getCustodyRemarks());
-            details.setCustodyStatus("Turnover Completed");
-            details.setContactNumber(request.getContactNumber());
-            details.setTemporaryPlacement(request.getCustodyResolution());
-            if (request.getDelayReason() != null && !request.getDelayReason().isBlank()) {
-                details.setTemporaryPlacementReason(request.getDelayReason());
-            }
-            if (request.getCustodyRemarks() != null && !request.getCustodyRemarks().isBlank()) {
-                details.setTransferNotes(request.getCustodyRemarks());
-            }
-
-            // Save receiver person and relationship into initialResponsibility JSON
-            String receiverName = request.getReleasedTo() != null ? request.getReleasedTo().trim() : "";
-            String receiverRel = request.getRecipientRelationship() != null ? request.getRecipientRelationship().trim() : "";
-            if (!receiverName.isEmpty() || !receiverRel.isEmpty()) {
-                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                com.fasterxml.jackson.databind.node.ObjectNode node = mapper.createObjectNode();
-                node.put("firstName", receiverName);
-                node.put("representativeName", receiverName);
-                node.put("relationship", receiverRel);
-                try {
-                    details.setInitialResponsibility(mapper.writeValueAsString(node));
-                } catch (Exception ignored) {
-                    details.setInitialResponsibility("{\"firstName\":\"" + receiverName + "\",\"relationship\":\"" + receiverRel + "\"}");
-                }
-            }
-
-            BcpcCaseDetails saved = bcpcCaseDetailsRepository.save(details);
-
-            String receiver = request.getReleasedTo() != null ? request.getReleasedTo() : request.getTurnedOverTo();
-            String rel = request.getRecipientRelationship();
-            String desc = "Child turned over" + (receiver != null && !receiver.isBlank() ? " to " + receiver : "") + (rel != null && !rel.isBlank() ? " (" + rel + ")" : "") + ".";
-
-            try {
-                caseTimelineService.logEvent(
-                        caseEntity,
-                        TimelineEventType.STATUS_CHANGED,
-                        "Custody / Turnover Completed",
-                        desc,
-                        currentUser
-                );
-            } catch (Exception e) {
-                log.warn("Failed to log timeline event for CICL turnover [caseId={}]: {}", caseId, e.getMessage());
-            }
-
-            return toCustodyLogDto(saved);
-        } else {
-            details.setCustodyResolution("Pending Resolution");
-            details.setCustodyStatus("In Custody - Awaiting Turnover");
-
-            BcpcCaseDetails saved = bcpcCaseDetailsRepository.save(details);
-
-            try {
-                caseTimelineService.logEvent(
-                        caseEntity,
-                        TimelineEventType.STATUS_CHANGED,
-                        "CICL APPREHENSION RECORDED",
-                        "Child was officially recorded as taken into custody. 8-hour statutory turnover window initiated.",
-                        currentUser
-                );
-            } catch (Exception e) {
-                log.warn("Failed to log timeline event for CICL apprehension [caseId={}]: {}", caseId, e.getMessage());
-            }
-
-            return toCustodyLogDto(saved);
-        }
-    }
-
-    // =========================================================================
-    // Inter-Agency Referrals Management (LSWDO, PNP WCPD, Bahay Pag-asa, etc.)
-    // =========================================================================
-
-    /**
-     * Retrieves all inter-agency referrals issued for a given BCPC case.
-     */
-    @Transactional(readOnly = true)
-    public List<BcpcReferralResponse> getReferrals(Long caseId) {
-        if (!caseRepository.existsById(caseId)) {
-            throw new ResourceNotFoundException("BCPC Case not found with ID: " + caseId);
-        }
-        return bcpcReferralRepository.findByCasesIdOrderByReferralDateDesc(caseId).stream()
-                .map(this::toReferralResponse)
-                .toList();
-    }
-
-    /**
-     * Issues an official inter-agency referral letter / endorsement to an external partner agency.
-     */
-    @Transactional
-    public BcpcReferralResponse issueReferral(Long caseId, BcpcReferralCreateRequest request) {
-        Case caseEntity = caseRepository.findById(caseId)
-                .orElseThrow(() -> new ResourceNotFoundException("BCPC Case not found with ID: " + caseId));
-
-        User currentUser = SecurityUtils.getCurrentUser();
-        String referredBy = request.getReferredBy();
-        if (referredBy == null || referredBy.isBlank()) {
-            referredBy = (currentUser != null && currentUser.getUsername() != null)
-                    ? currentUser.getUsername()
-                    : "BCPC Officer";
-        }
-
-        String controlNumber = generateReferralControlNumber(caseEntity);
-        LocalDateTime referralDate = request.getReferralDate() != null
-                ? request.getReferralDate()
-                : LocalDateTime.now();
-
-        BcpcReferral referral = new BcpcReferral();
-        referral.setCases(caseEntity);
-        referral.setReferralControlNumber(controlNumber);
-        referral.setReferredTo(request.getReferredTo());
-        referral.setReferredToOther(request.getReferredToOther());
-        referral.setPurpose(request.getPurpose());
-        referral.setPurposeOther(request.getPurposeOther());
-        referral.setGrounds(request.getGrounds());
-        referral.setReferredBy(referredBy);
-        referral.setReferralDate(referralDate);
-        referral.setStatus("Active");
-
-        BcpcReferral saved = bcpcReferralRepository.save(referral);
-
-        // Transition Case status to ONGOING if PENDING
-        if (caseEntity.getCaseStatus() == CaseStatus.PENDING) {
-            caseEntity.setCaseStatus(CaseStatus.ONGOING);
-            caseRepository.save(caseEntity);
-        }
-
-        // Case Timeline Event Logging
-        try {
-            String targetAgency = (referral.getReferredToOther() != null && !referral.getReferredToOther().isBlank())
-                    ? referral.getReferredToOther()
-                    : referral.getReferredTo();
-            String purpose = (referral.getPurposeOther() != null && !referral.getPurposeOther().isBlank())
-                    ? referral.getPurposeOther()
-                    : referral.getPurpose();
-
-            String desc = "Issued referral to " + targetAgency + " for " + purpose + ".";
-
-            caseTimelineService.logEvent(
-                    caseEntity,
-                    TimelineEventType.CASE_REFERRED,
-                    "Inter-Agency Referral Issued (" + targetAgency + ")",
-                    desc,
-                    currentUser
-            );
-        } catch (Exception e) {
-            log.warn("Failed to log timeline event for referral issue [caseId={}]: {}", caseId, e.getMessage());
-        }
-
-        return toReferralResponse(saved);
-    }
-
-    /**
-     * Records official feedback or response received from the receiving partner agency.
-     */
-    @Transactional
-    public BcpcReferralResponse recordReferralFeedback(Long caseId, Long referralId, BcpcReferralFeedbackRequest request) {
-        Case caseEntity = caseRepository.findById(caseId)
-                .orElseThrow(() -> new ResourceNotFoundException("BCPC Case not found with ID: " + caseId));
-
-        BcpcReferral referral = bcpcReferralRepository.findById(referralId)
-                .orElseThrow(() -> new ResourceNotFoundException("Referral not found with ID: " + referralId));
-
-        if (!referral.getCases().getId().equals(caseId)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Referral does not belong to case ID: " + caseId);
-        }
-
-        User currentUser = SecurityUtils.getCurrentUser();
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime feedbackDate = request.getFeedbackDate() != null ? request.getFeedbackDate() : now;
-
-        // Resolve response status
-        boolean isAccepted = Boolean.TRUE.equals(request.getAcceptedByAgency())
-                || "Accepted".equalsIgnoreCase(request.getFeedbackResponse());
-        boolean isDeclined = Boolean.TRUE.equals(request.getDeclinedByAgency())
-                || "Declined".equalsIgnoreCase(request.getFeedbackResponse());
-
-        String responseType = isAccepted ? "Accepted" : (isDeclined ? "Declined" : "Status Update");
-
-        referral.setFeedbackResponse(responseType);
-        referral.setFeedbackNotes(request.getDetails() != null ? request.getDetails() : request.getFeedbackNotes());
-        referral.setFeedbackOfficer(request.getSocialWorkerName() != null ? request.getSocialWorkerName() : request.getFeedbackOfficer());
-        referral.setFeedbackDate(feedbackDate);
-
-        if (isAccepted) {
-            referral.setStatus("Accepted");
-        } else if (isDeclined) {
-            referral.setStatus("Declined");
-        }
-
-        BcpcReferral savedReferral = bcpcReferralRepository.save(referral);
-
-        // Save new BcpcReferralFeedback entry
-        BcpcReferralFeedback fb = new BcpcReferralFeedback();
-        fb.setCases(caseEntity);
-        fb.setReferral(savedReferral);
-        fb.setDetails(request.getDetails() != null ? request.getDetails() : request.getFeedbackNotes());
-        fb.setResolvesCase(Boolean.TRUE.equals(request.getIsResolved()));
-        fb.setResolutionType(request.getResolutionType());
-        fb.setProofFileData(request.getProofFileData());
-        fb.setProofFileName(request.getProofFileName());
-        fb.setDeclinedByAgency(isDeclined);
-        fb.setAcceptedByAgency(isAccepted);
-        fb.setReasonForDecline(request.getReasonForDecline());
-        fb.setFeedbackTypeCode(request.getFeedbackTypeCode());
-        fb.setFeedbackTypeOther(request.getFeedbackTypeOther());
-        fb.setAssessmentFindings(request.getAssessmentFindings());
-        fb.setAssessmentType(request.getAssessmentType());
-        fb.setDiscernmentResult(request.getDiscernmentResult());
-        fb.setAssessmentDate(request.getAssessmentDate());
-        fb.setSocialWorkerName(request.getSocialWorkerName() != null ? request.getSocialWorkerName() : request.getFeedbackOfficer());
-        fb.setRecommendationType(request.getRecommendationType());
-        fb.setRecommendationTypeOther(request.getRecommendationTypeOther());
-        fb.setRecommendedSocialWorker(request.getRecommendedSocialWorker());
-        fb.setExternalRepresentativeName(request.getExternalRepresentativeName());
-        fb.setExternalRepresentativeOffice(request.getExternalRepresentativeOffice());
-        fb.setExternalRepresentativePosition(request.getExternalRepresentativePosition());
-        fb.setExternalRepresentativeContact(request.getExternalRepresentativeContact());
-        fb.setRecommendationDate(request.getRecommendationDate());
-        fb.setRecommendedFamilySupport(request.getRecommendedFamilySupport());
-        fb.setRecommendedPsychosocialAction(request.getRecommendedPsychosocialAction());
-        
-        if (request.getDateReceived() != null && !request.getDateReceived().isBlank()) {
-            try {
-                fb.setDateReceived(LocalDate.parse(request.getDateReceived()));
-            } catch (Exception ignored) {
-                fb.setDateReceived(LocalDate.now());
-            }
-        } else {
-            fb.setDateReceived(LocalDate.now());
-        }
-
-        bcpcReferralFeedbackRepository.save(fb);
-
-        // Transition Case status to ONGOING if PENDING
-        if (caseEntity.getCaseStatus() == CaseStatus.PENDING) {
-            caseEntity.setCaseStatus(CaseStatus.ONGOING);
-            caseRepository.save(caseEntity);
-        }
-
-        // Timeline event
-        try {
-            String feedbackSummary = "Referral " + (Boolean.TRUE.equals(fb.getAcceptedByAgency()) ? "accepted" : Boolean.TRUE.equals(fb.getDeclinedByAgency()) ? "declined" : "status updated") + " by agency.";
-            if (fb.getSocialWorkerName() != null && !fb.getSocialWorkerName().isBlank()) {
-                feedbackSummary += " Assessed by " + fb.getSocialWorkerName() + ".";
-            }
-
-            caseTimelineService.logEvent(
-                    caseEntity,
-                    TimelineEventType.STATUS_CHANGED,
-                    "Referral Feedback Received (" + referral.getReferralControlNumber() + ")",
-                    feedbackSummary,
-                    currentUser
-            );
-        } catch (Exception e) {
-            log.warn("Failed to log timeline event for referral feedback [caseId={}]: {}", caseId, e.getMessage());
-        }
-
-        return toReferralResponse(savedReferral);
-    }
-
-    /**
-     * Cancels an issued referral (e.g. if issued in error or party settled beforehand).
-     */
-    @Transactional
-    public BcpcReferralResponse cancelReferral(Long caseId, Long referralId, BcpcReferralCancelRequest request) {
-        Case caseEntity = caseRepository.findById(caseId)
-                .orElseThrow(() -> new ResourceNotFoundException("BCPC Case not found with ID: " + caseId));
-
-        BcpcReferral referral = bcpcReferralRepository.findById(referralId)
-                .orElseThrow(() -> new ResourceNotFoundException("Referral not found with ID: " + referralId));
-
-        if (!referral.getCases().getId().equals(caseId)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Referral does not belong to case ID: " + caseId);
-        }
-
-        User currentUser = SecurityUtils.getCurrentUser();
-        referral.setStatus("Cancelled");
-        referral.setCancellationReason(request.getCancellationReason());
-
-        String cancelledByName = "BCPC Officer";
-        if (request.getCancelledBy() != null && !request.getCancelledBy().isBlank()) {
-            cancelledByName = request.getCancelledBy().trim();
-        } else if (currentUser != null) {
-            if (currentUser.getPerson() != null) {
-                String first = currentUser.getPerson().getFirstName() != null ? currentUser.getPerson().getFirstName() : "";
-                String last = currentUser.getPerson().getLastName() != null ? currentUser.getPerson().getLastName() : "";
-                String full = (first + " " + last).trim();
-                cancelledByName = !full.isEmpty() ? full : currentUser.getUsername();
-            } else {
-                cancelledByName = currentUser.getUsername();
-            }
-        }
-        referral.setCancelledBy(cancelledByName);
-        referral.setCancelledAt(LocalDateTime.now());
-
-        BcpcReferral saved = bcpcReferralRepository.save(referral);
-
-        try {
-            caseTimelineService.logEvent(
-                    caseEntity,
-                    TimelineEventType.STATUS_CHANGED,
-                    "Referral Cancelled (" + referral.getReferralControlNumber() + ")",
-                    "Referral was cancelled. Reason: " + request.getCancellationReason(),
-                    currentUser
-            );
-        } catch (Exception e) {
-            log.warn("Failed to log timeline event for referral cancel [caseId={}]: {}", caseId, e.getMessage());
-        }
-
-        return toReferralResponse(saved);
-    }
-
-    private String generateReferralControlNumber(Case caseEntity) {
-        long count = bcpcReferralRepository.countByCasesId(caseEntity.getId());
-        String base = "REF-" + caseEntity.getCaseNumber() + "-" + String.format("%02d", count + 1);
-        String candidate = base;
-        int seq = 1;
-        while (bcpcReferralRepository.existsByReferralControlNumber(candidate)) {
-            candidate = base + "-" + seq++;
-        }
-        return candidate;
-    }
-
-    private BcpcReferralResponse toReferralResponse(BcpcReferral r) {
-        List<BcpcReferralFeedbackDto> feedbackDtos = null;
-        if (r.getId() != null) {
-            feedbackDtos = bcpcReferralFeedbackRepository.findByReferralIdOrderByCreatedAtDesc(r.getId()).stream()
-                    .map(this::toReferralFeedbackDto)
-                    .toList();
-        }
-
-        return BcpcReferralResponse.builder()
-                .id(r.getId())
-                .caseId(r.getCases() != null ? r.getCases().getId() : null)
-                .caseNumber(r.getCases() != null ? r.getCases().getCaseNumber() : null)
-                .referralControlNumber(r.getReferralControlNumber())
-                .referredTo(r.getReferredTo())
-                .referredToOther(r.getReferredToOther())
-                .purpose(r.getPurpose())
-                .purposeOther(r.getPurposeOther())
-                .grounds(r.getGrounds())
-                .status(r.getStatus())
-                .referredBy(r.getReferredBy())
-                .referralDate(r.getReferralDate())
-                .feedbackResponse(r.getFeedbackResponse())
-                .feedbackNotes(r.getFeedbackNotes())
-                .feedbackOfficer(r.getFeedbackOfficer())
-                .feedbackDate(r.getFeedbackDate())
-                .feedbacks(feedbackDtos)
-                .cancellationReason(r.getCancellationReason())
-                .cancelledBy(r.getCancelledBy())
-                .cancelledAt(r.getCancelledAt())
-                .createdAt(r.getCreatedAt())
-                .build();
-    }
-
-    private BcpcReferralFeedbackDto toReferralFeedbackDto(BcpcReferralFeedback fb) {
-        return BcpcReferralFeedbackDto.builder()
-                .id(fb.getId())
-                .caseId(fb.getCases() != null ? fb.getCases().getId() : null)
-                .referralId(fb.getReferral() != null ? fb.getReferral().getId() : null)
-                .details(fb.getDetails())
-                .resolvesCase(fb.getResolvesCase())
-                .resolutionType(fb.getResolutionType())
-                .proofFileData(fb.getProofFileData())
-                .proofFileName(fb.getProofFileName())
-                .declinedByAgency(fb.getDeclinedByAgency())
-                .acceptedByAgency(fb.getAcceptedByAgency())
-                .reasonForDecline(fb.getReasonForDecline())
-                .feedbackTypeCode(fb.getFeedbackTypeCode())
-                .feedbackTypeOther(fb.getFeedbackTypeOther())
-                .assessmentFindings(fb.getAssessmentFindings())
-                .assessmentType(fb.getAssessmentType())
-                .discernmentResult(fb.getDiscernmentResult())
-                .assessmentDate(fb.getAssessmentDate())
-                .socialWorkerName(fb.getSocialWorkerName())
-                .recommendationType(fb.getRecommendationType())
-                .recommendationTypeOther(fb.getRecommendationTypeOther())
-                .recommendedSocialWorker(fb.getRecommendedSocialWorker())
-                .externalRepresentativeName(fb.getExternalRepresentativeName())
-                .externalRepresentativeOffice(fb.getExternalRepresentativeOffice())
-                .externalRepresentativePosition(fb.getExternalRepresentativePosition())
-                .externalRepresentativeContact(fb.getExternalRepresentativeContact())
-                .recommendationDate(fb.getRecommendationDate())
-                .recommendedFamilySupport(fb.getRecommendedFamilySupport())
-                .recommendedPsychosocialAction(fb.getRecommendedPsychosocialAction())
-                .dateReceived(fb.getDateReceived())
-                .createdAt(fb.getCreatedAt())
-                .build();
-    }
-
-    // =========================================================================
-    // Intervention & Monitoring Management
-    // =========================================================================
-
-    /**
-     * Retrieves all intervention programs and monitoring records associated with a BCPC case.
-     */
-    @Transactional(readOnly = true)
-    public List<BcpcInterventionDto> getInterventionsByCaseId(Long caseId) {
-        Case aCase = caseRepository.findById(caseId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found with ID: " + caseId));
-
-        BcpcCaseDetails details = bcpcCaseDetailsRepository.findByCasesId(caseId).orElse(null);
-        if (details == null) {
-            return List.of();
-        }
-
-        return bcpcInterventionRepository.findByBcpcCaseDetailsIdOrderByCreatedAtDesc(details.getId())
-                .stream()
-                .map(this::toInterventionDto)
-                .toList();
-    }
-
-    /**
-     * Establishes a new intervention program for a child under a BCPC case.
-     */
-    @Transactional
-    public BcpcInterventionDto createIntervention(Long caseId, BcpcInterventionCreateRequest request) {
-        Case aCase = caseRepository.findById(caseId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found with ID: " + caseId));
-
-        if (aCase.getCaseStatus() != null) {
-            String st = aCase.getCaseStatus().name();
-            if ("RESOLVED".equalsIgnoreCase(st) || "CLOSED".equalsIgnoreCase(st) || "SETTLED".equalsIgnoreCase(st)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot initiate intervention for a resolved or closed case.");
-            }
-        }
-
-        BcpcCaseDetails details = bcpcCaseDetailsRepository.findByCasesId(caseId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "BCPC details not found for case ID: " + caseId));
-
-        BcpcIntervention intervention = new BcpcIntervention();
-        intervention.setBcpcCaseDetails(details);
-        intervention.setInterventionType(request.getInterventionType());
-        intervention.setProgramTitle(request.getProgramTitle().trim());
-        intervention.setDescription(request.getDescription() != null ? request.getDescription().trim() : null);
-        intervention.setStartDate(request.getStartDate() != null ? request.getStartDate() : LocalDate.now());
-        intervention.setEndDate(request.getEndDate());
-        intervention.setStatus("ONGOING");
-        intervention.setFacilitatorOrAgency(request.getFacilitatorOrAgency() != null && !request.getFacilitatorOrAgency().isBlank()
-                ? request.getFacilitatorOrAgency().trim() : "Barangay BCPC Committee");
-
-        User currentUser = SecurityUtils.getCurrentUser();
-        String officerName = getOfficerDisplayName(currentUser);
-
-        if (request.getInitialNotes() != null && !request.getInitialNotes().isBlank()) {
-            String initialEntry = "[" + LocalDate.now() + " - " + officerName + " (Program Established)]\n" + request.getInitialNotes().trim();
-            intervention.setProgressNotes(initialEntry);
-        }
-
-        BcpcIntervention saved = bcpcInterventionRepository.save(intervention);
-
-        // Transition Case status to ONGOING if PENDING
-        if (aCase.getCaseStatus() == CaseStatus.PENDING) {
-            aCase.setCaseStatus(CaseStatus.ONGOING);
-            caseRepository.save(aCase);
-        }
-
-        // Timeline Audit Event
-        String typeLabel = request.getInterventionType() != null ? request.getInterventionType().name().replace('_', ' ') : "Community-Based";
-        caseTimelineService.logEvent(
-                aCase,
-                com.barangay.zshared.enumerated.TimelineEventType.INTERVENTION_RECORDED,
-                "Intervention Program Initiated",
-                "New " + typeLabel + " program '" + request.getProgramTitle().trim() + "' initiated with " + intervention.getFacilitatorOrAgency() + ".",
-                currentUser
-        );
-
-        return toInterventionDto(saved);
-    }
-
-    /**
-     * Updates an existing intervention plan details.
-     */
-    @Transactional
-    public BcpcInterventionDto updateIntervention(Long caseId, Long interventionId, BcpcInterventionUpdateRequest request) {
-        Case aCase = caseRepository.findById(caseId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found with ID: " + caseId));
-
-        BcpcIntervention intervention = bcpcInterventionRepository.findById(interventionId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Intervention not found with ID: " + interventionId));
-
-        intervention.setInterventionType(request.getInterventionType());
-        intervention.setProgramTitle(request.getProgramTitle().trim());
-        intervention.setDescription(request.getDescription() != null ? request.getDescription().trim() : null);
-        intervention.setStartDate(request.getStartDate());
-        intervention.setEndDate(request.getEndDate());
-        intervention.setFacilitatorOrAgency(request.getFacilitatorOrAgency() != null ? request.getFacilitatorOrAgency().trim() : null);
-
-        if (request.getStatus() != null && !request.getStatus().isBlank()) {
-            intervention.setStatus(request.getStatus().toUpperCase().trim());
-        }
-
-        BcpcIntervention saved = bcpcInterventionRepository.save(intervention);
-
-        User currentUser = SecurityUtils.getCurrentUser();
-        caseTimelineService.logEvent(
-                aCase,
-                com.barangay.zshared.enumerated.TimelineEventType.INTERVENTION_RECORDED,
-                "Intervention Plan Updated",
-                "Program '" + saved.getProgramTitle() + "' details were updated.",
-                currentUser
-        );
-
-        return toInterventionDto(saved);
-    }
-
-    /**
-     * Records a new monitoring session or progress log entry for an active intervention.
-     */
-    @Transactional
-    public BcpcInterventionDto recordInterventionProgress(Long caseId, Long interventionId, BcpcInterventionProgressRequest request) {
-        Case aCase = caseRepository.findById(caseId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found with ID: " + caseId));
-
-        BcpcIntervention intervention = bcpcInterventionRepository.findById(interventionId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Intervention not found with ID: " + interventionId));
-
-        User currentUser = SecurityUtils.getCurrentUser();
-        String officerName = request.getConductedBy() != null && !request.getConductedBy().isBlank()
-                ? request.getConductedBy().trim()
-                : getOfficerDisplayName(currentUser);
-
-        LocalDate sessionDate = request.getSessionDate() != null ? request.getSessionDate() : LocalDate.now();
-        String statusLabel = request.getStatus() != null && !request.getStatus().isBlank()
-                ? request.getStatus().toUpperCase().trim()
-                : intervention.getStatus();
-
-        String newEntry = "[" + sessionDate + " - " + officerName + " (" + statusLabel + ")]\n" + request.getProgressNotes().trim();
-
-        if (intervention.getProgressNotes() != null && !intervention.getProgressNotes().isBlank()) {
-            intervention.setProgressNotes(intervention.getProgressNotes() + "\n\n" + newEntry);
-        } else {
-            intervention.setProgressNotes(newEntry);
-        }
-
-        if (request.getStatus() != null && !request.getStatus().isBlank()) {
-            intervention.setStatus(statusLabel);
-        }
-
-        BcpcIntervention saved = bcpcInterventionRepository.save(intervention);
-
-        // Transition Case status to ONGOING if PENDING
-        if (aCase.getCaseStatus() == CaseStatus.PENDING) {
-            aCase.setCaseStatus(CaseStatus.ONGOING);
-            caseRepository.save(aCase);
-        }
-
-        // Timeline Audit Event
-        String eventTitle = "COMPLETED".equalsIgnoreCase(statusLabel)
-                ? "Intervention Program Completed"
-                : ("TERMINATED".equalsIgnoreCase(statusLabel) ? "Intervention Program Terminated" : "Intervention Progress Logged");
-
-        caseTimelineService.logEvent(
-                aCase,
-                com.barangay.zshared.enumerated.TimelineEventType.INTERVENTION_RECORDED,
-                eventTitle,
-                "Session date: " + sessionDate + " (" + officerName + "). " + request.getProgressNotes().trim(),
-                currentUser
-        );
-
-        return toInterventionDto(saved);
-    }
-
-    private String getOfficerDisplayName(User user) {
-        if (user == null) return "BCPC Officer";
-        if (user.getPerson() != null) {
-            String first = user.getPerson().getFirstName() != null ? user.getPerson().getFirstName().trim() : "";
-            String last = user.getPerson().getLastName() != null ? user.getPerson().getLastName().trim() : "";
-            String full = (first + " " + last).trim();
-            if (!full.isEmpty()) return full;
-        }
-        if (user.getUsername() != null && !user.getUsername().isBlank()) {
-            return user.getUsername();
-        }
-        return "BCPC Officer";
-    }
-
-    private BcpcInterventionDto toInterventionDto(BcpcIntervention entity) {
-        String typeDisplay = entity.getInterventionType() != null
-                ? entity.getInterventionType().name().replace('_', ' ')
-                : null;
-        return BcpcInterventionDto.builder()
-                .id(entity.getId())
-                .caseId(entity.getBcpcCaseDetails() != null && entity.getBcpcCaseDetails().getCases() != null
-                        ? entity.getBcpcCaseDetails().getCases().getId() : null)
-                .bcpcCaseDetailsId(entity.getBcpcCaseDetails() != null ? entity.getBcpcCaseDetails().getId() : null)
-                .interventionType(entity.getInterventionType())
-                .interventionTypeDisplay(typeDisplay)
-                .programTitle(entity.getProgramTitle())
-                .description(entity.getDescription())
-                .startDate(entity.getStartDate())
-                .endDate(entity.getEndDate())
-                .status(entity.getStatus())
-                .facilitatorOrAgency(entity.getFacilitatorOrAgency())
-                .progressNotes(entity.getProgressNotes())
-                .createdAt(entity.getCreatedAt())
-                .updatedAt(entity.getUpdatedAt())
-                .build();
     }
 }

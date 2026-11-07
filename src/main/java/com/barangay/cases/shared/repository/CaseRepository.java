@@ -343,6 +343,25 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
     @Query("SELECT c FROM Case c WHERE c.caseStatus IN :statuses AND (c.isArchived IS NULL OR c.isArchived = false) AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)")
     List<Case> findActiveCasesForExpirationCheck(@Param("statuses") Collection<CaseStatus> statuses);
 
+    @Query("""
+        SELECT c FROM Case c
+        LEFT JOIN c.department d
+        WHERE (
+            (d IS NOT NULL AND UPPER(d.name) = 'BCPC')
+            OR c.bcpcCaseDetails IS NOT NULL
+            OR UPPER(c.caseNumber) LIKE '%BCPC%'
+        )
+          AND c.caseStatus IN :statuses
+          AND c.createdAt <= :cutoff
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+    """)
+    List<Case> findPendingBcpcCasesForExpirationCheck(
+            @Param("statuses") Collection<CaseStatus> statuses,
+            @Param("cutoff") LocalDateTime cutoff
+    );
+
     @Query("SELECT c FROM Case c WHERE c.isDeleted = true AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND c.deletedAt IS NOT NULL AND c.deletedAt <= :cutoff")
     List<Case> findExpiredSoftDeletedCases(@Param("cutoff") LocalDateTime cutoff);
 

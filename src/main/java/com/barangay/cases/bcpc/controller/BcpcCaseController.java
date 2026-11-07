@@ -2,8 +2,10 @@ package com.barangay.cases.bcpc.controller;
 
 import com.barangay.cases.bcpc.dto.BcpcCarCaseCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcCarCaseDetailResponse;
+import com.barangay.cases.bcpc.dto.BcpcCarCaseUpdateRequest;
 import com.barangay.cases.bcpc.dto.BcpcCiclCaseCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcCiclCaseDetailResponse;
+import com.barangay.cases.bcpc.dto.BcpcCiclCaseUpdateRequest;
 import com.barangay.cases.bcpc.dto.BcpcCustodyLogDto;
 import com.barangay.cases.bcpc.dto.BcpcFilterRequest;
 import com.barangay.cases.bcpc.dto.BcpcStatsResponse;
@@ -97,62 +99,6 @@ public class BcpcCaseController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Files a new Child at Risk (CAR) case record under BCPC.
-     *
-     * @param request the CAR intake payload
-     * @return the created CAR case detail response with HTTP 201 (Created)
-     */
-    @PostMapping("/car")
-    @LogAudit(module = AuditModule.BCPC, action = "CREATE_CAR_CASE", severity = Severity.INFO)
-    public ResponseEntity<BcpcCarCaseDetailResponse> createCarCase(
-            @Valid @RequestBody BcpcCarCaseCreateRequest request
-    ) {
-        BcpcCarCaseDetailResponse response = bcpcCaseService.createCarCase(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    /**
-     * Retrieves a single Child at Risk (CAR) case detail by Case ID.
-     *
-     * @param id the case ID
-     * @return the CAR case details
-     */
-    @GetMapping("/car/{id}")
-    public ResponseEntity<BcpcCarCaseDetailResponse> getCarCaseById(@PathVariable Long id) {
-        BcpcCarCaseDetailResponse response = bcpcCaseService.getCarCaseById(id);
-        return ResponseEntity.ok(response);
-    }
-
-
-    /**
-     * Files a new Child in Conflict with the Law (CICL) case record under BCPC.
-     *
-     * @param request the CICL intake payload
-     * @return the created CICL case detail response with HTTP 201 (Created)
-     */
-    @PostMapping("/cicl")
-    @LogAudit(module = AuditModule.BCPC, action = "CREATE_CICL_CASE", severity = Severity.INFO)
-    public ResponseEntity<BcpcCiclCaseDetailResponse> createCiclCase(
-            @Valid @RequestBody BcpcCiclCaseCreateRequest request
-    ) {
-        BcpcCiclCaseDetailResponse response = bcpcCaseService.createCiclCase(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    /**
-     * Retrieves a single Child in Conflict with the Law (CICL) case detail by Case ID.
-     *
-     * @param id the case ID
-     * @return the CICL case details
-     */
-    @GetMapping("/cicl/{id}")
-    public ResponseEntity<BcpcCiclCaseDetailResponse> getCiclCaseById(@PathVariable Long id) {
-        BcpcCiclCaseDetailResponse response = bcpcCaseService.getCiclCaseById(id);
-        return ResponseEntity.ok(response);
-    }
-
- 
     /**
      * Retrieves the narrative statement attachment for a given BCPC case.
      */
