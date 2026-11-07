@@ -2,6 +2,7 @@ package com.barangay.zshared.enumerated;
 
 public enum CaseStatus {
     PENDING,
+    ONGOING,
     UNDER_MEDIATION,
     UNDER_CONCILIATION,
     SETTLED,

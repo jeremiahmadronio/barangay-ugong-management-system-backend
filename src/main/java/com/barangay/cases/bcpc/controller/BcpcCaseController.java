@@ -14,6 +14,10 @@ import com.barangay.cases.bcpc.dto.BcpcReferralCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcReferralFeedbackRequest;
 import com.barangay.cases.bcpc.dto.BcpcReferralResponse;
 import com.barangay.cases.bcpc.dto.UpdateCiclCustodyLogDto;
+import com.barangay.cases.bcpc.dto.BcpcInterventionDto;
+import com.barangay.cases.bcpc.dto.BcpcInterventionCreateRequest;
+import com.barangay.cases.bcpc.dto.BcpcInterventionUpdateRequest;
+import com.barangay.cases.bcpc.dto.BcpcInterventionProgressRequest;
 import java.util.List;
 import com.barangay.cases.bcpc.service.BcpcCaseService;
 import com.barangay.cases.blotter.dto.CaseNoteRequest;
@@ -282,6 +286,62 @@ public class BcpcCaseController {
             @Valid @RequestBody BcpcReferralCancelRequest request
     ) {
         BcpcReferralResponse response = bcpcCaseService.cancelReferral(caseId, referralId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    // =========================================================================
+    // Intervention & Monitoring Endpoints
+    // =========================================================================
+
+    /**
+     * Retrieves all intervention programs and monitoring records for a BCPC case.
+     */
+    @GetMapping("/{caseId}/interventions")
+    public ResponseEntity<List<BcpcInterventionDto>> getInterventions(
+            @PathVariable Long caseId
+    ) {
+        List<BcpcInterventionDto> list = bcpcCaseService.getInterventionsByCaseId(caseId);
+        return ResponseEntity.ok(list);
+    }
+
+    /**
+     * Initiates a new intervention plan for a child under a BCPC case.
+     */
+    @PostMapping("/{caseId}/interventions")
+    @LogAudit(module = AuditModule.BCPC, action = "BCPC_INTERVENTION_CREATED", severity = Severity.INFO)
+    public ResponseEntity<BcpcInterventionDto> createIntervention(
+            @PathVariable Long caseId,
+            @Valid @RequestBody BcpcInterventionCreateRequest request
+    ) {
+        BcpcInterventionDto response = bcpcCaseService.createIntervention(caseId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * Updates an intervention plan details.
+     */
+    @PutMapping("/{caseId}/interventions/{interventionId}")
+    @LogAudit(module = AuditModule.BCPC, action = "BCPC_INTERVENTION_UPDATED", severity = Severity.INFO)
+    public ResponseEntity<BcpcInterventionDto> updateIntervention(
+            @PathVariable Long caseId,
+            @PathVariable Long interventionId,
+            @Valid @RequestBody BcpcInterventionUpdateRequest request
+    ) {
+        BcpcInterventionDto response = bcpcCaseService.updateIntervention(caseId, interventionId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Records a new monitoring session or progress log entry for an active intervention.
+     */
+    @PostMapping("/{caseId}/interventions/{interventionId}/progress")
+    @LogAudit(module = AuditModule.BCPC, action = "BCPC_INTERVENTION_PROGRESS_RECORDED", severity = Severity.INFO)
+    public ResponseEntity<BcpcInterventionDto> recordInterventionProgress(
+            @PathVariable Long caseId,
+            @PathVariable Long interventionId,
+            @Valid @RequestBody BcpcInterventionProgressRequest request
+    ) {
+        BcpcInterventionDto response = bcpcCaseService.recordInterventionProgress(caseId, interventionId, request);
         return ResponseEntity.ok(response);
     }
 }

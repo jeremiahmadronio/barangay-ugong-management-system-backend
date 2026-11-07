@@ -16,6 +16,13 @@ import com.barangay.cases.bcpc.dto.UpdateCiclCustodyLogDto;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import com.barangay.cases.bcpc.model.BcpcIntervention;
+import com.barangay.cases.bcpc.repository.BcpcInterventionRepository;
+import com.barangay.cases.bcpc.dto.BcpcInterventionDto;
+import com.barangay.cases.bcpc.dto.BcpcInterventionCreateRequest;
+import com.barangay.cases.bcpc.dto.BcpcInterventionUpdateRequest;
+import com.barangay.cases.bcpc.dto.BcpcInterventionProgressRequest;
+import com.barangay.zshared.enumerated.BcpcInterventionType;
 import com.barangay.cases.bcpc.model.BcpcCarAssessment;
 import com.barangay.cases.bcpc.model.BcpcCaseDetails;
 import com.barangay.cases.bcpc.model.BcpcCiclAssessment;
@@ -124,6 +131,7 @@ public class BcpcCaseService {
     private final CaseNoteRepository caseNoteRepository;
     private final BcpcReferralRepository bcpcReferralRepository;
     private final BcpcReferralFeedbackRepository bcpcReferralFeedbackRepository;
+    private final BcpcInterventionRepository bcpcInterventionRepository;
 
     // Shared Mappers
     private final PersonMapper personMapper;
@@ -728,11 +736,13 @@ public class BcpcCaseService {
                 ? personMapper.buildFullName(aCase.getOfficer().getPerson())
                 : null;
 
+        String caseStatus = resolveEffectiveStatus(aCase, details);
+
         return new BcpcCarCaseDetailResponse(
                 aCase.getId(),
                 aCase.getCaseNumber(),
                 aCase.getFilingType() != null ? aCase.getFilingType().name() : "FORMAL_COMPLAINT",
-                aCase.getCaseStatus() != null ? aCase.getCaseStatus().name() : "PENDING",
+                caseStatus,
                 aCase.getCaseStatusRemarks(),
                 aCase.getRiskLevel(),
                 aCase.getCreatedAt(),
@@ -808,11 +818,13 @@ public class BcpcCaseService {
                 cicl.getApprehensionPlace()
         ) : null;
 
+        String caseStatus = resolveEffectiveStatus(aCase, details);
+
         return new BcpcCiclCaseDetailResponse(
                 aCase.getId(),
                 aCase.getCaseNumber(),
                 aCase.getFilingType() != null ? aCase.getFilingType().name() : "FORMAL_COMPLAINT",
-                aCase.getCaseStatus() != null ? aCase.getCaseStatus().name() : "PENDING",
+                caseStatus,
                 aCase.getCaseStatusRemarks(),
                 aCase.getRiskLevel(),
                 aCase.getCreatedAt(),
@@ -886,18 +898,17 @@ public class BcpcCaseService {
         long prevTotal = caseRepository.countRootBcpcCasesByCreatedAtBetween(prevMonthStart, prevMonthEnd);
         String totalCasesTrend = calculateMonthlyTrend(currentTotal, prevTotal);
 
-        // 2. Active / Ongoing Cases (Pending, Reopened under BCPC intervention / diversion)
+        // 2. Active / Ongoing Cases (Pending, Ongoing, Reopened under BCPC intervention / diversion)
         List<CaseStatus> activeStatuses = List.of(
                 CaseStatus.PENDING,
-                CaseStatus.REOPENED
+                CaseStatus.ONGOING,
+                CaseStatus.REOPENED,
+                CaseStatus.ISSUED_REFERRAL
         );
         long totalActiveCases = caseRepository.countLatestBcpcCasesByCaseStatusIn(activeStatuses);
 
-        // 3. Referred Cases
-        List<CaseStatus> referredStatuses = List.of(
-                CaseStatus.ISSUED_REFERRAL
-        );
-        long totalReferredCases = caseRepository.countLatestBcpcCasesByCaseStatusIn(referredStatuses);
+        // 3. Referred Cases (Count distinct cases with active referrals)
+        long totalReferredCases = bcpcReferralRepository.countDistinctReferredCases();
 
         // 4. Settled Cases
         List<CaseStatus> settledStatuses = List.of(
@@ -952,6 +963,57 @@ public class BcpcCaseService {
     }
 
     /**
+     * Determines the effective display status for a BCPC case.
+     * Newly filed cases with no recorded custody turnover, referrals, or interventions remain PENDING.
+     * Once any process (custody, referral, intervention) is initiated/recorded, the status is ONGOING,
+     * unless terminal (SETTLED, DISMISSED, WITHDRAWN).
+     */
+    public String resolveEffectiveStatus(Case c, BcpcCaseDetails details) {
+        if (c == null) return "PENDING";
+        CaseStatus raw = c.getCaseStatus();
+        if (raw == CaseStatus.SETTLED) return "SETTLED";
+        if (raw == CaseStatus.DISMISSED) return "DISMISSED";
+        if (raw == CaseStatus.WITHDRAWN) return "WITHDRAWN";
+        if (raw == CaseStatus.ONGOING) return "ONGOING";
+
+        Long caseId = c.getId();
+
+        // 1. Check Referrals
+        try {
+            if (bcpcReferralRepository.countByCasesId(caseId) > 0) {
+                return "ONGOING";
+            }
+        } catch (Exception ignored) {}
+
+        // 2. Check Interventions
+        try {
+            Long detailsId = details != null ? details.getId() : null;
+            if (detailsId == null) {
+                var dOpt = bcpcCaseDetailsRepository.findByCasesId(caseId);
+                if (dOpt.isPresent()) detailsId = dOpt.get().getId();
+            }
+            if (detailsId != null && bcpcInterventionRepository.countByBcpcCaseDetailsId(detailsId) > 0) {
+                return "ONGOING";
+            }
+        } catch (Exception ignored) {}
+
+        // 3. Check Custody Turnover
+        try {
+            if (details != null) {
+                boolean hasCustody = (details.getTemporaryPlacement() != null && !details.getTemporaryPlacement().isBlank()) ||
+                        (details.getCustodyResolution() != null && !details.getCustodyResolution().isBlank() && !"Pending Resolution".equalsIgnoreCase(details.getCustodyResolution())) ||
+                        details.getTransferDate() != null ||
+                        details.getTurnoverDate() != null;
+                if (hasCustody) {
+                    return "ONGOING";
+                }
+            }
+        } catch (Exception ignored) {}
+
+        return "PENDING";
+    }
+
+    /**
      * Maps a {@link Case} entity to {@link BcpcTableRowResponse} for the BCPC records table.
      */
     public BcpcTableRowResponse toBcpcTableRowResponse(Case c) {
@@ -983,17 +1045,7 @@ public class BcpcCaseService {
                 ? c.getCreatedAt().format(DateTimeFormatter.ofPattern("M/d/yyyy"))
                 : "—";
 
-        String effectiveStatus = c.getCaseStatus() != null ? c.getCaseStatus().name() : "PENDING";
-        if ("PENDING".equalsIgnoreCase(effectiveStatus) && c.getBcpcCaseDetails() != null) {
-            BcpcCaseDetails d = c.getBcpcCaseDetails();
-            boolean hasTurnover = (d.getTemporaryPlacement() != null && !d.getTemporaryPlacement().isBlank())
-                    || (d.getCustodyResolution() != null && !d.getCustodyResolution().isBlank() && !"Pending Resolution".equalsIgnoreCase(d.getCustodyResolution()))
-                    || Boolean.FALSE.equals(d.getWasApprehended())
-                    || (d.getCustodyStatus() != null && !"Pending Turnover".equalsIgnoreCase(d.getCustodyStatus()) && !"In Custody - Awaiting Turnover".equalsIgnoreCase(d.getCustodyStatus()));
-            if (hasTurnover) {
-                effectiveStatus = "UNDER_CUSTODY";
-            }
-        }
+        String effectiveStatus = resolveEffectiveStatus(c, c.getBcpcCaseDetails());
 
         return new BcpcTableRowResponse(
                 c.getId(),
@@ -1047,16 +1099,7 @@ public class BcpcCaseService {
             car = getCarCaseById(caseId);
         }
 
-        String effectiveCaseStatus = aCase.getCaseStatus() != null ? aCase.getCaseStatus().name() : "PENDING";
-        if ("PENDING".equalsIgnoreCase(effectiveCaseStatus)) {
-            boolean hasTurnover = (details.getTemporaryPlacement() != null && !details.getTemporaryPlacement().isBlank())
-                    || (details.getCustodyResolution() != null && !details.getCustodyResolution().isBlank() && !"Pending Resolution".equalsIgnoreCase(details.getCustodyResolution()))
-                    || Boolean.FALSE.equals(details.getWasApprehended())
-                    || (details.getCustodyStatus() != null && !"Pending Turnover".equalsIgnoreCase(details.getCustodyStatus()) && !"In Custody - Awaiting Turnover".equalsIgnoreCase(details.getCustodyStatus()));
-            if (hasTurnover) {
-                effectiveCaseStatus = "UNDER_CUSTODY";
-            }
-        }
+        String effectiveCaseStatus = resolveEffectiveStatus(aCase, details);
 
         return new BcpcCaseUniversalDetailResponse(
                 aCase.getId(),
@@ -1221,13 +1264,13 @@ public class BcpcCaseService {
                 .turnoverAction("NEW_TURNOVER")
                 .custodyStatus(custodyStatus)
                 .needsMedicalAttention(details.getNeedsMedicalAttention())
-                .temporaryPlacement(details.getTemporaryPlacement())
+                .temporaryPlacement(details.getTemporaryPlacement() != null ? details.getTemporaryPlacement() : details.getCustodyResolution())
                 .initialResponsibility(details.getInitialResponsibility())
                 .contactNumber(details.getContactNumber())
                 .transferDate(details.getTransferDate())
                 .transferTime(details.getTransferTime())
-                .temporaryPlacementReason(details.getTemporaryPlacementReason())
-                .transferNotes(details.getTransferNotes())
+                .temporaryPlacementReason(details.getTemporaryPlacementReason() != null ? details.getTemporaryPlacementReason() : details.getDelayReason())
+                .transferNotes(details.getTransferNotes() != null ? details.getTransferNotes() : details.getCustodyRemarks())
                 .healthCoordinationConfirmed(details.getHealthCoordinationConfirmed())
                 .childGuidanceProvided(details.getChildGuidanceProvided())
                 .parentAdviceProvided(details.getParentAdviceProvided())
@@ -1306,6 +1349,12 @@ public class BcpcCaseService {
 
         BcpcCaseDetails savedDetails = bcpcCaseDetailsRepository.save(details);
 
+        // Transition Case status to ONGOING if PENDING
+        if (caseEntity.getCaseStatus() == CaseStatus.PENDING) {
+            caseEntity.setCaseStatus(CaseStatus.ONGOING);
+            caseRepository.save(caseEntity);
+        }
+
         // Log Timeline Event
         User currentUser = SecurityUtils.getCurrentUser();
         String timelineTitle;
@@ -1358,6 +1407,11 @@ public class BcpcCaseService {
         BcpcCaseDetails details = bcpcCaseDetailsRepository.findByCasesId(caseId)
                 .orElseThrow(() -> new ResourceNotFoundException("BCPC Details not found for Case ID: " + caseId));
 
+        if (caseEntity.getCaseStatus() == CaseStatus.PENDING) {
+            caseEntity.setCaseStatus(CaseStatus.ONGOING);
+            caseRepository.save(caseEntity);
+        }
+
         User currentUser = SecurityUtils.getCurrentUser();
 
         details.setWasApprehended(request.getWasApprehended());
@@ -1394,6 +1448,30 @@ public class BcpcCaseService {
             details.setDelayReason(request.getDelayReason());
             details.setCustodyRemarks(request.getCustodyRemarks());
             details.setCustodyStatus("Turnover Completed");
+            details.setContactNumber(request.getContactNumber());
+            details.setTemporaryPlacement(request.getCustodyResolution());
+            if (request.getDelayReason() != null && !request.getDelayReason().isBlank()) {
+                details.setTemporaryPlacementReason(request.getDelayReason());
+            }
+            if (request.getCustodyRemarks() != null && !request.getCustodyRemarks().isBlank()) {
+                details.setTransferNotes(request.getCustodyRemarks());
+            }
+
+            // Save receiver person and relationship into initialResponsibility JSON
+            String receiverName = request.getReleasedTo() != null ? request.getReleasedTo().trim() : "";
+            String receiverRel = request.getRecipientRelationship() != null ? request.getRecipientRelationship().trim() : "";
+            if (!receiverName.isEmpty() || !receiverRel.isEmpty()) {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                com.fasterxml.jackson.databind.node.ObjectNode node = mapper.createObjectNode();
+                node.put("firstName", receiverName);
+                node.put("representativeName", receiverName);
+                node.put("relationship", receiverRel);
+                try {
+                    details.setInitialResponsibility(mapper.writeValueAsString(node));
+                } catch (Exception ignored) {
+                    details.setInitialResponsibility("{\"firstName\":\"" + receiverName + "\",\"relationship\":\"" + receiverRel + "\"}");
+                }
+            }
 
             BcpcCaseDetails saved = bcpcCaseDetailsRepository.save(details);
 
@@ -1488,9 +1566,9 @@ public class BcpcCaseService {
 
         BcpcReferral saved = bcpcReferralRepository.save(referral);
 
-        // Update Case status to ISSUED_REFERRAL if active / pending / under custody
-        if (caseEntity.getCaseStatus() == CaseStatus.PENDING || caseEntity.getCaseStatus() == CaseStatus.RECORDED) {
-            caseEntity.setCaseStatus(CaseStatus.ISSUED_REFERRAL);
+        // Transition Case status to ONGOING if PENDING
+        if (caseEntity.getCaseStatus() == CaseStatus.PENDING) {
+            caseEntity.setCaseStatus(CaseStatus.ONGOING);
             caseRepository.save(caseEntity);
         }
 
@@ -1507,7 +1585,7 @@ public class BcpcCaseService {
 
             caseTimelineService.logEvent(
                     caseEntity,
-                    TimelineEventType.STATUS_CHANGED,
+                    TimelineEventType.CASE_REFERRED,
                     "Inter-Agency Referral Issued (" + targetAgency + ")",
                     desc,
                     currentUser
@@ -1600,6 +1678,12 @@ public class BcpcCaseService {
         }
 
         bcpcReferralFeedbackRepository.save(fb);
+
+        // Transition Case status to ONGOING if PENDING
+        if (caseEntity.getCaseStatus() == CaseStatus.PENDING) {
+            caseEntity.setCaseStatus(CaseStatus.ONGOING);
+            caseRepository.save(caseEntity);
+        }
 
         // Timeline event
         try {
@@ -1750,6 +1834,217 @@ public class BcpcCaseService {
                 .recommendedPsychosocialAction(fb.getRecommendedPsychosocialAction())
                 .dateReceived(fb.getDateReceived())
                 .createdAt(fb.getCreatedAt())
+                .build();
+    }
+
+    // =========================================================================
+    // Intervention & Monitoring Management
+    // =========================================================================
+
+    /**
+     * Retrieves all intervention programs and monitoring records associated with a BCPC case.
+     */
+    @Transactional(readOnly = true)
+    public List<BcpcInterventionDto> getInterventionsByCaseId(Long caseId) {
+        Case aCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found with ID: " + caseId));
+
+        BcpcCaseDetails details = bcpcCaseDetailsRepository.findByCasesId(caseId).orElse(null);
+        if (details == null) {
+            return List.of();
+        }
+
+        return bcpcInterventionRepository.findByBcpcCaseDetailsIdOrderByCreatedAtDesc(details.getId())
+                .stream()
+                .map(this::toInterventionDto)
+                .toList();
+    }
+
+    /**
+     * Establishes a new intervention program for a child under a BCPC case.
+     */
+    @Transactional
+    public BcpcInterventionDto createIntervention(Long caseId, BcpcInterventionCreateRequest request) {
+        Case aCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found with ID: " + caseId));
+
+        if (aCase.getCaseStatus() != null) {
+            String st = aCase.getCaseStatus().name();
+            if ("RESOLVED".equalsIgnoreCase(st) || "CLOSED".equalsIgnoreCase(st) || "SETTLED".equalsIgnoreCase(st)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot initiate intervention for a resolved or closed case.");
+            }
+        }
+
+        BcpcCaseDetails details = bcpcCaseDetailsRepository.findByCasesId(caseId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "BCPC details not found for case ID: " + caseId));
+
+        BcpcIntervention intervention = new BcpcIntervention();
+        intervention.setBcpcCaseDetails(details);
+        intervention.setInterventionType(request.getInterventionType());
+        intervention.setProgramTitle(request.getProgramTitle().trim());
+        intervention.setDescription(request.getDescription() != null ? request.getDescription().trim() : null);
+        intervention.setStartDate(request.getStartDate() != null ? request.getStartDate() : LocalDate.now());
+        intervention.setEndDate(request.getEndDate());
+        intervention.setStatus("ONGOING");
+        intervention.setFacilitatorOrAgency(request.getFacilitatorOrAgency() != null && !request.getFacilitatorOrAgency().isBlank()
+                ? request.getFacilitatorOrAgency().trim() : "Barangay BCPC Committee");
+
+        User currentUser = SecurityUtils.getCurrentUser();
+        String officerName = getOfficerDisplayName(currentUser);
+
+        if (request.getInitialNotes() != null && !request.getInitialNotes().isBlank()) {
+            String initialEntry = "[" + LocalDate.now() + " - " + officerName + " (Program Established)]\n" + request.getInitialNotes().trim();
+            intervention.setProgressNotes(initialEntry);
+        }
+
+        BcpcIntervention saved = bcpcInterventionRepository.save(intervention);
+
+        // Transition Case status to ONGOING if PENDING
+        if (aCase.getCaseStatus() == CaseStatus.PENDING) {
+            aCase.setCaseStatus(CaseStatus.ONGOING);
+            caseRepository.save(aCase);
+        }
+
+        // Timeline Audit Event
+        String typeLabel = request.getInterventionType() != null ? request.getInterventionType().name().replace('_', ' ') : "Community-Based";
+        caseTimelineService.logEvent(
+                aCase,
+                com.barangay.zshared.enumerated.TimelineEventType.INTERVENTION_RECORDED,
+                "Intervention Program Initiated",
+                "New " + typeLabel + " program '" + request.getProgramTitle().trim() + "' initiated with " + intervention.getFacilitatorOrAgency() + ".",
+                currentUser
+        );
+
+        return toInterventionDto(saved);
+    }
+
+    /**
+     * Updates an existing intervention plan details.
+     */
+    @Transactional
+    public BcpcInterventionDto updateIntervention(Long caseId, Long interventionId, BcpcInterventionUpdateRequest request) {
+        Case aCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found with ID: " + caseId));
+
+        BcpcIntervention intervention = bcpcInterventionRepository.findById(interventionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Intervention not found with ID: " + interventionId));
+
+        intervention.setInterventionType(request.getInterventionType());
+        intervention.setProgramTitle(request.getProgramTitle().trim());
+        intervention.setDescription(request.getDescription() != null ? request.getDescription().trim() : null);
+        intervention.setStartDate(request.getStartDate());
+        intervention.setEndDate(request.getEndDate());
+        intervention.setFacilitatorOrAgency(request.getFacilitatorOrAgency() != null ? request.getFacilitatorOrAgency().trim() : null);
+
+        if (request.getStatus() != null && !request.getStatus().isBlank()) {
+            intervention.setStatus(request.getStatus().toUpperCase().trim());
+        }
+
+        BcpcIntervention saved = bcpcInterventionRepository.save(intervention);
+
+        User currentUser = SecurityUtils.getCurrentUser();
+        caseTimelineService.logEvent(
+                aCase,
+                com.barangay.zshared.enumerated.TimelineEventType.INTERVENTION_RECORDED,
+                "Intervention Plan Updated",
+                "Program '" + saved.getProgramTitle() + "' details were updated.",
+                currentUser
+        );
+
+        return toInterventionDto(saved);
+    }
+
+    /**
+     * Records a new monitoring session or progress log entry for an active intervention.
+     */
+    @Transactional
+    public BcpcInterventionDto recordInterventionProgress(Long caseId, Long interventionId, BcpcInterventionProgressRequest request) {
+        Case aCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found with ID: " + caseId));
+
+        BcpcIntervention intervention = bcpcInterventionRepository.findById(interventionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Intervention not found with ID: " + interventionId));
+
+        User currentUser = SecurityUtils.getCurrentUser();
+        String officerName = request.getConductedBy() != null && !request.getConductedBy().isBlank()
+                ? request.getConductedBy().trim()
+                : getOfficerDisplayName(currentUser);
+
+        LocalDate sessionDate = request.getSessionDate() != null ? request.getSessionDate() : LocalDate.now();
+        String statusLabel = request.getStatus() != null && !request.getStatus().isBlank()
+                ? request.getStatus().toUpperCase().trim()
+                : intervention.getStatus();
+
+        String newEntry = "[" + sessionDate + " - " + officerName + " (" + statusLabel + ")]\n" + request.getProgressNotes().trim();
+
+        if (intervention.getProgressNotes() != null && !intervention.getProgressNotes().isBlank()) {
+            intervention.setProgressNotes(intervention.getProgressNotes() + "\n\n" + newEntry);
+        } else {
+            intervention.setProgressNotes(newEntry);
+        }
+
+        if (request.getStatus() != null && !request.getStatus().isBlank()) {
+            intervention.setStatus(statusLabel);
+        }
+
+        BcpcIntervention saved = bcpcInterventionRepository.save(intervention);
+
+        // Transition Case status to ONGOING if PENDING
+        if (aCase.getCaseStatus() == CaseStatus.PENDING) {
+            aCase.setCaseStatus(CaseStatus.ONGOING);
+            caseRepository.save(aCase);
+        }
+
+        // Timeline Audit Event
+        String eventTitle = "COMPLETED".equalsIgnoreCase(statusLabel)
+                ? "Intervention Program Completed"
+                : ("TERMINATED".equalsIgnoreCase(statusLabel) ? "Intervention Program Terminated" : "Intervention Progress Logged");
+
+        caseTimelineService.logEvent(
+                aCase,
+                com.barangay.zshared.enumerated.TimelineEventType.INTERVENTION_RECORDED,
+                eventTitle,
+                "Session date: " + sessionDate + " (" + officerName + "). " + request.getProgressNotes().trim(),
+                currentUser
+        );
+
+        return toInterventionDto(saved);
+    }
+
+    private String getOfficerDisplayName(User user) {
+        if (user == null) return "BCPC Officer";
+        if (user.getPerson() != null) {
+            String first = user.getPerson().getFirstName() != null ? user.getPerson().getFirstName().trim() : "";
+            String last = user.getPerson().getLastName() != null ? user.getPerson().getLastName().trim() : "";
+            String full = (first + " " + last).trim();
+            if (!full.isEmpty()) return full;
+        }
+        if (user.getUsername() != null && !user.getUsername().isBlank()) {
+            return user.getUsername();
+        }
+        return "BCPC Officer";
+    }
+
+    private BcpcInterventionDto toInterventionDto(BcpcIntervention entity) {
+        String typeDisplay = entity.getInterventionType() != null
+                ? entity.getInterventionType().name().replace('_', ' ')
+                : null;
+        return BcpcInterventionDto.builder()
+                .id(entity.getId())
+                .caseId(entity.getBcpcCaseDetails() != null && entity.getBcpcCaseDetails().getCases() != null
+                        ? entity.getBcpcCaseDetails().getCases().getId() : null)
+                .bcpcCaseDetailsId(entity.getBcpcCaseDetails() != null ? entity.getBcpcCaseDetails().getId() : null)
+                .interventionType(entity.getInterventionType())
+                .interventionTypeDisplay(typeDisplay)
+                .programTitle(entity.getProgramTitle())
+                .description(entity.getDescription())
+                .startDate(entity.getStartDate())
+                .endDate(entity.getEndDate())
+                .status(entity.getStatus())
+                .facilitatorOrAgency(entity.getFacilitatorOrAgency())
+                .progressNotes(entity.getProgressNotes())
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
                 .build();
     }
 }

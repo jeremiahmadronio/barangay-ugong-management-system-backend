@@ -13,5 +13,9 @@ public interface BcpcInterventionRepository extends JpaRepository<BcpcInterventi
     List<BcpcIntervention> findByBcpcCaseDetails(BcpcCaseDetails bcpcCaseDetails);
 
     List<BcpcIntervention> findByBcpcCaseDetailsId(Long bcpcCaseDetailsId);
+
+    List<BcpcIntervention> findByBcpcCaseDetailsIdOrderByCreatedAtDesc(Long bcpcCaseDetailsId);
+
+    long countByBcpcCaseDetailsId(Long bcpcCaseDetailsId);
 }
 

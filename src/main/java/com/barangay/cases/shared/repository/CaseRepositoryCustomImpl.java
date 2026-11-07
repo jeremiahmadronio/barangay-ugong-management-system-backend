@@ -178,6 +178,8 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
                 matchedStatuses.add(CaseStatus.DISMISSED);
             } else if (rawStatus.contains("WITHDRAW")) {
                 matchedStatuses.add(CaseStatus.WITHDRAWN);
+            } else if (rawStatus.contains("ONGOING")) {
+                matchedStatuses.add(CaseStatus.ONGOING);
             } else if (rawStatus.contains("PENDING")) {
                 matchedStatuses.add(CaseStatus.PENDING);
             } else {
@@ -277,9 +279,12 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         if (filter.status() != null && !filter.status().isBlank() && !"all".equalsIgnoreCase(filter.status())) {
             String rawStatus = filter.status().trim().toUpperCase();
             List<CaseStatus> matchedStatuses = new ArrayList<>();
-            if (rawStatus.contains("ONGOING") || rawStatus.contains("PENDING")) {
-                matchedStatuses.add(CaseStatus.PENDING);
+            if (rawStatus.contains("ONGOING")) {
+                matchedStatuses.add(CaseStatus.ONGOING);
                 matchedStatuses.add(CaseStatus.REOPENED);
+                matchedStatuses.add(CaseStatus.ISSUED_REFERRAL);
+            } else if (rawStatus.contains("PENDING")) {
+                matchedStatuses.add(CaseStatus.PENDING);
             } else if (rawStatus.contains("REFERRAL") || rawStatus.contains("REFERRED")) {
                 matchedStatuses.add(CaseStatus.ISSUED_REFERRAL);
             } else if (rawStatus.contains("SETTLED") || rawStatus.contains("RESOLVED")) {
@@ -801,6 +806,8 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
                 matchedStatuses.add(CaseStatus.DISMISSED);
             } else if (rawStatus.contains("WITHDRAW")) {
                 matchedStatuses.add(CaseStatus.WITHDRAWN);
+            } else if (rawStatus.contains("ONGOING")) {
+                matchedStatuses.add(CaseStatus.ONGOING);
             } else if (rawStatus.contains("PENDING")) {
                 matchedStatuses.add(CaseStatus.PENDING);
             } else {
