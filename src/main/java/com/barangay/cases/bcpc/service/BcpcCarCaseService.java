@@ -26,6 +26,7 @@ import com.barangay.usermanagement.department.repository.DepartmentRepository;
 import com.barangay.usermanagement.user.model.User;
 import com.barangay.zshared.dto.EvidenceCreateDto;
 import com.barangay.zshared.dto.EvidenceDetailDto;
+import com.barangay.zshared.dto.IncidentDetailDto;
 import com.barangay.zshared.dto.WitnessCreateDto;
 import com.barangay.zshared.dto.WitnessDetailDto;
 import com.barangay.zshared.enumerated.BcpcCategory;
@@ -189,6 +190,7 @@ public class BcpcCarCaseService {
         bcpcDetails.setSchoolName(request.schoolName());
         bcpcDetails.setGuardian(guardianPerson);
         bcpcDetails.setGuardianRelationship(request.guardianRelationship());
+        bcpcDetails.setComplainantRole(request.reporterRole());
         bcpcDetails.setIsGuardianPresentAtIntake(isGuardianAvailable);
         bcpcDetails.setGuardianUnavailableReason(request.guardianUnavailableReason());
         BcpcCaseDetails savedBcpcDetails = bcpcCaseDetailsRepository.save(bcpcDetails);
@@ -274,6 +276,14 @@ public class BcpcCarCaseService {
             aCase.setCaseUpdatedBy(currentUser);
         }
 
+        // 0. Update Reporter Role and Relationship
+        if (request.reporterRelationshipToChild() != null && aCase.getComplainant() != null) {
+            aCase.getComplainant().setRelationshipToChild(request.reporterRelationshipToChild());
+        }
+        if (request.reporterRole() != null) {
+            details.setComplainantRole(request.reporterRole());
+        }
+
         // 1. Update Parent / Guardian & Education Status
         if (request.isGuardianAvailable() != null) {
             details.setIsGuardianPresentAtIntake(request.isGuardianAvailable());
@@ -312,7 +322,12 @@ public class BcpcCarCaseService {
                 aCase.setIncidentDetail(incidentDetailMapper.fromCreateDto(request.incident()));
             } else {
                 IncidentDetail inc = aCase.getIncidentDetail();
-                if (request.incident().natureOfComplaint() != null) inc.setNatureOfComplaint(request.incident().natureOfComplaint());
+                if (request.incident().natureOfComplaint() != null) {
+                    String nat = request.incident().natureOfComplaint().trim();
+                    if (nat.toUpperCase().startsWith("CAR:")) nat = nat.substring(4).trim();
+                    if (nat.toUpperCase().startsWith("CICL:")) nat = nat.substring(5).trim();
+                    inc.setNatureOfComplaint(nat);
+                }
                 if (request.incident().placeOfIncident() != null) inc.setIncidentLocation(request.incident().placeOfIncident());
                 if (request.incident().descriptionOfInjuries() != null) inc.setInjuriesDamagesDescription(request.incident().descriptionOfInjuries());
                 if (request.incident().dateOfIncident() != null && !request.incident().dateOfIncident().isBlank()) {
@@ -376,6 +391,21 @@ public class BcpcCarCaseService {
         var reporterDto = aCase.getComplainant() != null ? complainantMapper.toDetailDto(aCase.getComplainant()) : null;
         String reporterRel = aCase.getComplainant() != null ? aCase.getComplainant().getRelationshipToChild() : null;
         var incidentDto = aCase.getIncidentDetail() != null ? incidentDetailMapper.toDetailDto(aCase.getIncidentDetail()) : null;
+        if (incidentDto != null && incidentDto.natureOfComplaint() != null) {
+            String cleanNat = incidentDto.natureOfComplaint().trim();
+            if (cleanNat.toUpperCase().startsWith("CAR:")) cleanNat = cleanNat.substring(4).trim();
+            if (cleanNat.toUpperCase().startsWith("CICL:")) cleanNat = cleanNat.substring(5).trim();
+            incidentDto = new IncidentDetailDto(
+                    incidentDto.id(),
+                    cleanNat,
+                    incidentDto.dateOfIncident(),
+                    incidentDto.timeOfIncident(),
+                    incidentDto.placeOfIncident(),
+                    incidentDto.frequencyOfIncident(),
+                    incidentDto.descriptionOfInjuries(),
+                    incidentDto.relatedBarangayService()
+            );
+        }
         var narrativeDto = aCase.getNarrativeStatement() != null ? narrativeStatementMapper.toDetailDto(aCase.getNarrativeStatement()) : null;
 
         List<EvidenceDetailDto> evidenceDtos = caseEvidenceRepository.findByCasesId(aCase.getId()).stream()
@@ -408,7 +438,7 @@ public class BcpcCarCaseService {
                 assignedOfficer,
 
                 reporterDto,
-                null,
+                details != null ? details.getComplainantRole() : null,
                 reporterRel,
 
                 bcpcCommonService.toPersonDetailDto(details != null ? details.getChild() : null),

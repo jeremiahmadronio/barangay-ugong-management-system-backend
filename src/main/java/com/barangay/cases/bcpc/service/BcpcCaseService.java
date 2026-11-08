@@ -430,4 +430,38 @@ public class BcpcCaseService {
         String firstInitial = first.isEmpty() ? "" : first.substring(0, 1).toUpperCase() + ".";
         return firstInitial.isEmpty() ? maskedLast : maskedLast + ", " + firstInitial;
     }
+
+    /**
+     * Calculates the 4 lifecycle KPIs exclusively for BCPC cases:
+     * Total Archived, Archived this month, Total in Trash, and Deleted this month.
+     *
+     * @return {@link com.barangay.cases.blotter.dto.BlotterLifecycleKpiResponse}
+     */
+    @Transactional(readOnly = true)
+    public com.barangay.cases.blotter.dto.BlotterLifecycleKpiResponse getBcpcLifecycleKpi() {
+        YearMonth currentMonth = YearMonth.now();
+        LocalDateTime startOfMonth = currentMonth.atDay(1).atStartOfDay();
+        LocalDateTime endOfMonth = currentMonth.atEndOfMonth().atTime(java.time.LocalTime.MAX);
+
+        com.barangay.cases.shared.projection.BlotterLifecycleKpiProjection metrics = caseRepository.getBcpcLifecycleKpiMetrics(
+                startOfMonth,
+                endOfMonth
+        );
+
+        long totalArchived = (metrics != null && metrics.getTotalArchived() != null)
+                ? metrics.getTotalArchived().longValue() : 0L;
+        long totalArchivedThisMonth = (metrics != null && metrics.getTotalArchivedThisMonth() != null)
+                ? metrics.getTotalArchivedThisMonth().longValue() : 0L;
+        long totalRecentlyDeleted = (metrics != null && metrics.getTotalRecentlyDeleted() != null)
+                ? metrics.getTotalRecentlyDeleted().longValue() : 0L;
+        long totalRecentlyDeletedThisMonth = (metrics != null && metrics.getTotalRecentlyDeletedThisMonth() != null)
+                ? metrics.getTotalRecentlyDeletedThisMonth().longValue() : 0L;
+
+        return new com.barangay.cases.blotter.dto.BlotterLifecycleKpiResponse(
+                totalArchived,
+                totalArchivedThisMonth,
+                totalRecentlyDeleted,
+                totalRecentlyDeletedThisMonth
+        );
+    }
 }

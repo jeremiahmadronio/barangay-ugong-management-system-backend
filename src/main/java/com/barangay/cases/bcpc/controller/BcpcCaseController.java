@@ -75,6 +75,17 @@ public class BcpcCaseController {
     }
 
     /**
+     * Endpoint retrieving lifecycle and archive/trash statistics exclusively for the BCPC Department.
+     *
+     * @return {@link com.barangay.cases.blotter.dto.BlotterLifecycleKpiResponse}
+     */
+    @GetMapping("/archive-kpi")
+    public ResponseEntity<com.barangay.cases.blotter.dto.BlotterLifecycleKpiResponse> getBcpcLifecycleKpi() {
+        com.barangay.cases.blotter.dto.BlotterLifecycleKpiResponse response = bcpcCaseService.getBcpcLifecycleKpi();
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Retrieves paginated and filtered BCPC case table rows.
      * Page size defaults to 5.
      *

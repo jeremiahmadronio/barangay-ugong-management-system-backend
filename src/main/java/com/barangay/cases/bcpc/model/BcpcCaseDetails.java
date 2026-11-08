@@ -67,6 +67,9 @@ public class BcpcCaseDetails extends BaseEntity {
     @Column(name = "guardian_unavailable_reason", columnDefinition = "TEXT")
     private String guardianUnavailableReason;
 
+    @Column(name = "complainant_role", length = 100)
+    private String complainantRole;
+
     /**
      * CAR-specific assessment details. Populated only when category == CAR.
      */

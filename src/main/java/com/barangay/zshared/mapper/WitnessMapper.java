@@ -30,7 +30,8 @@ public class WitnessMapper {
                 p != null ? p.getContactNumber() : null,
                 personMapper.getCompleteAddress(p),
                 witness.getTestimony(),
-                witness.getTestimonyFile() != null && witness.getTestimonyFile().length > 0
+                witness.getTestimonyFile() != null && witness.getTestimonyFile().length > 0,
+                witness.getTestimonyFileName()
         );
     }
 

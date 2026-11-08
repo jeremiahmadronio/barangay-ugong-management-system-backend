@@ -18,6 +18,10 @@ import java.util.List;
  * to incident details, guardian status, assessment, narrative, evidences, and witnesses.
  */
 public record BcpcCarCaseUpdateRequest(
+        // Reporter Relationship & Role
+        String reporterRole,
+        String reporterRelationshipToChild,
+
         // Parent / Guardian & Education Status
         Boolean isGuardianAvailable,
         String guardianRelationship,

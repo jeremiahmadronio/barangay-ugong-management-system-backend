@@ -115,7 +115,7 @@ public class BcpcCommonService {
                         updated = true;
                     }
                 }
-                if (dto.contactNumber() != null && !dto.contactNumber().isBlank() && (person.getContactNumber() == null || person.getContactNumber().isBlank())) {
+                if (dto.contactNumber() != null && !dto.contactNumber().isBlank()) {
                     person.setContactNumber(dto.contactNumber().trim());
                     updated = true;
                 }
@@ -147,7 +147,7 @@ public class BcpcCommonService {
                         updated = true;
                     }
                 }
-                if (dto.contactNumber() != null && !dto.contactNumber().isBlank() && (person.getContactNumber() == null || person.getContactNumber().isBlank())) {
+                if (dto.contactNumber() != null && !dto.contactNumber().isBlank()) {
                     person.setContactNumber(dto.contactNumber().trim());
                     updated = true;
                 }
@@ -382,11 +382,11 @@ public class BcpcCommonService {
             inputIdx++;
         }
 
-        for (Witness w : currentWitnessList) {
-            if (!updatedWitnessList.contains(w)) {
-                witnessRepository.delete(w);
-            }
+        if (aCase.getWitnesses() != null) {
+            aCase.getWitnesses().clear();
+            aCase.getWitnesses().addAll(updatedWitnessList);
+        } else {
+            aCase.setWitnesses(new ArrayList<>(updatedWitnessList));
         }
-        aCase.setWitnesses(updatedWitnessList);
     }
 }

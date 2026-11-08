@@ -12,5 +12,6 @@ public record WitnessDetailDto(
         String contactNumber,
         String completeAddress,
         String testimonyText,
-        boolean hasTestimonyFile
+        boolean hasTestimonyFile,
+        String testimonyFileName
 ) {}
