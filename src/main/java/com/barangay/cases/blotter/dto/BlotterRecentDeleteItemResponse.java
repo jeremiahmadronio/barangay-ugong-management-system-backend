@@ -23,5 +23,18 @@ public record BlotterRecentDeleteItemResponse(
         String respondentName,
         CaseStatus status,
         LocalDateTime deletedAt,
-        FilingType filingType
-) {}
+        FilingType filingType,
+        String classification
+) {
+    public BlotterRecentDeleteItemResponse(
+            Long id,
+            String caseNumber,
+            String complainantName,
+            String respondentName,
+            CaseStatus status,
+            LocalDateTime deletedAt,
+            FilingType filingType
+    ) {
+        this(id, caseNumber, complainantName, respondentName, status, deletedAt, filingType, null);
+    }
+}

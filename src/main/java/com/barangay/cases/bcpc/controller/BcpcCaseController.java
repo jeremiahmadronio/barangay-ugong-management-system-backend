@@ -21,10 +21,10 @@ import com.barangay.cases.bcpc.dto.BcpcInterventionCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcInterventionUpdateRequest;
 import com.barangay.cases.bcpc.dto.BcpcInterventionProgressRequest;
 import java.util.List;
+import java.util.Map;
+import com.barangay.cases.bcpc.service.BcpcArchiveService;
 import com.barangay.cases.bcpc.service.BcpcCaseService;
-import com.barangay.cases.blotter.dto.CaseNoteRequest;
-import com.barangay.cases.blotter.dto.CaseNoteResponse;
-import com.barangay.cases.blotter.dto.TimelineEventResponse;
+import com.barangay.cases.blotter.dto.*;
 import com.barangay.cases.blotter.service.CaseFileService;
 import com.barangay.cases.shared.service.CaseTimelineService;
 import com.barangay.zshared.audit.annotations.LogAudit;
@@ -36,8 +36,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -51,6 +53,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 1. Child at Risk (CAR) cases
  * 2. Child in Conflict with the Law (CICL) cases
  * 3. File attachments (Narrative, Evidence, Witness)
+ * 4. Archive & Trash Vault lifecycle operations
  */
 @RestController
 @RequestMapping("/api/v1/bcpc")
@@ -59,6 +62,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class BcpcCaseController {
 
     private final BcpcCaseService bcpcCaseService;
+    private final BcpcArchiveService bcpcArchiveService;
     private final CaseFileService caseFileService;
     private final CaseTimelineService caseTimelineService;
 
@@ -74,15 +78,114 @@ public class BcpcCaseController {
         return ResponseEntity.ok(response);
     }
 
+    // ==========================================
+    // BCPC ARCHIVE & TRASH VAULT ENDPOINTS
+    // ==========================================
+
     /**
      * Endpoint retrieving lifecycle and archive/trash statistics exclusively for the BCPC Department.
      *
-     * @return {@link com.barangay.cases.blotter.dto.BlotterLifecycleKpiResponse}
+     * @return {@link BlotterLifecycleKpiResponse}
      */
     @GetMapping("/archive-kpi")
-    public ResponseEntity<com.barangay.cases.blotter.dto.BlotterLifecycleKpiResponse> getBcpcLifecycleKpi() {
-        com.barangay.cases.blotter.dto.BlotterLifecycleKpiResponse response = bcpcCaseService.getBcpcLifecycleKpi();
+    public ResponseEntity<BlotterLifecycleKpiResponse> getBcpcLifecycleKpi() {
+        BlotterLifecycleKpiResponse response = bcpcArchiveService.getBcpcLifecycleKpi();
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Endpoint retrieving paginated archived BCPC cases for the Archive Table.
+     *
+     * @param filter {@link BlotterArchiveFilterRequest} search and filingType criteria
+     * @return {@link PageResponse} of {@link BlotterArchiveItemResponse}
+     */
+    @GetMapping("/archive-table")
+    public ResponseEntity<PageResponse<BlotterArchiveItemResponse>> getArchivedBcpcCases(
+            @ModelAttribute BlotterArchiveFilterRequest filter) {
+        PageResponse<BlotterArchiveItemResponse> response = bcpcArchiveService.getArchivedBcpcCases(filter);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Endpoint retrieving paginated soft-deleted BCPC cases for the Recent Delete / Trash Table.
+     * Excludes permanently deleted records.
+     *
+     * @param filter {@link BlotterArchiveFilterRequest} search and filingType criteria
+     * @return {@link PageResponse} of {@link BlotterRecentDeleteItemResponse}
+     */
+    @GetMapping("/recent-delete")
+    public ResponseEntity<PageResponse<BlotterRecentDeleteItemResponse>> getRecentDeletedBcpcCases(
+            @ModelAttribute BlotterArchiveFilterRequest filter) {
+        PageResponse<BlotterRecentDeleteItemResponse> response = bcpcArchiveService.getRecentDeletedBcpcCases(filter);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Archives an eligible BCPC case and its entire cycle chain.
+     *
+     * @param caseId  target case ID
+     * @param request {@link ArchiveCaseRequest} containing archive remarks
+     * @return 200 OK
+     */
+    @PatchMapping("/archive-case/{caseId}")
+    @LogAudit(module = AuditModule.BCPC, action = "ARCHIVE_BCPC_CASE", severity = Severity.INFO)
+    public ResponseEntity<Void> archiveCase(
+            @PathVariable Long caseId,
+            @RequestBody(required = false) ArchiveCaseRequest request) {
+        bcpcArchiveService.archiveCase(caseId, request);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Restores an archived BCPC case back to active management.
+     *
+     * @param caseId target case ID
+     * @return 200 OK
+     */
+    @PatchMapping("/{caseId}/restore-archive")
+    @LogAudit(module = AuditModule.BCPC, action = "RESTORE_BCPC_CASE", severity = Severity.INFO)
+    public ResponseEntity<Void> restoreArchivedCase(@PathVariable Long caseId) {
+        bcpcArchiveService.restoreArchivedCase(caseId);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Restores a soft-deleted BCPC case from trash back to active records.
+     *
+     * @param caseId target case ID
+     * @return 200 OK
+     */
+    @PatchMapping("/{caseId}/restore-trash")
+    @LogAudit(module = AuditModule.BCPC, action = "RESTORE_BCPC_CASE_FROM_TRASH", severity = Severity.INFO)
+    public ResponseEntity<Void> restoreTrashCase(@PathVariable Long caseId) {
+        bcpcArchiveService.restoreArchivedCase(caseId);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Moves a BCPC case to the recycle bin (soft-delete).
+     *
+     * @param caseId target case ID
+     * @return success message
+     */
+    @PatchMapping("/{caseId}/soft-delete")
+    @LogAudit(module = AuditModule.BCPC, action = "SOFT_DELETE_BCPC_CASE", severity = Severity.INFO)
+    public ResponseEntity<Map<String, String>> softDelete(@PathVariable Long caseId) {
+        bcpcArchiveService.softDelete(caseId);
+        return ResponseEntity.ok(Map.of("message", "BCPC Case moved to trash successfully"));
+    }
+
+    /**
+     * Permanently marks a soft-deleted BCPC case as purged (audit-safe permanent delete).
+     *
+     * @param caseId target case ID
+     * @return success message
+     */
+    @DeleteMapping("/{caseId}/permanent-delete")
+    @LogAudit(module = AuditModule.BCPC, action = "PERMANENT_DELETE_BCPC_CASE", severity = Severity.INFO)
+    public ResponseEntity<Map<String, String>> permanentDelete(@PathVariable Long caseId) {
+        bcpcArchiveService.permanentDeleteCaseByFlag(caseId);
+        return ResponseEntity.ok(Map.of("message", "BCPC Case permanently deleted"));
     }
 
     /**
@@ -107,6 +210,21 @@ public class BcpcCaseController {
     @GetMapping("/{id}")
     public ResponseEntity<BcpcCaseUniversalDetailResponse> getCaseDetailsById(@PathVariable Long id) {
         BcpcCaseUniversalDetailResponse response = bcpcCaseService.getCaseDetailsById(id);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Updates the status of a BCPC case (e.g. SETTLED, DISMISSED, WITHDRAWN) with optional remarks.
+     *
+     * @param id      the BCPC case ID
+     * @param request payload containing target status and remarks/settlement terms
+     * @return updated universal case details
+     */
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<BcpcCaseUniversalDetailResponse> updateCaseStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateCaseStatusRequest request) {
+        BcpcCaseUniversalDetailResponse response = bcpcCaseService.updateCaseStatus(id, request);
         return ResponseEntity.ok(response);
     }
 

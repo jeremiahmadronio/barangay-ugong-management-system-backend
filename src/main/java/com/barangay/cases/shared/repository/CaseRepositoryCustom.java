@@ -33,4 +33,8 @@ public interface CaseRepositoryCustom {
     Page<BlotterArchiveItemResponse> findArchivedVawcCases(BlotterArchiveFilterRequest filter, Pageable pageable);
 
     Page<BlotterRecentDeleteItemResponse> findRecentDeletedVawcCases(BlotterArchiveFilterRequest filter, Pageable pageable);
+
+    Page<BlotterArchiveItemResponse> findArchivedBcpcCases(BlotterArchiveFilterRequest filter, Pageable pageable);
+
+    Page<BlotterRecentDeleteItemResponse> findRecentDeletedBcpcCases(BlotterArchiveFilterRequest filter, Pageable pageable);
 }

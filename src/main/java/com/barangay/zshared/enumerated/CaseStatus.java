@@ -15,5 +15,6 @@ public enum CaseStatus {
     REOPENED,
     RECORDED,
     BPO_ISSUED,
-    BPO_SERVED
+    BPO_SERVED,
+    CLOSED
 }

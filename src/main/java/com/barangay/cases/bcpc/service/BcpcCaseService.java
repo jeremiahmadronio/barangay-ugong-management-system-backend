@@ -336,6 +336,7 @@ public class BcpcCaseService {
         if (raw == CaseStatus.SETTLED) return "SETTLED";
         if (raw == CaseStatus.DISMISSED) return "DISMISSED";
         if (raw == CaseStatus.WITHDRAWN) return "WITHDRAWN";
+        if (raw == CaseStatus.CLOSED) return "CLOSED";
         if (raw == CaseStatus.ONGOING) return "ONGOING";
 
         Long caseId = c.getId();
@@ -463,5 +464,87 @@ public class BcpcCaseService {
                 totalRecentlyDeleted,
                 totalRecentlyDeletedThisMonth
         );
+    }
+
+    /**
+     * Updates status of a BCPC case (e.g. SETTLED, DISMISSED, WITHDRAWN) with optional terms or closing remarks.
+     *
+     * @param caseId  the case ID
+     * @param request status and remarks
+     * @return updated universal case details
+     */
+    @Transactional
+    public BcpcCaseUniversalDetailResponse updateCaseStatus(Long caseId, com.barangay.cases.blotter.dto.UpdateCaseStatusRequest request) {
+        Case aCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("BCPC case not found with id: " + caseId));
+
+        if (Boolean.TRUE.equals(aCase.getIsDeleted()) || Boolean.TRUE.equals(aCase.getIsPermanentDeleted())) {
+            throw new IllegalStateException("Cannot update status of a deleted case.");
+        }
+
+        if (request == null || request.getStatus() == null || request.getStatus().trim().isEmpty()) {
+            throw new IllegalArgumentException("Status is required");
+        }
+
+        CaseStatus newStatus;
+        try {
+            newStatus = CaseStatus.valueOf(request.getStatus().trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid CaseStatus provided for BCPC: {}", request.getStatus());
+            throw new IllegalArgumentException("Invalid case status: " + request.getStatus());
+        }
+
+        aCase.setCaseStatus(newStatus);
+        String remarks = (request.getRemarks() != null && !request.getRemarks().isBlank())
+                ? request.getRemarks().trim()
+                : null;
+
+        if (newStatus == CaseStatus.SETTLED) {
+            aCase.setSettledAt(LocalDateTime.now());
+            if (remarks != null) {
+                aCase.setSettlementTerms(remarks);
+            }
+            caseTimelineService.logEvent(
+                    aCase,
+                    TimelineEventType.STATUS_CHANGED,
+                    "BCPC Case Settled",
+                    "Case marked as Settled. Details: " + (remarks != null ? remarks : "Completed diversion/intervention or amicable resolution."),
+                    SecurityUtils.getCurrentUser()
+            );
+        } else if (newStatus == CaseStatus.CLOSED) {
+            if (remarks != null) {
+                aCase.setSettlementTerms(remarks);
+            }
+            caseTimelineService.logEvent(
+                    aCase,
+                    TimelineEventType.STATUS_CHANGED,
+                    "BCPC Case Closed",
+                    "Case closed. Reason: " + (remarks != null ? remarks : "Case officially closed."),
+                    SecurityUtils.getCurrentUser()
+            );
+        } else if (newStatus == CaseStatus.DISMISSED || newStatus == CaseStatus.WITHDRAWN) {
+            if (remarks != null) {
+                aCase.setSettlementTerms(remarks);
+            }
+            caseTimelineService.logEvent(
+                    aCase,
+                    TimelineEventType.STATUS_CHANGED,
+                    "BCPC Case " + (newStatus == CaseStatus.DISMISSED ? "Dismissed" : "Withdrawn"),
+                    "Case " + (newStatus == CaseStatus.DISMISSED ? "dismissed" : "withdrawn") + ". Reason: " + (remarks != null ? remarks : (newStatus == CaseStatus.DISMISSED ? "Dismissed due to lack of merit or grounds." : "Withdrawn by parties.")),
+                    SecurityUtils.getCurrentUser()
+            );
+        } else {
+            caseTimelineService.logEvent(
+                    aCase,
+                    TimelineEventType.STATUS_CHANGED,
+                    "BCPC Case Status Updated",
+                    "Status updated to " + newStatus + (remarks != null ? ". Reason: " + remarks : ""),
+                    SecurityUtils.getCurrentUser()
+            );
+        }
+
+        caseRepository.save(aCase);
+        log.info("BCPC Case #{} status successfully updated to {}", aCase.getCaseNumber(), newStatus);
+        return getCaseDetailsById(caseId);
     }
 }

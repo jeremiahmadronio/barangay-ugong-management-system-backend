@@ -25,5 +25,19 @@ public record BlotterArchiveItemResponse(
         String archiveRemarks,
         CaseStatus status,
         LocalDateTime archivedAt,
-        FilingType filingType
-) {}
+        FilingType filingType,
+        String classification
+) {
+    public BlotterArchiveItemResponse(
+            Long id,
+            String caseNumber,
+            String complainantName,
+            String respondentName,
+            String archiveRemarks,
+            CaseStatus status,
+            LocalDateTime archivedAt,
+            FilingType filingType
+    ) {
+        this(id, caseNumber, complainantName, respondentName, archiveRemarks, status, archivedAt, filingType, null);
+    }
+}

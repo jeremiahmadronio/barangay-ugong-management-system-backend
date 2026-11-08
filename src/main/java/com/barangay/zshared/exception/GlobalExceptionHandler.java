@@ -70,6 +70,12 @@ public class GlobalExceptionHandler {
                 .body(errors);
     }
 
+    @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class})
+    public ResponseEntity<?> handleIllegalStateAndArgument(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(errorBody(ex.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleGeneral(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -80,6 +86,7 @@ public class GlobalExceptionHandler {
     private Map<String, String> errorBody(String message) {
         Map<String, String> body = new LinkedHashMap<>();
         body.put("error", message);
+        body.put("message", message);
         body.put("timestamp", LocalDateTime.now().toString());
         return body;
     }
