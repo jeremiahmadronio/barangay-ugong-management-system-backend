@@ -339,6 +339,37 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
     """)
     long countLatestBcpcCasesByCaseStatusIn(@Param("statuses") Collection<CaseStatus> statuses);
 
+    /**
+     * Aggregates KPI metrics (total root cases, settled cases, active interventions, agency referrals) for BCPC reports.
+     * Excludes soft-deleted, permanently deleted, and archived records.
+     */
+    @Query("""
+        SELECT
+            SUM(CASE WHEN (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') THEN 1L ELSE 0L END) AS totalCases,
+            SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '') AND c.caseStatus = :settledStatus THEN 1L ELSE 0L END) AS settledCases,
+            SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '') AND c.caseStatus IN :activeStatuses AND c.caseStatus != :referredStatus AND NOT EXISTS (SELECT 1 FROM BcpcReferral r WHERE r.cases = c AND r.status != 'Cancelled') THEN 1L ELSE 0L END) AS activeInterventions,
+            SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '') AND (c.caseStatus = :referredStatus OR EXISTS (SELECT 1 FROM BcpcReferral r WHERE r.cases = c AND r.status != 'Cancelled')) THEN 1L ELSE 0L END) AS agencyReferrals
+        FROM Case c
+        LEFT JOIN c.department d
+        WHERE (
+            (d IS NOT NULL AND UPPER(d.name) = 'BCPC')
+            OR c.bcpcCaseDetails IS NOT NULL
+            OR UPPER(c.caseNumber) LIKE '%BCPC%'
+        )
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.createdAt >= :startDate
+          AND c.createdAt <= :endDate
+    """)
+    BcpcReportKpiProjection getBcpcReportKpiMetrics(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("settledStatus") CaseStatus settledStatus,
+            @Param("activeStatuses") Collection<CaseStatus> activeStatuses,
+            @Param("referredStatus") CaseStatus referredStatus
+    );
+
 
     @Query("SELECT c FROM Case c WHERE c.caseStatus IN :statuses AND (c.isArchived IS NULL OR c.isArchived = false) AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)")
     List<Case> findActiveCasesForExpirationCheck(@Param("statuses") Collection<CaseStatus> statuses);
@@ -396,6 +427,122 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
            @Param("startDate") LocalDateTime startDate,
            @Param("endDate") LocalDateTime endDate,
            @Param("departmentId") Long departmentId
+    );
+
+    /**
+     * Aggregates monthly case counts for BCPC reports within a date range.
+     * Excludes soft-deleted, permanently deleted, and archived cases.
+     */
+    @Query("""
+        SELECT
+            EXTRACT(YEAR FROM c.createdAt) AS year,
+            EXTRACT(MONTH FROM c.createdAt) AS month,
+            COUNT(c.id) AS count
+        FROM Case c
+        LEFT JOIN c.department d
+        WHERE (
+            (d IS NOT NULL AND UPPER(d.name) = 'BCPC')
+            OR c.bcpcCaseDetails IS NOT NULL
+            OR UPPER(c.caseNumber) LIKE '%BCPC%'
+        )
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.createdAt >= :startDate
+          AND c.createdAt <= :endDate
+        GROUP BY EXTRACT(YEAR FROM c.createdAt), EXTRACT(MONTH FROM c.createdAt)
+        ORDER BY EXTRACT(YEAR FROM c.createdAt) ASC, EXTRACT(MONTH FROM c.createdAt)
+    """)
+    List<CaseCountByMonthProjection> getBcpcMonthlyCaseCount(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    /**
+     * Aggregates daily case counts for BCPC reports within a date range.
+     * Excludes soft-deleted, permanently deleted, and archived cases.
+     */
+    @Query("""
+        SELECT
+            CAST(c.createdAt AS LocalDate) AS date,
+            COUNT(c.id) AS count
+        FROM Case c
+        LEFT JOIN c.department d
+        WHERE (
+            (d IS NOT NULL AND UPPER(d.name) = 'BCPC')
+            OR c.bcpcCaseDetails IS NOT NULL
+            OR UPPER(c.caseNumber) LIKE '%BCPC%'
+        )
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.createdAt >= :startDate
+          AND c.createdAt <= :endDate
+        GROUP BY CAST(c.createdAt AS LocalDate)
+        ORDER BY CAST(c.createdAt AS LocalDate) ASC
+    """)
+    List<CaseCountByDayProjection> getBcpcDailyCaseCounts(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    /**
+     * Aggregates case status distribution for BCPC reports within a date range.
+     * Excludes soft-deleted, permanently deleted, and archived cases.
+     */
+    @Query("""
+        SELECT
+            c.caseStatus AS status,
+            COUNT(c.id) AS count
+        FROM Case c
+        LEFT JOIN c.department d
+        WHERE (
+            (d IS NOT NULL AND UPPER(d.name) = 'BCPC')
+            OR c.bcpcCaseDetails IS NOT NULL
+            OR UPPER(c.caseNumber) LIKE '%BCPC%'
+        )
+          AND (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.createdAt >= :startDate
+          AND c.createdAt <= :endDate
+          AND c.caseStatus IS NOT NULL
+        GROUP BY c.caseStatus
+    """)
+    List<CaseStatusCountProjection> getBcpcCaseStatusCounts(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    /**
+     * Aggregates intake comparison metrics between CAR (Children at Risk) and CICL (Children in Conflict with the Law).
+     * Excludes soft-deleted, permanently deleted, and archived cases.
+     */
+    @Query("""
+        SELECT
+            SUM(CASE WHEN bcd.category = com.barangay.zshared.enumerated.BcpcCategory.CAR THEN 1L ELSE 0L END) AS carCases,
+            SUM(CASE WHEN bcd.category = com.barangay.zshared.enumerated.BcpcCategory.CICL THEN 1L ELSE 0L END) AS ciclCases
+        FROM Case c
+        LEFT JOIN c.bcpcCaseDetails bcd
+        LEFT JOIN c.department d
+        WHERE (
+            (d IS NOT NULL AND UPPER(d.name) = 'BCPC')
+            OR bcd IS NOT NULL
+            OR UPPER(c.caseNumber) LIKE '%BCPC%'
+        )
+          AND (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')
+          AND (c.isArchived IS NULL OR c.isArchived = false)
+          AND (c.isDeleted IS NULL OR c.isDeleted = false)
+          AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+          AND c.createdAt >= :startDate
+          AND c.createdAt <= :endDate
+    """)
+    BcpcCategoryComparisonProjection getBcpcCategoryComparisonMetrics(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
     );
 
     // ==========================================

@@ -3,6 +3,8 @@ package com.barangay.cases.bcpc.controller;
 import com.barangay.cases.bcpc.dto.BcpcCarCaseCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcCarCaseDetailResponse;
 import com.barangay.cases.bcpc.dto.BcpcCarCaseUpdateRequest;
+import com.barangay.cases.bcpc.dto.BcpcDashboardKpiResponse;
+import com.barangay.cases.bcpc.dto.BcpcDashboardMonitoringItem;
 import com.barangay.cases.bcpc.dto.BcpcCiclCaseCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcCiclCaseDetailResponse;
 import com.barangay.cases.bcpc.dto.BcpcCiclCaseUpdateRequest;
@@ -12,14 +14,17 @@ import com.barangay.cases.bcpc.dto.BcpcStatsResponse;
 import com.barangay.cases.bcpc.dto.BcpcTableRowResponse;
 import com.barangay.cases.bcpc.dto.BcpcCaseUniversalDetailResponse;
 import com.barangay.cases.bcpc.dto.BcpcReferralCancelRequest;
+import com.barangay.cases.bcpc.dto.BcpcCategoryComparisonResponse;
 import com.barangay.cases.bcpc.dto.BcpcReferralCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcReferralFeedbackRequest;
 import com.barangay.cases.bcpc.dto.BcpcReferralResponse;
+import com.barangay.cases.bcpc.dto.BcpcReportKpiResponse;
 import com.barangay.cases.bcpc.dto.UpdateCiclCustodyLogDto;
 import com.barangay.cases.bcpc.dto.BcpcInterventionDto;
 import com.barangay.cases.bcpc.dto.BcpcInterventionCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcInterventionUpdateRequest;
 import com.barangay.cases.bcpc.dto.BcpcInterventionProgressRequest;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import com.barangay.cases.bcpc.service.BcpcArchiveService;
@@ -33,6 +38,7 @@ import com.barangay.zshared.enumerated.Severity;
 import com.barangay.zshared.mapper.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -45,6 +51,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -76,6 +83,117 @@ public class BcpcCaseController {
     public ResponseEntity<BcpcStatsResponse> getStats() {
         BcpcStatsResponse response = bcpcCaseService.getBcpcStats();
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Retrieves BCPC Weekly Operational Dashboard KPIs.
+     */
+    @GetMapping("/dashboard-kpi")
+    public ResponseEntity<BcpcDashboardKpiResponse> getDashboardKpi() {
+        return ResponseEntity.ok(bcpcCaseService.getDashboardKpis());
+    }
+
+    /**
+     * Retrieves top recent cases for the dashboard.
+     */
+    @GetMapping("/recent-cases")
+    public ResponseEntity<List<BcpcTableRowResponse>> getRecentCases(
+            @RequestParam(defaultValue = "5") int limit
+    ) {
+        return ResponseEntity.ok(bcpcCaseService.getRecentCases(limit));
+    }
+
+    /**
+     * Retrieves active monitoring items (pending referrals and active interventions).
+     */
+    @GetMapping("/monitoring-feed")
+    public ResponseEntity<List<BcpcDashboardMonitoringItem>> getMonitoringFeed(
+            @RequestParam(defaultValue = "6") int limit
+    ) {
+        return ResponseEntity.ok(bcpcCaseService.getMonitoringFeed(limit));
+    }
+
+    /**
+     * Retrieves BCPC Report KPI metrics (Total cases, settled, active interventions, agency referrals)
+     * within a specified date range.
+     *
+     * @param startDate start date filter
+     * @param endDate   end date filter
+     * @return {@link BcpcReportKpiResponse}
+     */
+    @GetMapping("/reports/kpi")
+    public ResponseEntity<BcpcReportKpiResponse> getReportKpi(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        LocalDate effectiveStart = startDate != null ? startDate : LocalDate.now().minusMonths(6);
+        LocalDate effectiveEnd = endDate != null ? endDate : LocalDate.now();
+        return ResponseEntity.ok(bcpcCaseService.getReportKpi(effectiveStart, effectiveEnd));
+    }
+
+    /**
+     * Retrieves monthly case filing trend for BCPC reports within a date range.
+     */
+    @GetMapping("/reports/monthly-trend")
+    public ResponseEntity<List<MonthlyCaseTrendResponse>> getMonthlyTrend(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        LocalDate effectiveStart = startDate != null ? startDate : LocalDate.now().minusMonths(6);
+        LocalDate effectiveEnd = endDate != null ? endDate : LocalDate.now();
+        return ResponseEntity.ok(bcpcCaseService.getMonthlyTrendReport(effectiveStart, effectiveEnd));
+    }
+
+    /**
+     * Retrieves daily case filing trend for BCPC reports within a date range.
+     */
+    @GetMapping("/reports/daily-trend")
+    public ResponseEntity<List<DailyCaseTrendResponse>> getDailyTrend(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        LocalDate effectiveStart = startDate != null ? startDate : LocalDate.now().minusMonths(6);
+        LocalDate effectiveEnd = endDate != null ? endDate : LocalDate.now();
+        return ResponseEntity.ok(bcpcCaseService.getDailyTrendReport(effectiveStart, effectiveEnd));
+    }
+
+    /**
+     * Retrieves case status breakdown distribution for BCPC reports within a date range.
+     */
+    @GetMapping("/reports/status-breakdown")
+    public ResponseEntity<CaseStatusBreakdownResponse> getStatusBreakdown(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        LocalDate effectiveStart = startDate != null ? startDate : LocalDate.now().minusMonths(6);
+        LocalDate effectiveEnd = endDate != null ? endDate : LocalDate.now();
+        return ResponseEntity.ok(bcpcCaseService.getStatusBreakdownReport(effectiveStart, effectiveEnd));
+    }
+
+    /**
+     * Retrieves child classification comparison (CAR vs CICL) for BCPC reports within a date range.
+     */
+    @GetMapping("/reports/category-comparison")
+    public ResponseEntity<BcpcCategoryComparisonResponse> getCategoryComparison(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        LocalDate effectiveStart = startDate != null ? startDate : LocalDate.now().minusMonths(6);
+        LocalDate effectiveEnd = endDate != null ? endDate : LocalDate.now();
+        return ResponseEntity.ok(bcpcCaseService.getCategoryComparisonReport(effectiveStart, effectiveEnd));
+    }
+
+    /**
+     * Retrieves settlement efficiency performance metrics for BCPC cases within a date range.
+     */
+    @GetMapping("/reports/settlement-efficiency")
+    public ResponseEntity<SettlementEfficiencyResponse> getSettlementEfficiency(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        LocalDate effectiveStart = startDate != null ? startDate : LocalDate.now().minusMonths(6);
+        LocalDate effectiveEnd = endDate != null ? endDate : LocalDate.now();
+        return ResponseEntity.ok(bcpcCaseService.getSettlementEfficiencyReport(effectiveStart, effectiveEnd));
     }
 
     // ==========================================

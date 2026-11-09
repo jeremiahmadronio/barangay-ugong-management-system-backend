@@ -8,16 +8,20 @@ import com.barangay.cases.bcpc.dto.BcpcCiclCaseCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcCiclCaseDetailResponse;
 import com.barangay.cases.bcpc.dto.BcpcCiclCaseUpdateRequest;
 import com.barangay.cases.bcpc.dto.BcpcCustodyLogDto;
+import com.barangay.cases.bcpc.dto.BcpcDashboardKpiResponse;
+import com.barangay.cases.bcpc.dto.BcpcDashboardMonitoringItem;
 import com.barangay.cases.bcpc.dto.BcpcFilterRequest;
 import com.barangay.cases.bcpc.dto.BcpcInterventionCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcInterventionDto;
 import com.barangay.cases.bcpc.dto.BcpcInterventionProgressRequest;
 import com.barangay.cases.bcpc.dto.BcpcInterventionUpdateRequest;
 import com.barangay.cases.bcpc.dto.BcpcPersonInputDto;
+import com.barangay.cases.bcpc.dto.BcpcCategoryComparisonResponse;
 import com.barangay.cases.bcpc.dto.BcpcReferralCancelRequest;
 import com.barangay.cases.bcpc.dto.BcpcReferralCreateRequest;
 import com.barangay.cases.bcpc.dto.BcpcReferralFeedbackRequest;
 import com.barangay.cases.bcpc.dto.BcpcReferralResponse;
+import com.barangay.cases.bcpc.dto.BcpcReportKpiResponse;
 import com.barangay.cases.bcpc.dto.BcpcStatsResponse;
 import com.barangay.cases.bcpc.dto.BcpcTableRowResponse;
 import com.barangay.cases.bcpc.dto.UpdateCiclCustodyLogDto;
@@ -27,9 +31,19 @@ import com.barangay.cases.bcpc.repository.BcpcInterventionRepository;
 import com.barangay.cases.bcpc.repository.BcpcReferralRepository;
 import com.barangay.cases.blotter.dto.CaseNoteRequest;
 import com.barangay.cases.blotter.dto.CaseNoteResponse;
+import com.barangay.cases.blotter.dto.CaseStatusBreakdownResponse;
+import com.barangay.cases.blotter.dto.CaseStatusItemDto;
+import com.barangay.cases.blotter.dto.DailyCaseTrendResponse;
+import com.barangay.cases.blotter.dto.MonthlyCaseTrendResponse;
+import com.barangay.cases.blotter.dto.SettlementEfficiencyResponse;
 import com.barangay.cases.shared.model.CaseNote;
 import com.barangay.cases.shared.repository.CaseNoteRepository;
 import com.barangay.cases.shared.model.Case;
+import com.barangay.cases.shared.projection.BcpcCategoryComparisonProjection;
+import com.barangay.cases.shared.projection.BcpcReportKpiProjection;
+import com.barangay.cases.shared.projection.CaseCountByDayProjection;
+import com.barangay.cases.shared.projection.CaseCountByMonthProjection;
+import com.barangay.cases.shared.projection.CaseStatusCountProjection;
 import com.barangay.cases.shared.repository.CaseRepository;
 import com.barangay.cases.shared.service.CaseTimelineService;
 import com.barangay.people.person.model.Person;
@@ -49,10 +63,21 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 /**
  * High-level coordinator and general facade for BCPC case operations.
@@ -316,6 +341,487 @@ public class BcpcCaseService {
         }
         double percentChange = ((double) (currentCount - prevCount) / prevCount) * 100.0;
         return String.format("%+.1f%% vs last month", percentChange);
+    }
+
+    /**
+     * Retrieves the 4 operational weekly KPIs for the BCPC Dashboard.
+     */
+    @Transactional(readOnly = true)
+    public BcpcDashboardKpiResponse getDashboardKpis() {
+        LocalDate today = LocalDate.now();
+        LocalDate mondayDate = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
+        LocalDate sundayDate = today.with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.SUNDAY));
+
+        LocalDateTime startOfWeek = mondayDate.atStartOfDay();
+        LocalDateTime endOfWeek = sundayDate.atTime(LocalTime.MAX);
+
+        LocalDateTime prevStartOfWeek = mondayDate.minusWeeks(1).atStartOfDay();
+        LocalDateTime prevEndOfWeek = sundayDate.minusWeeks(1).atTime(LocalTime.MAX);
+
+        // 1. Total New Cases This Week & Trend vs Previous Week
+        long totalNewCasesThisWeek = caseRepository.countRootBcpcCasesByCreatedAtBetween(startOfWeek, endOfWeek);
+        long prevTotalCases = caseRepository.countRootBcpcCasesByCreatedAtBetween(prevStartOfWeek, prevEndOfWeek);
+        String newCasesTrend = calculateWeeklyTrend(totalNewCasesThisWeek, prevTotalCases);
+
+        // 2. Needs Assessment / Action: Active cases with status PENDING
+        long totalNeedsAssessment = caseRepository.countLatestBcpcCasesByCaseStatusIn(List.of(CaseStatus.PENDING));
+
+        // 3. Active Intervention Monitoring: Cases under active diversion / intervention (ONGOING, REOPENED)
+        long totalActiveInterventions = caseRepository.countLatestBcpcCasesByCaseStatusIn(
+                List.of(CaseStatus.ONGOING, CaseStatus.REOPENED)
+        );
+
+        // 4. Pending Agency Feedback: Referrals awaiting official feedback
+        long totalPendingAgencyFeedback = bcpcReferralRepository.countPendingAgencyFeedback();
+
+        return new BcpcDashboardKpiResponse(
+                mondayDate,
+                sundayDate,
+                totalNewCasesThisWeek,
+                newCasesTrend,
+                totalNeedsAssessment,
+                totalActiveInterventions,
+                totalPendingAgencyFeedback
+        );
+    }
+
+    private String calculateWeeklyTrend(long currentCount, long prevCount) {
+        if (prevCount == 0) {
+            if (currentCount > 0) return "+100.0% vs last week";
+            return "0.0% vs last week";
+        }
+        double percentChange = ((double) (currentCount - prevCount) / prevCount) * 100.0;
+        return String.format("%+.1f%% vs last week", percentChange);
+    }
+
+    @Transactional(readOnly = true)
+    public List<BcpcTableRowResponse> getRecentCases(int limit) {
+        int safeLimit = limit > 0 ? limit : 5;
+        Pageable pageable = PageRequest.of(0, safeLimit, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Case> casePage = caseRepository.findBcpcCasesFiltered(new BcpcFilterRequest(null, null, null, 0, safeLimit), pageable);
+        return casePage.map(this::toBcpcTableRowResponse).getContent();
+    }
+
+    @Transactional(readOnly = true)
+    public List<BcpcDashboardMonitoringItem> getMonitoringFeed(int limit) {
+        int safeLimit = limit > 0 ? limit : 6;
+        List<BcpcDashboardMonitoringItem> items = new ArrayList<>();
+
+        // Pending Referrals
+        try {
+            List<com.barangay.cases.bcpc.model.BcpcReferral> pendingReferrals = bcpcReferralRepository.findPendingReferralsForMonitoring();
+            for (var r : pendingReferrals) {
+                if (r.getCases() == null) continue;
+                String childName = "—";
+                String category = "CAR";
+                if (r.getCases().getBcpcCaseDetails() != null) {
+                    if (r.getCases().getBcpcCaseDetails().getChild() != null) {
+                        childName = maskChildName(r.getCases().getBcpcCaseDetails().getChild());
+                    }
+                    if (r.getCases().getBcpcCaseDetails().getCategory() != null) {
+                        category = r.getCases().getBcpcCaseDetails().getCategory().name();
+                    }
+                }
+                LocalDateTime refDate = r.getReferralDate() != null ? r.getReferralDate() : r.getCreatedAt();
+                long days = refDate != null ? java.time.temporal.ChronoUnit.DAYS.between(refDate.toLocalDate(), LocalDate.now()) : 0L;
+
+                items.add(new BcpcDashboardMonitoringItem(
+                        r.getId(),
+                        r.getCases().getId(),
+                        r.getCases().getCaseNumber(),
+                        childName,
+                        category,
+                        "REFERRAL",
+                        r.getPurpose() != null && !r.getPurpose().isBlank() ? r.getPurpose() : "Agency Endorsement",
+                        r.getReferredTo() != null ? r.getReferredTo() : "Partner Agency",
+                        "Awaiting Feedback",
+                        refDate,
+                        days
+                ));
+            }
+        } catch (Exception e) {
+            log.warn("Failed to fetch pending referrals for monitoring feed: {}", e.getMessage());
+        }
+
+        // Active Interventions
+        try {
+            List<com.barangay.cases.bcpc.model.BcpcIntervention> activeInterventions = bcpcInterventionRepository.findActiveInterventionsForMonitoring();
+            for (var i : activeInterventions) {
+                if (i.getBcpcCaseDetails() == null || i.getBcpcCaseDetails().getCases() == null) continue;
+                Case c = i.getBcpcCaseDetails().getCases();
+                String childName = "—";
+                String category = "CAR";
+                if (i.getBcpcCaseDetails().getChild() != null) {
+                    childName = maskChildName(i.getBcpcCaseDetails().getChild());
+                }
+                if (i.getBcpcCaseDetails().getCategory() != null) {
+                    category = i.getBcpcCaseDetails().getCategory().name();
+                }
+                LocalDateTime created = i.getCreatedAt() != null ? i.getCreatedAt() : LocalDateTime.now();
+                long days = java.time.temporal.ChronoUnit.DAYS.between(created.toLocalDate(), LocalDate.now());
+
+                items.add(new BcpcDashboardMonitoringItem(
+                        i.getId(),
+                        c.getId(),
+                        c.getCaseNumber(),
+                        childName,
+                        category,
+                        "INTERVENTION",
+                        i.getProgramTitle() != null && !i.getProgramTitle().isBlank() ? i.getProgramTitle() : "Diversion / Counseling",
+                        i.getFacilitatorOrAgency() != null && !i.getFacilitatorOrAgency().isBlank() ? i.getFacilitatorOrAgency() : "Barangay BCPC Desk",
+                        "Active Monitoring",
+                        created,
+                        days
+                ));
+            }
+        } catch (Exception e) {
+            log.warn("Failed to fetch active interventions for monitoring feed: {}", e.getMessage());
+        }
+
+        // Sort descending by itemDate (most recent first) and cap to safeLimit
+        items.sort(Comparator.comparing(BcpcDashboardMonitoringItem::itemDate, Comparator.nullsLast(Comparator.reverseOrder())));
+        if (items.size() > safeLimit) {
+            return items.subList(0, safeLimit);
+        }
+        return items;
+    }
+
+    /**
+     * Computes BCPC Report KPI metrics (Total Cases, Settled Cases, Active Interventions, Agency Referrals)
+     * within a specified date range.
+     *
+     * @param startDate start date filter
+     * @param endDate   end date filter
+     * @return {@link BcpcReportKpiResponse}
+     */
+    @Transactional(readOnly = true)
+    public BcpcReportKpiResponse getReportKpi(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null) {
+            startDate = LocalDate.now().minusMonths(6);
+        }
+        if (endDate == null) {
+            endDate = LocalDate.now();
+        }
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("Start date cannot be after end date.");
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        List<CaseStatus> activeStatuses = List.of(
+                CaseStatus.PENDING,
+                CaseStatus.ONGOING,
+                CaseStatus.REOPENED
+        );
+
+        BcpcReportKpiProjection metrics = caseRepository.getBcpcReportKpiMetrics(
+                startDateTime,
+                endDateTime,
+                CaseStatus.SETTLED,
+                activeStatuses,
+                CaseStatus.ISSUED_REFERRAL
+        );
+
+        long totalCases = (metrics != null && metrics.getTotalCases() != null) ? metrics.getTotalCases().longValue() : 0L;
+        long settledCases = (metrics != null && metrics.getSettledCases() != null) ? metrics.getSettledCases().longValue() : 0L;
+        long activeInterventions = (metrics != null && metrics.getActiveInterventions() != null) ? metrics.getActiveInterventions().longValue() : 0L;
+        long agencyReferrals = (metrics != null && metrics.getAgencyReferrals() != null) ? metrics.getAgencyReferrals().longValue() : 0L;
+
+        double settlementRate = (totalCases > 0 && settledCases > 0)
+                ? Math.round(((double) settledCases / totalCases) * 1000.0) / 10.0
+                : 0.0;
+
+        return new BcpcReportKpiResponse(
+                startDate,
+                endDate,
+                totalCases,
+                settledCases,
+                settlementRate,
+                activeInterventions,
+                agencyReferrals
+        );
+    }
+
+    /**
+     * Generates a monthly case filing trend report for BCPC with zero-filled counts.
+     */
+    @Transactional(readOnly = true)
+    public List<MonthlyCaseTrendResponse> getMonthlyTrendReport(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null) startDate = LocalDate.now().minusMonths(6);
+        if (endDate == null) endDate = LocalDate.now();
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("Start date is after end date");
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        List<CaseCountByMonthProjection> dbResult = caseRepository.getBcpcMonthlyCaseCount(startDateTime, endDateTime);
+
+        Map<YearMonth, Long> countMap = new HashMap<>();
+        if (dbResult != null) {
+            for (CaseCountByMonthProjection p : dbResult) {
+                if (p.getYear() != null && p.getMonth() != null) {
+                    countMap.put(YearMonth.of(p.getYear(), p.getMonth()), p.getCount() != null ? p.getCount() : 0L);
+                }
+            }
+        }
+
+        List<MonthlyCaseTrendResponse> responseList = new ArrayList<>();
+        YearMonth current = YearMonth.from(startDate);
+        YearMonth targetEnd = YearMonth.from(endDate);
+
+        while (!current.isAfter(targetEnd)) {
+            long totalCases = countMap.getOrDefault(current, 0L);
+            String monthLabel = current.getMonth().getDisplayName(TextStyle.SHORT, Locale.ENGLISH)
+                    + " " + current.getYear();
+
+            responseList.add(new MonthlyCaseTrendResponse(
+                    monthLabel,
+                    current.getYear(),
+                    current.getMonthValue(),
+                    totalCases
+            ));
+
+            current = current.plusMonths(1);
+        }
+
+        return responseList;
+    }
+
+    /**
+     * Generates a daily case filing trend report for BCPC with zero-filled counts.
+     */
+    @Transactional(readOnly = true)
+    public List<DailyCaseTrendResponse> getDailyTrendReport(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null) startDate = LocalDate.now().minusMonths(6);
+        if (endDate == null) endDate = LocalDate.now();
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("startDate cannot be after endDate");
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        List<CaseCountByDayProjection> dbResults = caseRepository.getBcpcDailyCaseCounts(startDateTime, endDateTime);
+
+        Map<LocalDate, Long> countMap = new HashMap<>();
+        if (dbResults != null) {
+            for (CaseCountByDayProjection p : dbResults) {
+                if (p.getDate() != null) {
+                    countMap.put(p.getDate(), p.getCount() != null ? p.getCount() : 0L);
+                }
+            }
+        }
+
+        DateTimeFormatter dayLabelFormatter = DateTimeFormatter.ofPattern("MMM d");
+        List<DailyCaseTrendResponse> responseList = new ArrayList<>();
+        LocalDate current = startDate;
+
+        while (!current.isAfter(endDate)) {
+            long totalCases = countMap.getOrDefault(current, 0L);
+
+            responseList.add(new DailyCaseTrendResponse(
+                    current,
+                    current.format(dayLabelFormatter),
+                    current.getDayOfMonth(),
+                    totalCases
+            ));
+
+            current = current.plusDays(1);
+        }
+
+        return responseList;
+    }
+
+    /**
+     * Generates a comprehensive status breakdown report for BCPC cases within a date range.
+     * Excludes soft-deleted, permanently deleted, and archived cases.
+     */
+    @Transactional(readOnly = true)
+    public CaseStatusBreakdownResponse getStatusBreakdownReport(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null) startDate = LocalDate.now().minusMonths(6);
+        if (endDate == null) endDate = LocalDate.now();
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("Start date cannot be after end date.");
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        List<CaseStatusCountProjection> dbResults = caseRepository.getBcpcCaseStatusCounts(startDateTime, endDateTime);
+
+        Map<CaseStatus, Long> countMap = new HashMap<>();
+        if (dbResults != null) {
+            for (CaseStatusCountProjection p : dbResults) {
+                if (p != null && p.getStatus() != null) {
+                    Object statusObj = p.getStatus();
+                    CaseStatus status = null;
+                    if (statusObj instanceof CaseStatus cs) {
+                        status = cs;
+                    } else if (statusObj instanceof String str) {
+                        try {
+                            status = CaseStatus.valueOf(str.trim().toUpperCase());
+                        } catch (IllegalArgumentException ignored) {}
+                    }
+                    if (status != null) {
+                        countMap.put(status, p.getCount() != null ? p.getCount() : 0L);
+                    }
+                }
+            }
+        }
+
+        long totalCases = countMap.values().stream().mapToLong(Long::longValue).sum();
+
+        List<CaseStatusItemDto> breakdownList = new ArrayList<>();
+
+        for (CaseStatus status : CaseStatus.values()) {
+            long count = countMap.getOrDefault(status, 0L);
+            if (count > 0) {
+                double rawPercentage = totalCases > 0 ? ((double) count / totalCases) * 100.0 : 0.0;
+                double percentage = BigDecimal.valueOf(rawPercentage)
+                        .setScale(1, RoundingMode.HALF_UP)
+                        .doubleValue();
+
+                breakdownList.add(new CaseStatusItemDto(
+                        status,
+                        formatStatusLabel(status),
+                        count,
+                        percentage
+                ));
+            }
+        }
+
+        breakdownList.sort(Comparator.comparingLong(CaseStatusItemDto::count).reversed());
+
+        return new CaseStatusBreakdownResponse(
+                startDate,
+                endDate,
+                null,
+                totalCases,
+                breakdownList
+        );
+    }
+
+    private String formatStatusLabel(CaseStatus status) {
+        if (status == null) return "Pending";
+        return switch (status) {
+            case PENDING -> "Pending";
+            case ONGOING -> "Ongoing";
+            case SETTLED -> "Settled";
+            case CLOSED -> "Closed";
+            case DISMISSED -> "Dismissed";
+            case WITHDRAWN -> "Withdrawn";
+            case ISSUED_REFERRAL -> "Issued Referral";
+            case DECLINED_REFERRAL -> "Declined Referral";
+            case REOPENED -> "Reopened";
+            default -> formatEnumLabel(status.name());
+        };
+    }
+
+    private String formatEnumLabel(String name) {
+        if (name == null || name.isBlank()) return "";
+        String[] parts = name.split("_");
+        StringBuilder sb = new StringBuilder();
+        for (String p : parts) {
+            if (!p.isEmpty()) {
+                sb.append(Character.toUpperCase(p.charAt(0)))
+                  .append(p.substring(1).toLowerCase())
+                  .append(" ");
+            }
+        }
+        return sb.toString().trim();
+    }
+
+    /**
+     * Generates a category comparison report between CAR and CICL within a date range.
+     * Excludes soft-deleted, permanently deleted, and archived cases.
+     */
+    @Transactional(readOnly = true)
+    public BcpcCategoryComparisonResponse getCategoryComparisonReport(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null) startDate = LocalDate.now().minusMonths(6);
+        if (endDate == null) endDate = LocalDate.now();
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("Start date cannot be after end date.");
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        BcpcCategoryComparisonProjection metrics = caseRepository.getBcpcCategoryComparisonMetrics(startDateTime, endDateTime);
+
+        long carCases = (metrics != null && metrics.getCarCases() != null) ? metrics.getCarCases().longValue() : 0L;
+        long ciclCases = (metrics != null && metrics.getCiclCases() != null) ? metrics.getCiclCases().longValue() : 0L;
+        long totalCases = carCases + ciclCases;
+
+        double carPct = totalCases > 0
+                ? BigDecimal.valueOf((carCases * 100.0) / totalCases).setScale(1, RoundingMode.HALF_UP).doubleValue()
+                : 0.0;
+        double ciclPct = totalCases > 0
+                ? BigDecimal.valueOf((ciclCases * 100.0) / totalCases).setScale(1, RoundingMode.HALF_UP).doubleValue()
+                : 0.0;
+
+        return new BcpcCategoryComparisonResponse(
+                startDate,
+                endDate,
+                totalCases,
+                carCases,
+                carPct,
+                ciclCases,
+                ciclPct
+        );
+    }
+
+    /**
+     * Generates a settlement efficiency performance report for BCPC cases within a date range.
+     * Evaluates total recorded BCPC cases vs settled cases.
+     */
+    @Transactional(readOnly = true)
+    public SettlementEfficiencyResponse getSettlementEfficiencyReport(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null) startDate = LocalDate.now().minusMonths(6);
+        if (endDate == null) endDate = LocalDate.now();
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("Start date cannot be after end date.");
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        List<CaseStatus> activeStatuses = List.of(
+                CaseStatus.PENDING,
+                CaseStatus.ONGOING,
+                CaseStatus.REOPENED
+        );
+
+        BcpcReportKpiProjection metrics = caseRepository.getBcpcReportKpiMetrics(
+                startDateTime,
+                endDateTime,
+                CaseStatus.SETTLED,
+                activeStatuses,
+                CaseStatus.ISSUED_REFERRAL
+        );
+
+        long totalCases = (metrics != null && metrics.getTotalCases() != null) ? metrics.getTotalCases().longValue() : 0L;
+        long settledCases = (metrics != null && metrics.getSettledCases() != null) ? metrics.getSettledCases().longValue() : 0L;
+
+        double settlementRate = 0.0;
+        if (totalCases > 0 && settledCases > 0) {
+            double rawRate = ((double) settledCases / totalCases) * 100.0;
+            settlementRate = BigDecimal.valueOf(rawRate)
+                    .setScale(1, RoundingMode.HALF_UP)
+                    .doubleValue();
+        }
+
+        return new SettlementEfficiencyResponse(
+                startDate,
+                endDate,
+                null,
+                totalCases,
+                totalCases,
+                settledCases,
+                settlementRate
+        );
     }
 
     @Transactional(readOnly = true)
