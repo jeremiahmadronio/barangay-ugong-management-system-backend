@@ -26,6 +26,42 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
     @Query("SELECT COUNT(r) FROM Resident r WHERE (r.isDeleted = false OR r.isDeleted IS NULL) AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED)")
     long countTotalResidents();
 
+    @Query("""
+        SELECT COUNT(r) FROM Resident r
+        WHERE (r.isDeleted = false OR r.isDeleted IS NULL)
+          AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL)
+          AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED)
+          AND r.isHeadOfFamily = true
+    """)
+    long countActiveHeadsOfFamily();
+
+    @Query("""
+        SELECT COUNT(r) FROM Resident r JOIN r.person p
+        WHERE (r.isDeleted = false OR r.isDeleted IS NULL)
+          AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL)
+          AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED)
+          AND (p.age >= 60 OR (p.birthDate IS NOT NULL AND p.birthDate <= :seniorCutoff))
+    """)
+    long countActiveSeniorCitizens(@Param("seniorCutoff") LocalDate seniorCutoff);
+
+    @Query("""
+        SELECT COUNT(r) FROM Resident r JOIN r.person p
+        WHERE (r.isDeleted = false OR r.isDeleted IS NULL)
+          AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL)
+          AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED)
+          AND (p.age < 18 OR (p.birthDate IS NOT NULL AND p.birthDate > :minorCutoff))
+    """)
+    long countActiveMinors(@Param("minorCutoff") LocalDate minorCutoff);
+
+    @Query("""
+        SELECT COUNT(r) FROM Resident r JOIN r.person p
+        WHERE (r.isDeleted = false OR r.isDeleted IS NULL)
+          AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL)
+          AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED)
+          AND UPPER(p.gender) LIKE UPPER(CONCAT(:genderPrefix, '%'))
+    """)
+    long countActiveByGenderPrefix(@Param("genderPrefix") String genderPrefix);
+
     long countByStatusIn(Collection<ResidentStatus> statuses);
     long countByStatusInAndIsHeadOfFamilyTrue(Collection<ResidentStatus> statuses);
     long countByStatusInAndIsHeadOfFamilyTrueAndCreatedAtBetween(Collection<ResidentStatus> statuses, LocalDateTime start, LocalDateTime end);
