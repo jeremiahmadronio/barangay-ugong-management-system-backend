@@ -27,23 +27,24 @@ public class PermissionService {
     static {
         // VAWC
         DEPARTMENT_PERMISSIONS_MAP.put("VAWC", List.of(
-                "View Cases", "Archive Cases", "Manage Case notes", "Issue Referral",
-                "Issue BPO", "Create Case Entry", "Resolve & Finalize Case", "Manage Reports",
-                "Update Case information", "Manage Intervention"
+                "File Complaint", "View Cases", "Manage Case Notes", "Settled Case",
+                "Dismiss Case", "Issue Barangay Protection Order (BPO)", "Manage Referral",
+                "Edit Case", "Archive Case", "Delete Case", "Permanent Delete Case", "Restore Case"
         ));
 
         // BCPC
         DEPARTMENT_PERMISSIONS_MAP.put("BCPC", List.of(
-                "Manage Mediation", "View Cases", "Create Case Entry", "Archive Cases",
-                "Resolve & Finalize Case", "Manage Case notes", "Manage Reports",
-                "Issue Referral", "Update Case information", "Issue BPO", "Manage Intervention"
+                "File Complaint", "View Cases", "Dismiss Case", "Close Case", "Settled Case",
+                "Edit Case", "Manage Case Notes", "Manage Custody & Turn Over", "Manage Referral",
+                "Manage Intervention & Monitoring", "Archive Case", "Delete Case",
+                "Permanent Delete Case", "Restore Case"
         ));
 
         // BLOTTER / BLOTTER MANAGEMENT
         DEPARTMENT_PERMISSIONS_MAP.put("BLOTTER", List.of(
-                "View Records", "Manage Mediation", "Manage Lupon Escalation", "View Cases",
-                "Create Case Entry", "Archive Cases", "Resolve & Finalize Case",
-                "Manage Case notes", "Manage Reports", "Update Case information"
+                "File Complaint", "View Cases", "Manage Mediation", "Manage Notes",
+                "Settled Case", "Dismiss Case", "Edit Case", "Escalate to Lupon",
+                "Archive Case", "Delete Case", "Permanent Delete Case", "Restore Case"
         ));
 
         // CLEARANCE
@@ -58,9 +59,9 @@ public class PermissionService {
 
         // LUPON / LUPONG TAGAPAMAYAPA
         DEPARTMENT_PERMISSIONS_MAP.put("LUPON", List.of(
-                "View Cases", "Create Case Entry", "Archive Cases", "Resolve & Finalize Case",
-                "Manage Case notes", "Manage Reports", "Issue Referral", "Update Case information",
-                "Manage Conciliation"
+                "View Cases", "Manage Conciliation", "Issue Certified to File Action (CFA)", "Manage Case Notes",
+                "Settled Case", "Dismiss Case", "Archive Case", "Delete Case",
+                "Permanent Delete Case", "Restore Case"
         ));
 
         // KAPITANA / PUNONG BARANGAY (No permissions)
@@ -70,8 +71,9 @@ public class PermissionService {
     /**
      * Retrieves all system permissions formatted for checkbox selection.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public List<PermissionResponse> getAllPermissions() {
+        ensurePermissionsSeeded();
         return permissionRepository.findAllByOrderByModuleAscPermissionNameAsc()
                 .stream()
                 .map(this::mapToResponse)
@@ -79,13 +81,44 @@ public class PermissionService {
     }
 
     /**
+     * Ensures all department-mapped permissions exist in the database with legitimate IDs.
+     */
+    @Transactional
+    public synchronized void ensurePermissionsSeeded() {
+        List<Permission> existing = permissionRepository.findAll();
+        Set<String> existingNames = existing.stream()
+                .map(p -> p.getPermissionName().trim().toLowerCase())
+                .collect(Collectors.toSet());
+
+        List<Permission> toSave = new ArrayList<>();
+        DEPARTMENT_PERMISSIONS_MAP.forEach((dept, perms) -> {
+            for (String permName : perms) {
+                if (!existingNames.contains(permName.trim().toLowerCase())) {
+                    Permission p = new Permission();
+                    p.setPermissionName(permName.trim());
+                    p.setModule(dept);
+                    p.setDescription("Allows " + permName.toLowerCase() + " in " + dept);
+                    toSave.add(p);
+                    existingNames.add(permName.trim().toLowerCase());
+                }
+            }
+        });
+
+        if (!toSave.isEmpty()) {
+            permissionRepository.saveAll(toSave);
+        }
+    }
+
+    /**
      * Retrieves permissions filtered by selected department name or code.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public List<PermissionResponse> getPermissionsByDepartment(String departmentName) {
         if (departmentName == null || departmentName.isBlank()) {
             return Collections.emptyList();
         }
+
+        ensurePermissionsSeeded();
 
         String upperDept = departmentName.trim().toUpperCase();
 

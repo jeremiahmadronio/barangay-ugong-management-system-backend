@@ -30,12 +30,20 @@ public class PermissionDataSeeder implements CommandLineRunner {
 
     private void seedPermissions() {
         // BLOTTER MODULE PERMISSIONS
-        createPermIfNotFound("View Records", "BLOTTER", "Allows viewing blotter case records");
+        createPermIfNotFound("File Complaint", "BLOTTER", "Allows filing blotter complaints");
+        createPermIfNotFound("View Cases", "GLOBAL", "Allows viewing system cases");
         createPermIfNotFound("Manage Mediation", "BLOTTER", "Allows managing mediation processes");
-        createPermIfNotFound("Manage Lupon Escalation", "BLOTTER", "Allows escalating blotter cases to Lupon");
+        createPermIfNotFound("Manage Notes", "BLOTTER", "Allows managing case notes and remarks");
+        createPermIfNotFound("Settled Case", "BLOTTER", "Allows resolving and settling blotter cases");
+        createPermIfNotFound("Dismiss Case", "BLOTTER", "Allows dismissing blotter cases");
+        createPermIfNotFound("Edit Case", "BLOTTER", "Allows modifying blotter case details");
+        createPermIfNotFound("Escalate to Lupon", "BLOTTER", "Allows escalating blotter cases to Lupon Tagapamayapa");
+        createPermIfNotFound("Archive Case", "BLOTTER", "Allows archiving blotter cases");
+        createPermIfNotFound("Delete Case", "BLOTTER", "Allows soft deleting blotter cases");
+        createPermIfNotFound("Permanent Delete Case", "BLOTTER", "Allows permanently purging blotter cases");
+        createPermIfNotFound("Restore Case", "BLOTTER", "Allows restoring archived or deleted blotter cases");
 
         // GLOBAL / CASE MANAGEMENT PERMISSIONS
-        createPermIfNotFound("View Cases", "GLOBAL", "Allows viewing system cases");
         createPermIfNotFound("Create Case Entry", "GLOBAL", "Allows creating new case entries");
         createPermIfNotFound("Archive Cases", "GLOBAL", "Allows archiving inactive or closed cases");
         createPermIfNotFound("Resolve & Finalize Case", "GLOBAL", "Allows resolving and finalizing cases");
@@ -46,10 +54,19 @@ public class PermissionDataSeeder implements CommandLineRunner {
 
         // LUPON MODULE PERMISSIONS
         createPermIfNotFound("Manage Conciliation", "LUPON", "Allows managing conciliation proceedings");
+        createPermIfNotFound("Issue Certified to File Action (CFA)", "LUPON", "Allows issuing certified to file action (CFA)");
+        createPermIfNotFound("Manage Case Notes", "LUPON", "Allows managing lupon case notes");
 
         // VAWC MODULE PERMISSIONS
+        createPermIfNotFound("Issue Barangay Protection Order (BPO)", "VAWC", "Allows issuing Barangay Protection Orders");
+        createPermIfNotFound("Manage Referral", "VAWC", "Allows managing external or inter-agency case referrals");
         createPermIfNotFound("Issue BPO", "VAWC", "Allows issuing Barangay Protection Orders");
         createPermIfNotFound("Manage Intervention", "VAWC", "Allows managing VAWC social interventions");
+
+        // BCPC MODULE PERMISSIONS
+        createPermIfNotFound("Close Case", "BCPC", "Allows closing BCPC cases");
+        createPermIfNotFound("Manage Custody & Turn Over", "BCPC", "Allows managing child custody and turn over");
+        createPermIfNotFound("Manage Intervention & Monitoring", "BCPC", "Allows managing BCPC child intervention and monitoring");
 
         // CLEARANCE MODULE PERMISSIONS
         createPermIfNotFound("Issue Clearance", "CLEARANCE", "Allows issuing barangay clearances");
