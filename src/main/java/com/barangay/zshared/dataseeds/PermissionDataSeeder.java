@@ -70,14 +70,21 @@ public class PermissionDataSeeder implements CommandLineRunner {
 
         // CLEARANCE MODULE PERMISSIONS
         createPermIfNotFound("Issue Clearance", "CLEARANCE", "Allows issuing barangay clearances");
-        createPermIfNotFound("Edit Template", "CLEARANCE", "Allows editing clearance document templates");
-        createPermIfNotFound("View Revenue Reports", "CLEARANCE", "Allows viewing clearance revenue reports");
+        createPermIfNotFound("View Clearance", "CLEARANCE", "Allows viewing barangay clearances");
+        createPermIfNotFound("Archive Clearance", "CLEARANCE", "Allows archiving clearance records");
+        createPermIfNotFound("Delete Clearance", "CLEARANCE", "Allows soft deleting clearance records");
+        createPermIfNotFound("Permanent Delete Clearance", "CLEARANCE", "Allows permanently purging clearance records");
+        createPermIfNotFound("Restore Clearance", "CLEARANCE", "Allows restoring archived or deleted clearance records");
 
         // FTJS (FIRST TIME JOB SEEKERS) PERMISSIONS
-        createPermIfNotFound("Register new Applicant", "FTJS", "Allows registering first-time job seeker applicants");
-        createPermIfNotFound("Issue ftjs Certificate", "FTJS", "Allows issuing FTJS certificates");
-        createPermIfNotFound("View ftjs Records", "FTJS", "Allows viewing FTJS registry records");
-        createPermIfNotFound("Update Applicant Info", "FTJS", "Allows updating FTJS applicant details");
+        createPermIfNotFound("Issue FTJS", "FTJS", "Allows issuing FTJS certificates");
+        createPermIfNotFound("View FTJS", "FTJS", "Allows viewing FTJS applicant records");
+        createPermIfNotFound("Re-issue FTJS", "FTJS", "Allows re-issuing FTJS certificates");
+        createPermIfNotFound("Manage FTJS Notes", "FTJS", "Allows managing FTJS notes and remarks");
+        createPermIfNotFound("Archive FTJS", "FTJS", "Allows archiving FTJS records");
+        createPermIfNotFound("Delete FTJS", "FTJS", "Allows soft deleting FTJS records");
+        createPermIfNotFound("Permanent Delete FTJS", "FTJS", "Allows permanently purging FTJS records");
+        createPermIfNotFound("Restore FTJS", "FTJS", "Allows restoring archived or deleted FTJS records");
 
         // USER & RESIDENT MANAGEMENT PERMISSIONS
         createPermIfNotFound("Create user", "USER_MANAGEMENT", "Allows creating system user accounts");

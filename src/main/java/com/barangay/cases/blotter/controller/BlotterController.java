@@ -21,6 +21,8 @@ import com.barangay.zshared.audit.annotations.LogAudit;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;
 import com.barangay.zshared.mapper.PageResponse;
+import com.barangay.zshared.security.SecurityUtils;
+import org.springframework.security.access.AccessDeniedException;
 
 import lombok.RequiredArgsConstructor;
 
@@ -90,6 +92,9 @@ public class BlotterController {
     @PostMapping
     @LogAudit(module = AuditModule.BLOTTER, action = "CREATE_BLOTTER_CASE", severity = Severity.INFO)
     public ResponseEntity<BlotterCaseDetailResponse> createBlotterCase(@Valid @RequestBody BlotterCaseCreateRequest request) {
+        if (!SecurityUtils.hasPermission("File Complaint")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to file complaints.");
+        }
         BlotterCaseDetailResponse response = blotterCaseService.createBlotterCase(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -100,6 +105,9 @@ public class BlotterController {
             @PathVariable Long caseId,
             @Valid @RequestBody BlotterCaseUpdateRequest request
     ) {
+        if (!SecurityUtils.hasPermission("Edit Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to edit cases.");
+        }
         BlotterCaseDetailResponse response = blotterCaseService.updateBlotterCase(caseId, request);
         return ResponseEntity.ok(response);
     }
@@ -145,6 +153,9 @@ public class BlotterController {
     public ResponseEntity<MediationSessionResponse> scheduleMediation(
             @PathVariable Long caseId,
             @Valid @RequestBody MediationSessionRequest request) {
+        if (!SecurityUtils.hasPermission("Manage Mediation")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to schedule mediation hearings.");
+        }
         MediationSessionResponse response = mediationSessionService.scheduleMediation(caseId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -160,6 +171,9 @@ public class BlotterController {
             captureOldValue = true, oldValueArgIndex = 0)
     public ResponseEntity<MediationSessionResponse> cancelMediation(
             @PathVariable Long sessionId) {
+        if (!SecurityUtils.hasPermission("Manage Mediation")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to cancel mediation hearings.");
+        }
         return ResponseEntity.ok(mediationSessionService.cancelMediation(sessionId));
     }
 
@@ -172,6 +186,9 @@ public class BlotterController {
     public ResponseEntity<MediationSessionResponse> recordSessionMinutes(
             @PathVariable Long sessionId,
             @Valid @RequestBody SessionMinutesRequest request) {
+        if (!SecurityUtils.hasPermission("Manage Mediation")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to record mediation minutes.");
+        }
         return ResponseEntity.ok(mediationSessionService.recordSessionMinutes(sessionId, request));
     }
 
@@ -193,6 +210,9 @@ public class BlotterController {
     public ResponseEntity<SessionFollowUpResponse> addSessionFollowUp(
             @PathVariable Long sessionId,
             @Valid @RequestBody SessionFollowUpRequest request) {
+        if (!SecurityUtils.hasPermission("Manage Mediation")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to add mediation follow-ups.");
+        }
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(mediationSessionService.addSessionFollowUp(sessionId, request));
     }
@@ -215,6 +235,9 @@ public class BlotterController {
     public ResponseEntity<CaseNoteResponse> addCaseNote(
             @PathVariable Long caseId,
             @Valid @RequestBody CaseNoteRequest request) {
+        if (!SecurityUtils.hasPermission("Manage Notes")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to add case notes.");
+        }
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(caseNoteService.addCaseNote(caseId, request));
     }
@@ -249,6 +272,17 @@ public class BlotterController {
     public ResponseEntity<BlotterCaseDetailResponse> updateCaseStatus(
             @PathVariable Long id,
             @Valid @RequestBody UpdateCaseStatusRequest request) {
+        if (request != null && request.getStatus() != null) {
+            String targetStatus = String.valueOf(request.getStatus());
+            if (("SETTLED".equalsIgnoreCase(targetStatus) || "RESOLVED".equalsIgnoreCase(targetStatus))
+                    && !SecurityUtils.hasPermission("Settled Case")) {
+                throw new AccessDeniedException("Access Denied: You do not have permission to settle cases.");
+            }
+            if (("DISMISSED".equalsIgnoreCase(targetStatus) || "WITHDRAWN".equalsIgnoreCase(targetStatus))
+                    && !SecurityUtils.hasPermission("Dismiss Case")) {
+                throw new AccessDeniedException("Access Denied: You do not have permission to dismiss cases.");
+            }
+        }
         return ResponseEntity.ok(blotterCaseService.updateCaseStatus(id, request));
     }
 
@@ -264,6 +298,9 @@ public class BlotterController {
     public ResponseEntity<BlotterCaseDetailResponse> reopenCase(
             @PathVariable Long id,
             @Valid @RequestBody ReopenCaseRequest request) {
+        if (!SecurityUtils.hasPermission("Re-open Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to reopen cases.");
+        }
         BlotterCaseDetailResponse response = blotterCaseService.reopenCase(id, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -467,6 +504,9 @@ public class BlotterController {
           @PathVariable Long caseId,
            @Valid @RequestBody ArchiveCaseRequest request
     ){
+        if (!SecurityUtils.hasPermission("Archive Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to archive cases.");
+        }
         archiveAndDeleteService.archiveCase(caseId, request);
         return ResponseEntity.ok().build();
     }
@@ -484,6 +524,9 @@ public class BlotterController {
     public ResponseEntity<Void> restoreArchivedCase(
             @PathVariable Long caseId
     ) {
+        if (!SecurityUtils.hasPermission("Restore Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to restore cases.");
+        }
         archiveAndDeleteService.restoreArchivedCase(caseId);
         return ResponseEntity.ok().build();
 
@@ -494,6 +537,9 @@ public class BlotterController {
     @LogAudit(module = AuditModule.BLOTTER, action = "SOFT_DELETE_BLOTTER_CASE", severity = Severity.WARNING,
             captureOldValue = true, oldValueArgIndex = 0)
     public ResponseEntity<Map<String, String>> softDelete(@PathVariable Long caseId) {
+        if (!SecurityUtils.hasPermission("Delete Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to delete cases.");
+        }
         archiveAndDeleteService.softDelete(caseId);
         return ResponseEntity.ok(Map.of("message", "Case moved to trash successfully"));
     }
@@ -502,6 +548,9 @@ public class BlotterController {
     @LogAudit(module = AuditModule.BLOTTER, action = "PERMANENT_DELETE_BLOTTER_CASE", severity = Severity.CRITICAL,
             captureOldValue = true, oldValueArgIndex = 0)
     public ResponseEntity<Map<String, String>> permanentDelete(@PathVariable Long caseId) {
+        if (!SecurityUtils.hasPermission("Permanent Delete Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to permanently delete cases.");
+        }
         archiveAndDeleteService.permanentDeleteCaseByFlag(caseId);
         return ResponseEntity.ok(Map.of("message", "Case permanently deleted"));
     }
@@ -549,6 +598,9 @@ public class BlotterController {
             @PathVariable String caseNumber,
             @Valid @RequestBody LuponReferRalRequest request
     ) {
+        if (!SecurityUtils.hasPermission("Escalate to Lupon")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to refer cases to Lupon.");
+        }
         LuponReferralResponse response = luponService.processLuponReferral(caseNumber, request);
         return ResponseEntity.ok(response);
     }

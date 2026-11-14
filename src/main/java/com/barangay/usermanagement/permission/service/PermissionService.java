@@ -44,17 +44,19 @@ public class PermissionService {
         DEPARTMENT_PERMISSIONS_MAP.put("BLOTTER", List.of(
                 "File Complaint", "View Cases", "Manage Mediation", "Manage Notes",
                 "Settled Case", "Dismiss Case", "Edit Case", "Escalate to Lupon",
-                "Archive Case", "Delete Case", "Permanent Delete Case", "Restore Case"
+                "Re-open Case", "Archive Case", "Delete Case", "Permanent Delete Case", "Restore Case"
         ));
 
         // CLEARANCE
         DEPARTMENT_PERMISSIONS_MAP.put("CLEARANCE", List.of(
-                "Issue Clearance", "Edit Template", "View Revenue Reports"
+                "Issue Clearance", "View Clearance", "Archive Clearance",
+                "Delete Clearance", "Permanent Delete Clearance", "Restore Clearance"
         ));
 
         // FTJS
         DEPARTMENT_PERMISSIONS_MAP.put("FTJS", List.of(
-                "Register new Applicant", "Issue ftjs Certificate", "View ftjs Records", "Update Applicant Info"
+                "Issue FTJS", "View FTJS", "Re-issue FTJS", "Manage FTJS Notes",
+                "Archive FTJS", "Delete FTJS", "Permanent Delete FTJS", "Restore FTJS"
         ));
 
         // LUPON / LUPONG TAGAPAMAYAPA
