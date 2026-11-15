@@ -7,6 +7,8 @@ import com.barangay.cases.bcpc.service.BcpcCiclCaseService;
 import com.barangay.zshared.audit.annotations.LogAudit;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;
+import com.barangay.zshared.security.SecurityUtils;
+import org.springframework.security.access.AccessDeniedException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -33,6 +35,9 @@ public class BcpcCiclCaseController {
     public ResponseEntity<BcpcCiclCaseDetailResponse> createCiclCase(
             @Valid @RequestBody BcpcCiclCaseCreateRequest request
     ) {
+        if (!SecurityUtils.hasPermission("File Complaint")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to file complaints.");
+        }
         BcpcCiclCaseDetailResponse response = bcpcCiclCaseService.createCiclCase(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -42,6 +47,9 @@ public class BcpcCiclCaseController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<BcpcCiclCaseDetailResponse> getCiclCaseById(@PathVariable Long id) {
+        if (!SecurityUtils.hasPermission("View Cases")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to view cases.");
+        }
         BcpcCiclCaseDetailResponse response = bcpcCiclCaseService.getCiclCaseById(id);
         return ResponseEntity.ok(response);
     }
@@ -57,6 +65,9 @@ public class BcpcCiclCaseController {
             @PathVariable Long id,
             @Valid @RequestBody BcpcCiclCaseUpdateRequest request
     ) {
+        if (!SecurityUtils.hasPermission("Edit Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to edit cases.");
+        }
         BcpcCiclCaseDetailResponse response = bcpcCiclCaseService.updateCiclCase(id, request);
         return ResponseEntity.ok(response);
     }

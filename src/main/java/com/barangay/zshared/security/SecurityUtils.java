@@ -68,6 +68,10 @@ public class SecurityUtils {
             if (normalizedTarget.contains("reopen") && norm.contains("reopen")) return true;
             if (normalizedTarget.contains("settle") && norm.contains("settle")) return true;
             if (normalizedTarget.contains("dismiss") && norm.contains("dismiss")) return true;
+            if (normalizedTarget.contains("close") && norm.contains("close")) return true;
+            if (normalizedTarget.contains("custody") && norm.contains("custody")) return true;
+            if (normalizedTarget.contains("intervention") && norm.contains("intervention")) return true;
+            if (normalizedTarget.contains("referral") && norm.contains("referral")) return true;
             if (normalizedTarget.contains("edit") && norm.contains("edit")) return true;
             if ((normalizedTarget.contains("lupon") || normalizedTarget.contains("escalate")) && (norm.contains("lupon") || norm.contains("escalate"))) return true;
             if (normalizedTarget.contains("permanent") && norm.contains("permanent")) return true;

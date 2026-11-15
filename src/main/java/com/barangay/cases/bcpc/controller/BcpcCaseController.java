@@ -36,6 +36,8 @@ import com.barangay.zshared.audit.annotations.LogAudit;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;
 import com.barangay.zshared.mapper.PageResponse;
+import com.barangay.zshared.security.SecurityUtils;
+import org.springframework.security.access.AccessDeniedException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -250,6 +252,9 @@ public class BcpcCaseController {
     public ResponseEntity<Void> archiveCase(
             @PathVariable Long caseId,
             @RequestBody(required = false) ArchiveCaseRequest request) {
+        if (!SecurityUtils.hasPermission("Archive Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to archive cases.");
+        }
         bcpcArchiveService.archiveCase(caseId, request);
         return ResponseEntity.ok().build();
     }
@@ -263,6 +268,9 @@ public class BcpcCaseController {
     @PatchMapping("/{caseId}/restore-archive")
     @LogAudit(module = AuditModule.BCPC, action = "RESTORE_BCPC_CASE", severity = Severity.INFO)
     public ResponseEntity<Void> restoreArchivedCase(@PathVariable Long caseId) {
+        if (!SecurityUtils.hasPermission("Restore Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to restore cases.");
+        }
         bcpcArchiveService.restoreArchivedCase(caseId);
         return ResponseEntity.ok().build();
     }
@@ -276,6 +284,9 @@ public class BcpcCaseController {
     @PatchMapping("/{caseId}/restore-trash")
     @LogAudit(module = AuditModule.BCPC, action = "RESTORE_BCPC_CASE_FROM_TRASH", severity = Severity.INFO)
     public ResponseEntity<Void> restoreTrashCase(@PathVariable Long caseId) {
+        if (!SecurityUtils.hasPermission("Restore Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to restore cases.");
+        }
         bcpcArchiveService.restoreArchivedCase(caseId);
         return ResponseEntity.ok().build();
     }
@@ -289,6 +300,9 @@ public class BcpcCaseController {
     @PatchMapping("/{caseId}/soft-delete")
     @LogAudit(module = AuditModule.BCPC, action = "SOFT_DELETE_BCPC_CASE", severity = Severity.INFO)
     public ResponseEntity<Map<String, String>> softDelete(@PathVariable Long caseId) {
+        if (!SecurityUtils.hasPermission("Delete Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to delete cases.");
+        }
         bcpcArchiveService.softDelete(caseId);
         return ResponseEntity.ok(Map.of("message", "BCPC Case moved to trash successfully"));
     }
@@ -302,6 +316,9 @@ public class BcpcCaseController {
     @DeleteMapping("/{caseId}/permanent-delete")
     @LogAudit(module = AuditModule.BCPC, action = "PERMANENT_DELETE_BCPC_CASE", severity = Severity.INFO)
     public ResponseEntity<Map<String, String>> permanentDelete(@PathVariable Long caseId) {
+        if (!SecurityUtils.hasPermission("Permanent Delete Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to permanently delete cases.");
+        }
         bcpcArchiveService.permanentDeleteCaseByFlag(caseId);
         return ResponseEntity.ok(Map.of("message", "BCPC Case permanently deleted"));
     }
@@ -327,6 +344,9 @@ public class BcpcCaseController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<BcpcCaseUniversalDetailResponse> getCaseDetailsById(@PathVariable Long id) {
+        if (!SecurityUtils.hasPermission("View Cases")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to view cases.");
+        }
         BcpcCaseUniversalDetailResponse response = bcpcCaseService.getCaseDetailsById(id);
         return ResponseEntity.ok(response);
     }
@@ -342,6 +362,20 @@ public class BcpcCaseController {
     public ResponseEntity<BcpcCaseUniversalDetailResponse> updateCaseStatus(
             @PathVariable Long id,
             @Valid @RequestBody UpdateCaseStatusRequest request) {
+        if (request != null && request.getStatus() != null) {
+            String targetStatus = String.valueOf(request.getStatus());
+            if (("SETTLED".equalsIgnoreCase(targetStatus) || "RESOLVED".equalsIgnoreCase(targetStatus))
+                    && !SecurityUtils.hasPermission("Settled Case")) {
+                throw new AccessDeniedException("Access Denied: You do not have permission to settle cases.");
+            }
+            if (("DISMISSED".equalsIgnoreCase(targetStatus) || "WITHDRAWN".equalsIgnoreCase(targetStatus))
+                    && !SecurityUtils.hasPermission("Dismiss Case")) {
+                throw new AccessDeniedException("Access Denied: You do not have permission to dismiss cases.");
+            }
+            if ("CLOSED".equalsIgnoreCase(targetStatus) && !SecurityUtils.hasPermission("Close Case")) {
+                throw new AccessDeniedException("Access Denied: You do not have permission to close cases.");
+            }
+        }
         BcpcCaseUniversalDetailResponse response = bcpcCaseService.updateCaseStatus(id, request);
         return ResponseEntity.ok(response);
     }

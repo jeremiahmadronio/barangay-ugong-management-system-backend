@@ -7,6 +7,8 @@ import com.barangay.cases.bcpc.service.BcpcCarCaseService;
 import com.barangay.zshared.audit.annotations.LogAudit;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;
+import com.barangay.zshared.security.SecurityUtils;
+import org.springframework.security.access.AccessDeniedException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -33,6 +35,9 @@ public class BcpcCarCaseController {
     public ResponseEntity<BcpcCarCaseDetailResponse> createCarCase(
             @Valid @RequestBody BcpcCarCaseCreateRequest request
     ) {
+        if (!SecurityUtils.hasPermission("File Complaint")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to file complaints.");
+        }
         BcpcCarCaseDetailResponse response = bcpcCarCaseService.createCarCase(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -42,6 +47,9 @@ public class BcpcCarCaseController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<BcpcCarCaseDetailResponse> getCarCaseById(@PathVariable Long id) {
+        if (!SecurityUtils.hasPermission("View Cases")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to view cases.");
+        }
         BcpcCarCaseDetailResponse response = bcpcCarCaseService.getCarCaseById(id);
         return ResponseEntity.ok(response);
     }
@@ -57,6 +65,9 @@ public class BcpcCarCaseController {
             @PathVariable Long id,
             @Valid @RequestBody BcpcCarCaseUpdateRequest request
     ) {
+        if (!SecurityUtils.hasPermission("Edit Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to edit cases.");
+        }
         BcpcCarCaseDetailResponse response = bcpcCarCaseService.updateCarCase(id, request);
         return ResponseEntity.ok(response);
     }
