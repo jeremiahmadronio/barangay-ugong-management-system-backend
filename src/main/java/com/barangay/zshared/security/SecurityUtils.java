@@ -79,8 +79,24 @@ public class SecurityUtils {
                     && norm.contains("delete") && !norm.contains("permanent")) return true;
             if (normalizedTarget.contains("restore") && norm.contains("restore")) return true;
             if (normalizedTarget.contains("archive") && norm.contains("archive")) return true;
-            if ((normalizedTarget.contains("issue") || normalizedTarget.contains("issuance")) && (norm.contains("issue") || norm.contains("issuance"))) return true;
-            if (normalizedTarget.contains("view") && norm.contains("view")) return true;
+            if ((normalizedTarget.contains("reissue") || normalizedTarget.contains("reissuance"))
+                    && (norm.contains("reissue") || norm.contains("reissuance"))) {
+                if (normalizedTarget.contains("ftjs") && !norm.contains("ftjs")) return false;
+                return true;
+            }
+            if ((normalizedTarget.contains("issue") || normalizedTarget.contains("issuance"))
+                    && !normalizedTarget.contains("reissue")
+                    && (norm.contains("issue") || norm.contains("issuance"))
+                    && !norm.contains("reissue")) {
+                if (normalizedTarget.contains("ftjs") && !norm.contains("ftjs")) return false;
+                if (normalizedTarget.contains("clearance") && !norm.contains("clearance")) return false;
+                return true;
+            }
+            if (normalizedTarget.contains("view") && norm.contains("view")) {
+                if (normalizedTarget.contains("ftjs") && !norm.contains("ftjs")) return false;
+                if (normalizedTarget.contains("clearance") && !norm.contains("clearance")) return false;
+                return true;
+            }
             return false;
         });
     }

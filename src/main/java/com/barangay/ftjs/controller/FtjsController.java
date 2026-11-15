@@ -17,6 +17,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 
 import com.barangay.zshared.enumerated.FtjsStatus;
@@ -113,6 +114,9 @@ public class FtjsController {
     @PostMapping("/entry")
     @LogAudit(module = AuditModule.FTJS, action = "CREATE_FTJS_ENTRY", severity = Severity.INFO)
     public ResponseEntity<FtjsResidentSearchResponse> createFtjsEntry(@RequestBody FtjsRequestEntry request) {
+        if (!SecurityUtils.hasPermission("Issue FTJS")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to issue FTJS certificates.");
+        }
         log.info("Received FTJS application entry creation request for Resident ID: {}", request.residentId());
         FtjsResidentSearchResponse response = ftjsService.createFtjsEntry(request);
 
@@ -124,6 +128,9 @@ public class FtjsController {
      * Retrieves detailed FTJS applicant record information.
      */
     public ResponseEntity<FtjsDetailResponse> getFtjsDetail( @PathVariable Long id) {
+        if (!SecurityUtils.hasPermission("View FTJS")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to view FTJS details.");
+        }
         FtjsDetailResponse ftjs = ftjsService.getFtjsApplicantDetail(id);
         return ResponseEntity.ok(ftjs);
 
@@ -137,6 +144,9 @@ public class FtjsController {
     @PostMapping("/re-issuance-request/{ftjsId}")
     @LogAudit(module = AuditModule.FTJS, action = "CREATE_RE-ISSUANCE_REQUEST", severity = Severity.INFO)
     public ResponseEntity<ReIssuanceRequestDto> createReIssuanceRequest(@PathVariable Long ftjsId, @RequestBody ReIssuanceRequestDto request) throws BadRequestException {
+        if (!SecurityUtils.hasPermission("Re-issue FTJS")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to re-issue FTJS certificates.");
+        }
         ReIssuanceRequestDto reIssuanceReq = ftjsReIssuanceService.createReIssuanceRequest(ftjsId, request);
         return ResponseEntity.ok(reIssuanceReq);
     }
@@ -163,6 +173,9 @@ public class FtjsController {
     @LogAudit(module = AuditModule.FTJS, action = "ADD_FTJS_NOTE", severity = Severity.INFO,
             captureOldValue = true, oldValueArgIndex = 1, captureNewValue = true)
     public ResponseEntity<FtjsNoteResponse> addNote(@PathVariable Long ftjsId, @Valid @RequestBody FtjsNoteRequest request) {
+        if (!SecurityUtils.hasPermission("Manage FTJS Notes")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to manage FTJS notes.");
+        }
         FtjsNoteResponse response = ftjsNoteService.addNote(ftjsId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -173,6 +186,9 @@ public class FtjsController {
      * Retrieves administrative notes history for an FTJS record.
      */
     public ResponseEntity<List<FtjsNoteResponse>> getNotes(@PathVariable Long ftjsId) {
+        if (!SecurityUtils.hasPermission("Manage FTJS Notes")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to view or manage FTJS notes.");
+        }
         List<FtjsNoteResponse> notes = ftjsNoteService.getNotesByFtjsId(ftjsId);
         return ResponseEntity.ok(notes);
     }
@@ -184,6 +200,9 @@ public class FtjsController {
      * Archives an FTJS record.
      */
     public ResponseEntity<Void> archiveFtjs(@PathVariable Long id){
+        if (!SecurityUtils.hasPermission("Archive FTJS")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to archive FTJS records.");
+        }
         archiveAndDeleteService.archiveFtjs(id);
         return ResponseEntity.ok().build();
     }
@@ -195,6 +214,9 @@ public class FtjsController {
      * Restores an archived or soft-deleted FTJS record.
      */
     public ResponseEntity<Void> restoreFtjs(@PathVariable Long id){
+        if (!SecurityUtils.hasPermission("Restore FTJS")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to restore FTJS records.");
+        }
         archiveAndDeleteService.restoreFtjs(id);
         return ResponseEntity.ok().build();
     }
@@ -265,6 +287,9 @@ public class FtjsController {
      * Soft-deletes an FTJS record.
      */
     public ResponseEntity<Void> softDelete(@PathVariable Long id) {
+        if (!SecurityUtils.hasPermission("Delete FTJS")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to delete FTJS records.");
+        }
         archiveAndDeleteService.softDelete(id);
         return ResponseEntity.noContent().build();
     }
@@ -276,6 +301,9 @@ public class FtjsController {
      * Permanently deletes an FTJS record and child data.
      */
     public ResponseEntity<Void> permanentlyDelete(@PathVariable Long id) {
+        if (!SecurityUtils.hasPermission("Permanent Delete FTJS")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to permanently delete FTJS records.");
+        }
         archiveAndDeleteService.permanentlyDelete(id);
         return ResponseEntity.noContent().build();
     }
@@ -287,6 +315,9 @@ public class FtjsController {
      * Batch permanently deletes multiple FTJS records.
      */
     public ResponseEntity<Void> permanentlyDeleteBatch(@RequestBody List<Long> ids) {
+        if (!SecurityUtils.hasPermission("Permanent Delete FTJS")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to permanently delete FTJS records.");
+        }
         archiveAndDeleteService.permanentlyDeleteBatch(ids);
         return ResponseEntity.noContent().build();
     }
