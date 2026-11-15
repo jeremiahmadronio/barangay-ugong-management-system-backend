@@ -62,7 +62,7 @@ public class PermissionService {
         // LUPON / LUPONG TAGAPAMAYAPA
         DEPARTMENT_PERMISSIONS_MAP.put("LUPON", List.of(
                 "View Cases", "Manage Conciliation", "Issue Certified to File Action (CFA)", "Manage Case Notes",
-                "Settled Case", "Dismiss Case", "Archive Case", "Delete Case",
+                "Settled Case", "Dismiss Case", "Re-open Case", "Archive Case", "Delete Case",
                 "Permanent Delete Case", "Restore Case"
         ));
 

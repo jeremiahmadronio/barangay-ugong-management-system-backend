@@ -62,6 +62,9 @@ public class SecurityUtils {
             if (norm.equals(normalizedTarget) || base.equals(baseTarget)) return true;
             if (normalizedTarget.contains("note") && norm.contains("note")) return true;
             if (normalizedTarget.contains("mediation") && norm.contains("mediation")) return true;
+            if (normalizedTarget.contains("conciliation") && norm.contains("conciliation")) return true;
+            if ((normalizedTarget.contains("cfa") || normalizedTarget.contains("certifiedtofileaction"))
+                    && (norm.contains("cfa") || norm.contains("certifiedtofileaction"))) return true;
             if (normalizedTarget.contains("reopen") && norm.contains("reopen")) return true;
             if (normalizedTarget.contains("settle") && norm.contains("settle")) return true;
             if (normalizedTarget.contains("dismiss") && norm.contains("dismiss")) return true;

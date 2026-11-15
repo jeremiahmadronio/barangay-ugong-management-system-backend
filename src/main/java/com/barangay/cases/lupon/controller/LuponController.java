@@ -9,6 +9,8 @@ import com.barangay.zshared.audit.annotations.LogAudit;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;
 import com.barangay.zshared.mapper.PageResponse;
+import com.barangay.zshared.security.SecurityUtils;
+import org.springframework.security.access.AccessDeniedException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -203,6 +205,9 @@ public class LuponController {
     public ResponseEntity<ConciliationSessionResponse> scheduleConciliation(
             @PathVariable Long caseId,
             @Valid @RequestBody ScheduleConciliationRequest request) {
+        if (!SecurityUtils.hasPermission("Manage Conciliation")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to manage conciliation hearings.");
+        }
         ConciliationSessionResponse response = conciliationService.scheduleConciliation(caseId, request);
         return ResponseEntity.ok(response);
     }
@@ -221,6 +226,9 @@ public class LuponController {
     )
     public ResponseEntity<ConciliationSessionResponse> cancelConciliation(
             @PathVariable Long sessionId) {
+        if (!SecurityUtils.hasPermission("Manage Conciliation")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to cancel conciliation hearings.");
+        }
         ConciliationSessionResponse response = conciliationService.cancelConciliation(sessionId);
         return ResponseEntity.ok(response);
     }
@@ -242,6 +250,9 @@ public class LuponController {
     public ResponseEntity<ConciliationSessionResponse> recordConciliationMinutes(
             @PathVariable Long sessionId,
             @RequestBody RecordConciliationMinutesRequest request) {
+        if (!SecurityUtils.hasPermission("Manage Conciliation")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to record conciliation minutes.");
+        }
         ConciliationSessionResponse response = conciliationService.recordConciliationMinutes(sessionId, request);
         return ResponseEntity.ok(response);
     }
@@ -263,6 +274,9 @@ public class LuponController {
     public ResponseEntity<SessionFollowUpResponse> addSessionFollowUp(
             @PathVariable Long sessionId,
             @Valid @RequestBody SessionFollowUpRequest request) {
+        if (!SecurityUtils.hasPermission("Manage Conciliation")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to manage conciliation proceedings.");
+        }
         SessionFollowUpResponse response = conciliationService.addConciliationFollowUp(sessionId, request);
         return ResponseEntity.ok(response);
     }
@@ -297,6 +311,9 @@ public class LuponController {
     public ResponseEntity<com.barangay.cases.blotter.dto.BlotterCaseDetailResponse> extendLuponCase(
             @PathVariable Long caseId,
             @Valid @RequestBody com.barangay.cases.blotter.dto.ExtendCaseRequest request) {
+        if (!SecurityUtils.hasPermission("Manage Conciliation")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to extend conciliation period.");
+        }
         com.barangay.cases.blotter.dto.BlotterCaseDetailResponse response = luponService.extendLuponCase(caseId, request);
         return ResponseEntity.ok(response);
     }
@@ -350,6 +367,9 @@ public class LuponController {
     public ResponseEntity<Void> archiveCase(
             @PathVariable Long caseId,
             @Valid @RequestBody com.barangay.cases.blotter.dto.ArchiveCaseRequest request) {
+        if (!SecurityUtils.hasPermission("Archive Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to archive cases.");
+        }
         luponArchive.archiveCase(caseId, request);
         return ResponseEntity.noContent().build();
     }
@@ -363,6 +383,9 @@ public class LuponController {
     @LogAudit(module = AuditModule.LUPON, action = "RESTORE_LUPON_CASE", severity = Severity.INFO,
             captureOldValue = true, oldValueArgIndex = 0, captureNewValue = false)
     public ResponseEntity<Void> restoreArchivedCase(@PathVariable Long caseId) {
+        if (!SecurityUtils.hasPermission("Restore Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to restore cases.");
+        }
         luponArchive.restoreArchivedCase(caseId);
         return ResponseEntity.noContent().build();
     }
@@ -376,6 +399,9 @@ public class LuponController {
     @LogAudit(module = AuditModule.LUPON, action = "SOFT_DELETE_LUPON_CASE", severity = Severity.WARNING,
             captureOldValue = true, oldValueArgIndex = 0, captureNewValue = false)
     public ResponseEntity<Void> softDeleteCase(@PathVariable Long caseId) {
+        if (!SecurityUtils.hasPermission("Delete Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to delete cases.");
+        }
         luponArchive.softDelete(caseId);
         return ResponseEntity.noContent().build();
     }
@@ -389,6 +415,9 @@ public class LuponController {
     @LogAudit(module = AuditModule.LUPON, action = "RESTORE_LUPON_CASE_FROM_TRASH", severity = Severity.INFO,
             captureOldValue = true, oldValueArgIndex = 0, captureNewValue = false)
     public ResponseEntity<Void> restoreDeletedCase(@PathVariable Long caseId) {
+        if (!SecurityUtils.hasPermission("Restore Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to restore cases.");
+        }
         luponArchive.restoreArchivedCase(caseId);
         return ResponseEntity.noContent().build();
     }
@@ -402,6 +431,9 @@ public class LuponController {
     @LogAudit(module = AuditModule.LUPON, action = "PERMANENT_DELETE_LUPON_CASE", severity = Severity.CRITICAL,
             captureOldValue = true, oldValueArgIndex = 0, captureNewValue = false)
     public ResponseEntity<Void> permanentDeleteCase(@PathVariable Long caseId) {
+        if (!SecurityUtils.hasPermission("Permanent Delete Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to permanently delete cases.");
+        }
         luponArchive.permanentDeleteCaseByFlag(caseId);
         return ResponseEntity.noContent().build();
     }

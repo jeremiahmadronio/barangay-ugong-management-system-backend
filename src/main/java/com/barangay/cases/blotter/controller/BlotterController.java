@@ -282,6 +282,10 @@ public class BlotterController {
                     && !SecurityUtils.hasPermission("Dismiss Case")) {
                 throw new AccessDeniedException("Access Denied: You do not have permission to dismiss cases.");
             }
+            if (("CERTIFIED_TO_FILE_ACTION".equalsIgnoreCase(targetStatus) || "CFA_ISSUED".equalsIgnoreCase(targetStatus))
+                    && !SecurityUtils.hasPermission("Issue Certified to File Action (CFA)")) {
+                throw new AccessDeniedException("Access Denied: You do not have permission to issue CFA.");
+            }
         }
         return ResponseEntity.ok(blotterCaseService.updateCaseStatus(id, request));
     }
