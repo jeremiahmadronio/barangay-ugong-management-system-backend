@@ -381,6 +381,10 @@ public class VawcCaseService {
         Case aCase = caseRepository.findById(caseId)
                 .orElseThrow(() -> new ResourceNotFoundException("VAWC Case not found with ID: " + caseId));
 
+        if (aCase.getCaseStatus() == CaseStatus.SETTLED || aCase.getCaseStatus() == CaseStatus.DISMISSED || aCase.getCaseStatus() == CaseStatus.WITHDRAWN || aCase.getCaseStatus() == CaseStatus.CLOSED || aCase.getCaseStatus() == CaseStatus.CERTIFIED_TO_FILE_ACTION || aCase.getCaseStatus() == CaseStatus.EXPIRED_UNACTIONED) {
+            throw new IllegalStateException("Cannot edit a settled, dismissed, or closed VAWC case.");
+        }
+
         User currentUser = SecurityUtils.getCurrentUser();
         if (currentUser != null) {
             aCase.setCaseUpdatedBy(currentUser);
@@ -813,6 +817,10 @@ public class VawcCaseService {
     public VawcCaseDetailResponse activateBpo(Long caseId) {
         Case aCase = caseRepository.findById(caseId)
                 .orElseThrow(() -> new ResourceNotFoundException("VAWC Case not found with ID: " + caseId));
+
+        if (aCase.getCaseStatus() == CaseStatus.SETTLED || aCase.getCaseStatus() == CaseStatus.DISMISSED || aCase.getCaseStatus() == CaseStatus.WITHDRAWN || aCase.getCaseStatus() == CaseStatus.CLOSED || aCase.getCaseStatus() == CaseStatus.CERTIFIED_TO_FILE_ACTION || aCase.getCaseStatus() == CaseStatus.EXPIRED_UNACTIONED) {
+            throw new IllegalStateException("Cannot edit a settled, dismissed, or closed VAWC case.");
+        }
         final Case targetCase = aCase;
 
         BarangayProtectionOrder bpo = barangayProtectionOrderRepository.findByCasesId(caseId)
@@ -865,6 +873,10 @@ public class VawcCaseService {
     public VawcCaseDetailResponse serveBpo(Long caseId, BpoServeRequest request) {
         Case aCase = caseRepository.findById(caseId)
                 .orElseThrow(() -> new ResourceNotFoundException("VAWC Case not found with ID: " + caseId));
+
+        if (aCase.getCaseStatus() == CaseStatus.SETTLED || aCase.getCaseStatus() == CaseStatus.DISMISSED || aCase.getCaseStatus() == CaseStatus.WITHDRAWN || aCase.getCaseStatus() == CaseStatus.CLOSED || aCase.getCaseStatus() == CaseStatus.CERTIFIED_TO_FILE_ACTION || aCase.getCaseStatus() == CaseStatus.EXPIRED_UNACTIONED) {
+            throw new IllegalStateException("Cannot edit a settled, dismissed, or closed VAWC case.");
+        }
         final Case targetCase = aCase;
 
         BarangayProtectionOrder bpo = barangayProtectionOrderRepository.findByCasesId(caseId)
@@ -928,6 +940,10 @@ public class VawcCaseService {
     public VawcReferralResponse createReferral(Long caseId, VawcReferralCreateRequest request) {
         Case aCase = caseRepository.findById(caseId)
                 .orElseThrow(() -> new ResourceNotFoundException("VAWC Case not found with ID: " + caseId));
+
+        if (aCase.getCaseStatus() == CaseStatus.SETTLED || aCase.getCaseStatus() == CaseStatus.DISMISSED || aCase.getCaseStatus() == CaseStatus.WITHDRAWN || aCase.getCaseStatus() == CaseStatus.CLOSED || aCase.getCaseStatus() == CaseStatus.CERTIFIED_TO_FILE_ACTION || aCase.getCaseStatus() == CaseStatus.EXPIRED_UNACTIONED) {
+            throw new IllegalStateException("Cannot edit a settled, dismissed, or closed VAWC case.");
+        }
 
         long existingCount = vawcReferralRepository.findByCasesId(caseId).size();
         String referralControlNumber = String.format("REF-%s-%02d", aCase.getCaseNumber(), existingCount + 1);
@@ -1006,6 +1022,10 @@ public class VawcCaseService {
     public VawcReferralResponse addReferralFeedback(Long caseId, Long referralId, ReferralFeedbackRequest request) {
         Case aCase = caseRepository.findById(caseId)
                 .orElseThrow(() -> new ResourceNotFoundException("VAWC Case not found with ID: " + caseId));
+
+        if (aCase.getCaseStatus() == CaseStatus.SETTLED || aCase.getCaseStatus() == CaseStatus.DISMISSED || aCase.getCaseStatus() == CaseStatus.WITHDRAWN || aCase.getCaseStatus() == CaseStatus.CLOSED || aCase.getCaseStatus() == CaseStatus.CERTIFIED_TO_FILE_ACTION || aCase.getCaseStatus() == CaseStatus.EXPIRED_UNACTIONED) {
+            throw new IllegalStateException("Cannot edit a settled, dismissed, or closed VAWC case.");
+        }
 
         VawcReferral referral = vawcReferralRepository.findById(referralId)
                 .orElseThrow(() -> new ResourceNotFoundException("VAWC Referral not found with ID: " + referralId));
