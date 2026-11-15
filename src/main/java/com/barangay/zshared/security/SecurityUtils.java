@@ -75,6 +75,7 @@ public class SecurityUtils {
                     && norm.contains("delete") && !norm.contains("permanent")) return true;
             if (normalizedTarget.contains("restore") && norm.contains("restore")) return true;
             if (normalizedTarget.contains("archive") && norm.contains("archive")) return true;
+            if (normalizedTarget.contains("view") && norm.contains("view")) return true;
             return false;
         });
     }

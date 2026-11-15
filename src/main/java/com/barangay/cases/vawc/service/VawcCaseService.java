@@ -1,5 +1,6 @@
 package com.barangay.cases.vawc.service;
 
+import com.barangay.cases.blotter.dto.UpdateCaseStatusRequest;
 import com.barangay.cases.shared.model.*;
 import com.barangay.cases.shared.repository.CaseEvidenceRepository;
 import com.barangay.cases.shared.repository.CaseRepository;
@@ -567,6 +568,94 @@ public class VawcCaseService {
         }
 
         return toDetailResponse(updatedCase);
+    }
+
+    /**
+     * Updates the status of a VAWC case (e.g. SETTLED, DISMISSED) with optional status remarks.
+     *
+     * @param id the VAWC case ID
+     * @param request the status update request payload containing status and remarks
+     * @return updated {@link VawcCaseDetailResponse}
+     */
+    @Transactional
+    public VawcCaseDetailResponse updateCaseStatus(Long id, UpdateCaseStatusRequest request) {
+        Case aCase = caseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("VAWC case not found with id: " + id));
+
+        if (Boolean.TRUE.equals(aCase.getIsDeleted()) || Boolean.TRUE.equals(aCase.getIsPermanentDeleted())) {
+            throw new IllegalStateException("Cannot update status of a deleted case.");
+        }
+
+        CaseStatus newStatus = null;
+        if (request.getStatus() != null && !request.getStatus().trim().isEmpty()) {
+            try {
+                newStatus = CaseStatus.valueOf(request.getStatus().toUpperCase().trim());
+                aCase.setCaseStatus(newStatus);
+
+                if (newStatus == CaseStatus.SETTLED) {
+                    aCase.setSettledAt(LocalDateTime.now());
+                    if (request.getRemarks() != null && !request.getRemarks().trim().isEmpty()) {
+                        aCase.setSettlementTerms(request.getRemarks().trim());
+                    }
+                }
+            } catch (IllegalArgumentException e) {
+                log.error("Invalid CaseStatus value provided: {}", request.getStatus());
+                throw new IllegalArgumentException("Invalid case status: " + request.getStatus());
+            }
+        }
+
+        if (request.getRemarks() != null && !request.getRemarks().trim().isEmpty()) {
+            aCase.setCaseStatusRemarks(request.getRemarks().trim());
+        }
+
+        User currentUser = SecurityUtils.getCurrentUser();
+        aCase.setCaseUpdatedBy(currentUser);
+
+        // 1. Persist Case Entity
+        Case updated = caseRepository.save(aCase);
+
+        // 2. Log Timeline Event
+        try {
+            String remarksText = request.getRemarks() != null ? request.getRemarks().trim() : "";
+            TimelineEventType eventType = TimelineEventType.STATUS_CHANGED;
+            String eventTitle;
+            String detailsText;
+
+            if (newStatus == CaseStatus.SETTLED) {
+                eventTitle = "Case Settled";
+                detailsText = remarksText.isBlank()
+                        ? "Case marked as settled with agreement."
+                        : "Case settled. Agreement terms: " + remarksText;
+            } else if (newStatus == CaseStatus.DISMISSED) {
+                eventTitle = "Case Dismissed";
+                detailsText = remarksText.isBlank()
+                        ? "Case dismissed."
+                        : "Case dismissed. Remarks: " + remarksText;
+            } else if (newStatus == CaseStatus.WITHDRAWN) {
+                eventTitle = "Complaint Withdrawn";
+                detailsText = remarksText.isBlank()
+                        ? "Complaint withdrawn by complainant."
+                        : "Complaint withdrawn. Remarks: " + remarksText;
+            } else {
+                String statusName = updated.getCaseStatus() != null ? updated.getCaseStatus().name().replace('_', ' ') : "Updated";
+                eventTitle = "Case Status Updated to " + statusName;
+                detailsText = remarksText.isBlank()
+                        ? "Case status updated to " + statusName + "."
+                        : String.format("Case status updated to %s. Remarks: %s", statusName, remarksText);
+            }
+
+            caseTimelineService.logEvent(
+                    updated,
+                    eventType,
+                    eventTitle,
+                    detailsText,
+                    currentUser
+            );
+        } catch (Exception ex) {
+            log.warn("Failed to log timeline event for status update [caseId={}]: {}", updated.getId(), ex.getMessage());
+        }
+
+        return toDetailResponse(updated);
     }
 
     /**

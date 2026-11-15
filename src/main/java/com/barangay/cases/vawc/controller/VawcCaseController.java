@@ -16,6 +16,8 @@ import com.barangay.zshared.audit.annotations.LogAudit;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;
 import com.barangay.zshared.mapper.PageResponse;
+import com.barangay.zshared.security.SecurityUtils;
+import org.springframework.security.access.AccessDeniedException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -172,6 +174,9 @@ public class VawcCaseController {
     @PostMapping
     @LogAudit(module = AuditModule.VAWC, action = "CREATE_VAWC_CASE", severity = Severity.INFO)
     public ResponseEntity<VawcCaseDetailResponse> createVawcCase(@Valid @RequestBody VawcCaseCreateRequest request) {
+        if (!SecurityUtils.hasPermission("File Complaint")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to file complaints.");
+        }
         VawcCaseDetailResponse response = vawcCaseService.createVawcCase(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -185,8 +190,37 @@ public class VawcCaseController {
             @PathVariable Long caseId,
             @Valid @RequestBody VawcCaseUpdateRequest request
     ) {
+        if (!SecurityUtils.hasPermission("Edit Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to edit cases.");
+        }
         VawcCaseDetailResponse response = vawcCaseService.updateVawcCase(caseId, request);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Updates the status of a VAWC case (e.g. SETTLED, DISMISSED) with optional status remarks.
+     *
+     * @param caseId the VAWC case ID
+     * @param request the status update request payload containing status and remarks
+     * @return updated {@link VawcCaseDetailResponse}
+     */
+    @PatchMapping("/{caseId}/status")
+    @LogAudit(module = AuditModule.VAWC, action = "UPDATE_VAWC_STATUS", severity = Severity.INFO)
+    public ResponseEntity<VawcCaseDetailResponse> updateCaseStatus(
+            @PathVariable Long caseId,
+            @Valid @RequestBody UpdateCaseStatusRequest request) {
+        if (request != null && request.getStatus() != null) {
+            String targetStatus = String.valueOf(request.getStatus());
+            if (("SETTLED".equalsIgnoreCase(targetStatus) || "RESOLVED".equalsIgnoreCase(targetStatus))
+                    && !SecurityUtils.hasPermission("Settled Case")) {
+                throw new AccessDeniedException("Access Denied: You do not have permission to settle cases.");
+            }
+            if (("DISMISSED".equalsIgnoreCase(targetStatus) || "WITHDRAWN".equalsIgnoreCase(targetStatus))
+                    && !SecurityUtils.hasPermission("Dismiss Case")) {
+                throw new AccessDeniedException("Access Denied: You do not have permission to dismiss cases.");
+            }
+        }
+        return ResponseEntity.ok(vawcCaseService.updateCaseStatus(caseId, request));
     }
 
     /**
@@ -197,6 +231,9 @@ public class VawcCaseController {
      */
     @GetMapping({ "/{id}", "/details/{id}" })
     public ResponseEntity<VawcCaseDetailResponse> getVawcCaseById(@PathVariable Long id) {
+        if (!SecurityUtils.hasPermission("View Cases")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to view cases.");
+        }
         VawcCaseDetailResponse response = vawcCaseService.getVawcCaseById(id);
         return ResponseEntity.ok(response);
     }
@@ -233,6 +270,9 @@ public class VawcCaseController {
     public ResponseEntity<CaseNoteResponse> addCaseNote(
             @PathVariable Long caseId,
             @Valid @RequestBody CaseNoteRequest request) {
+        if (!SecurityUtils.hasPermission("Manage Case Notes")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to manage case notes.");
+        }
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(caseNoteService.addCaseNote(caseId, request));
     }
@@ -243,6 +283,9 @@ public class VawcCaseController {
     @GetMapping("/{caseId}/notes")
     public ResponseEntity<List<CaseNoteResponse>> getCaseNotes(
             @PathVariable Long caseId) {
+        if (!SecurityUtils.hasPermission("Manage Case Notes")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to view case notes.");
+        }
         return ResponseEntity.ok(caseNoteService.getCaseNotes(caseId));
     }
 
@@ -261,6 +304,9 @@ public class VawcCaseController {
     @PostMapping("/{caseId}/bpo/activate")
     @LogAudit(module = AuditModule.VAWC, action = "ACTIVATE_BPO", severity = Severity.INFO)
     public ResponseEntity<VawcCaseDetailResponse> activateBpo(@PathVariable Long caseId) {
+        if (!SecurityUtils.hasPermission("Issue Barangay Protection Order (BPO)")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to manage protection orders.");
+        }
         return ResponseEntity.ok(vawcCaseService.activateBpo(caseId));
     }
 
@@ -272,6 +318,9 @@ public class VawcCaseController {
     public ResponseEntity<VawcCaseDetailResponse> serveBpo(
             @PathVariable Long caseId,
             @Valid @RequestBody com.barangay.cases.vawc.dto.BpoServeRequest request) {
+        if (!SecurityUtils.hasPermission("Issue Barangay Protection Order (BPO)")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to manage protection orders.");
+        }
         return ResponseEntity.ok(vawcCaseService.serveBpo(caseId, request));
     }
 
@@ -283,6 +332,9 @@ public class VawcCaseController {
     public ResponseEntity<com.barangay.cases.vawc.dto.VawcReferralResponse> createReferral(
             @PathVariable Long caseId,
             @Valid @RequestBody com.barangay.cases.vawc.dto.VawcReferralCreateRequest request) {
+        if (!SecurityUtils.hasPermission("Manage Referral")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to manage referrals.");
+        }
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(vawcCaseService.createReferral(caseId, request));
     }
@@ -305,6 +357,9 @@ public class VawcCaseController {
             @PathVariable Long caseId,
             @PathVariable Long referralId,
             @Valid @RequestBody com.barangay.cases.vawc.dto.ReferralFeedbackRequest request) {
+        if (!SecurityUtils.hasPermission("Manage Referral")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to manage referrals.");
+        }
         return ResponseEntity.ok(vawcCaseService.addReferralFeedback(caseId, referralId, request));
     }
 
@@ -364,6 +419,9 @@ public class VawcCaseController {
             @PathVariable Long caseId,
             @Valid @RequestBody ArchiveCaseRequest request
     ) {
+        if (!SecurityUtils.hasPermission("Archive Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to archive cases.");
+        }
         vawcArchiveService.archiveCase(caseId, request);
         return ResponseEntity.ok().build();
     }
@@ -378,6 +436,9 @@ public class VawcCaseController {
     @LogAudit(module = AuditModule.VAWC, action = "RESTORE_VAWC_CASE", severity = Severity.INFO,
             captureOldValue = true, oldValueArgIndex = 0, captureNewValue = false)
     public ResponseEntity<Void> restoreArchivedCase(@PathVariable Long caseId) {
+        if (!SecurityUtils.hasPermission("Restore Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to restore cases.");
+        }
         vawcArchiveService.restoreArchivedCase(caseId);
         return ResponseEntity.ok().build();
     }
@@ -392,6 +453,9 @@ public class VawcCaseController {
     @LogAudit(module = AuditModule.VAWC, action = "SOFT_DELETE_VAWC_CASE", severity = Severity.INFO,
             captureOldValue = true, oldValueArgIndex = 0)
     public ResponseEntity<Map<String, String>> softDelete(@PathVariable Long caseId) {
+        if (!SecurityUtils.hasPermission("Delete Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to delete cases.");
+        }
         vawcArchiveService.softDelete(caseId);
         return ResponseEntity.ok(Map.of("message", "VAWC Case moved to trash successfully"));
     }
@@ -406,6 +470,9 @@ public class VawcCaseController {
     @LogAudit(module = AuditModule.VAWC, action = "PERMANENT_DELETE_VAWC_CASE", severity = Severity.INFO,
             captureOldValue = true, oldValueArgIndex = 0)
     public ResponseEntity<Map<String, String>> permanentDelete(@PathVariable Long caseId) {
+        if (!SecurityUtils.hasPermission("Permanent Delete Case")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to permanently delete cases.");
+        }
         vawcArchiveService.permanentDeleteCaseByFlag(caseId);
         return ResponseEntity.ok(Map.of("message", "VAWC Case permanently deleted"));
     }
