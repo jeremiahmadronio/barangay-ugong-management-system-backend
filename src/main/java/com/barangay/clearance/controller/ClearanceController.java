@@ -10,9 +10,11 @@ import com.barangay.clearance.service.ClearanceTemplateService;
 import com.barangay.zshared.audit.annotations.LogAudit;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;
+import com.barangay.zshared.security.SecurityUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -75,6 +77,9 @@ public class ClearanceController {
             @RequestParam(required = false) String typeOfCert,
             @RequestParam(required = false) String purpose
     ) {
+        if (!SecurityUtils.hasPermission("View Clearance")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to view clearance records.");
+        }
         return ResponseEntity.ok(clearanceService.getIssuedCertificates(search, typeOfCert, purpose));
     }
 
@@ -86,6 +91,9 @@ public class ClearanceController {
      */
     @GetMapping({"/issued-certificates/{id}", "/{id}"})
     public ResponseEntity<com.barangay.clearance.dto.IssuedCertificateDetailResponse> getIssuedCertificateDetail(@PathVariable Long id) {
+        if (!SecurityUtils.hasPermission("View Clearance")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to view clearance details.");
+        }
         return ResponseEntity.ok(clearanceService.getIssuedCertificateDetail(id));
     }
 
@@ -98,6 +106,9 @@ public class ClearanceController {
     @PostMapping({"/issue-clearance", "/template/issue-clearance"})
     @LogAudit(module = AuditModule.CLEARANCE, action = "ISSUE_CLEARANCE", severity = Severity.INFO)
     public ResponseEntity<IssueClearanceResponse> issueClearance(@Valid @RequestBody IssueClearanceRequest request) {
+        if (!SecurityUtils.hasPermission("Issue Clearance")) {
+            throw new AccessDeniedException("Access Denied: You do not have permission to issue clearances.");
+        }
         return ResponseEntity.ok(clearanceTemplateService.issueClearance(request));
     }
 }

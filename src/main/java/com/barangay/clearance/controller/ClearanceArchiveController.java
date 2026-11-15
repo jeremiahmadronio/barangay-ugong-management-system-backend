@@ -9,9 +9,11 @@ import com.barangay.zshared.audit.annotations.LogAudit;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;
 import com.barangay.zshared.mapper.PageResponse;
+import com.barangay.zshared.security.SecurityUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -65,6 +67,9 @@ public class ClearanceArchiveController {
             @PathVariable Long id,
             @Valid @RequestBody(required = false) ArchiveClearanceRequest request
     ) {
+        if (!SecurityUtils.hasPermission("Archive Clearance")) {
+            throw new AccessDeniedException("You do not have permission to archive clearances.");
+        }
         clearanceArchive.archiveCertificate(id, request);
         return ResponseEntity.ok().build();
     }
@@ -75,6 +80,9 @@ public class ClearanceArchiveController {
     @PostMapping("/{id}/restore")
     @LogAudit(module = AuditModule.CLEARANCE, action = "RESTORE_ARCHIVED_CLEARANCE", severity = Severity.INFO)
     public ResponseEntity<Void> restoreArchivedCertificate(@PathVariable Long id) {
+        if (!SecurityUtils.hasPermission("Restore Clearance")) {
+            throw new AccessDeniedException("You do not have permission to restore clearances.");
+        }
         clearanceArchive.restoreArchivedCertificate(id);
         return ResponseEntity.ok().build();
     }
@@ -85,6 +93,9 @@ public class ClearanceArchiveController {
     @PostMapping("/{id}/soft-delete")
     @LogAudit(module = AuditModule.CLEARANCE, action = "SOFT_DELETE_CLEARANCE", severity = Severity.WARNING)
     public ResponseEntity<Void> softDeleteCertificate(@PathVariable Long id) {
+        if (!SecurityUtils.hasPermission("Delete Clearance")) {
+            throw new AccessDeniedException("You do not have permission to delete clearances.");
+        }
         clearanceArchive.softDelete(id);
         return ResponseEntity.ok().build();
     }
@@ -95,6 +106,9 @@ public class ClearanceArchiveController {
     @PostMapping("/{id}/restore-trash")
     @LogAudit(module = AuditModule.CLEARANCE, action = "RESTORE_TRASH_CLEARANCE", severity = Severity.INFO)
     public ResponseEntity<Void> restoreDeletedCertificate(@PathVariable Long id) {
+        if (!SecurityUtils.hasPermission("Restore Clearance")) {
+            throw new AccessDeniedException("You do not have permission to restore clearances.");
+        }
         clearanceArchive.restoreDeletedCertificate(id);
         return ResponseEntity.ok().build();
     }
@@ -105,6 +119,9 @@ public class ClearanceArchiveController {
     @DeleteMapping("/{id}/permanent")
     @LogAudit(module = AuditModule.CLEARANCE, action = "PERMANENT_DELETE_CLEARANCE", severity = Severity.CRITICAL)
     public ResponseEntity<Void> permanentDeleteCertificate(@PathVariable Long id) {
+        if (!SecurityUtils.hasPermission("Permanent Delete Clearance")) {
+            throw new AccessDeniedException("You do not have permission to permanently delete clearances.");
+        }
         clearanceArchive.permanentDeleteCertificate(id);
         return ResponseEntity.ok().build();
     }
