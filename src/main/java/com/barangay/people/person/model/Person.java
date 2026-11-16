@@ -108,9 +108,19 @@ public class Person extends BaseEntity {
     @OneToMany(mappedBy = "person", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Relationship> relationships = new ArrayList<>();
 
-    @OneToOne(mappedBy = "person", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "person", fetch = FetchType.LAZY)
     @JsonIgnore
-    private User user;
+    private List<User> users = new ArrayList<>();
+
+    @Transient
+    @JsonIgnore
+    public User getUser() {
+        if (users == null || users.isEmpty()) return null;
+        return users.stream()
+                .filter(u -> !Boolean.TRUE.equals(u.getIsPermanentDeleted()))
+                .findFirst()
+                .orElse(users.get(0));
+    }
 
     @Transient
     public int getCalculatedAge() {
@@ -123,8 +133,9 @@ public class Person extends BaseEntity {
         if (email != null && !email.isBlank()) {
             return email.trim();
         }
-        if (user != null && user.getSystemEmail() != null && !user.getSystemEmail().isBlank()) {
-            return user.getSystemEmail().trim();
+        User activeUser = getUser();
+        if (activeUser != null && activeUser.getSystemEmail() != null && !activeUser.getSystemEmail().isBlank()) {
+            return activeUser.getSystemEmail().trim();
         }
         return null;
     }
