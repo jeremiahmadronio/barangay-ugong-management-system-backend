@@ -6,11 +6,8 @@ import com.barangay.people.person.model.Person;
 import com.barangay.people.person.repository.PersonRepository;
 import com.barangay.usermanagement.department.dto.DepartmentResponse;
 import com.barangay.usermanagement.department.model.Department;
-import com.barangay.usermanagement.department.repository.DepartmentRepository;
 import com.barangay.usermanagement.permission.dto.PermissionResponse;
 import com.barangay.usermanagement.permission.model.Permission;
-import com.barangay.usermanagement.permission.repository.PermissionRepository;
-import com.barangay.usermanagement.role.repository.RoleRepository;
 import com.barangay.usermanagement.user.dto.UpdatePasswordRequest;
 import com.barangay.usermanagement.user.dto.UpdatePersonalInfoRequest;
 import com.barangay.usermanagement.user.dto.UserDetailResponse;
@@ -21,7 +18,6 @@ import com.barangay.zshared.audit.repository.AuditLogsRepository;
 import com.barangay.zshared.exception.BusinessRuleException;
 import com.barangay.zshared.exception.DuplicateEntryException;
 import com.barangay.zshared.exception.ResourceNotFoundException;
-import com.barangay.zshared.notification.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -32,40 +28,37 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Service that handles personal user profile operations, including
+ * profile viewing, personal information updates, password changes,
+ * profile photo uploads, and security settings.
+ */
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class UserProfileService {
 
-
     private final UserRepository userRepository;
     private final PersonRepository personRepository;
-    private final RoleRepository roleRepository;
-    private final DepartmentRepository departmentRepository;
-    private final PermissionRepository permissionRepository;
     private final AuditLogsRepository auditLogsRepository;
     private final PasswordEncoder passwordEncoder;
-    private final EmailService emailService;
     private final SystemSettingRepository systemSettingRepository;
 
-
-
-
     /**
-     * Fetches detailed User Profile for viewing.
+     * Retrieves full profile details and recent activity logs for a specific user ID.
+     *
+     * @param userId the ID of the user to fetch.
+     * @return a {@link UserDetailResponse} containing demographic and account info.
      */
     @Transactional(readOnly = true)
     public UserDetailResponse getUserDetail(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
 
-        // Base64 Photo conversion
         String photoBase64 = null;
         byte[] photoBytes = user.getSystemPhoto();
         if ((photoBytes == null || photoBytes.length == 0) && user.getPerson() != null) {
@@ -75,7 +68,6 @@ public class UserProfileService {
             photoBase64 = "data:image/png;base64," + Base64.getEncoder().encodeToString(photoBytes);
         }
 
-        // Person Summary Info Mapping
         UserDetailResponse.PersonSummaryInfo personInfo = null;
         if (user.getPerson() != null) {
             Person p = user.getPerson();
@@ -99,14 +91,12 @@ public class UserProfileService {
             );
         }
 
-        // Departments Mapping
         List<DepartmentResponse> departments = user.getDepartments() != null
                 ? user.getDepartments().stream()
                 .map(d -> new DepartmentResponse(d.getId(), d.getName()))
                 .collect(Collectors.toList())
                 : List.of();
 
-        // Custom Permissions Mapping
         List<PermissionResponse> customPermissions = user.getCustomPermissions() != null
                 ? user.getCustomPermissions().stream()
                 .map(perm -> new PermissionResponse(perm.getId(), perm.getPermissionName(), perm.getModule()))
@@ -159,12 +149,13 @@ public class UserProfileService {
         );
     }
 
-
-
     /**
-     * Partially updates personal info (username, contact number, and optionally first/last name).
-     * Only fields that actually changed are updated and saved to the database.
-     * System email is strictly read-only and immutable.
+     * Partially updates editable profile info such as username, contact number,
+     * and name while leaving system email strictly read-only.
+     *
+     * @param userId the ID of the user to update.
+     * @param request the payload with updated personal information.
+     * @return the updated {@link UserResponse}.
      */
     @Transactional
     public UserResponse updatePersonalInfo(Long userId, UpdatePersonalInfoRequest request) {
@@ -172,7 +163,6 @@ public class UserProfileService {
         boolean userModified = false;
         boolean personModified = false;
 
-        // 1. Partial update: Username (only if changed and valid)
         if (request.username() != null && !request.username().isBlank()) {
             String trimmedUsername = request.username().trim();
             if (!trimmedUsername.equalsIgnoreCase(user.getUsername())) {
@@ -185,10 +175,8 @@ public class UserProfileService {
             }
         }
 
-        // 2. Partial update: Person details (contactNumber, firstName, lastName)
         Person person = user.getPerson();
         if (person != null) {
-            // Contact Number (only if changed)
             if (request.contactNumber() != null) {
                 String trimmedContact = request.contactNumber().trim();
                 String currentContact = person.getContactNumber() != null ? person.getContactNumber().trim() : "";
@@ -199,7 +187,6 @@ public class UserProfileService {
                 }
             }
 
-            // First Name (only if changed)
             if (request.firstName() != null && !request.firstName().isBlank()) {
                 String trimmedFirstName = request.firstName().trim();
                 String currentFirstName = person.getFirstName() != null ? person.getFirstName().trim() : "";
@@ -210,7 +197,6 @@ public class UserProfileService {
                 }
             }
 
-            // Last Name (only if changed)
             if (request.lastName() != null && !request.lastName().isBlank()) {
                 String trimmedLastName = request.lastName().trim();
                 String currentLastName = person.getLastName() != null ? person.getLastName().trim() : "";
@@ -233,18 +219,16 @@ public class UserProfileService {
         return mapToResponse(user);
     }
 
-
-
     /**
-     * Updates the profile photo for a user account (and linked person entity if present).
-     * Validates file size (max 5MB) and mime type (images only).
+     * Uploads and stores the profile photo for a user account and their linked person profile.
+     * Validates image format and file size up to 5MB.
      *
-     * @param userId the ID of the user whose photo is to be updated
-     * @param file   the uploaded image file
-     * @return Base64 data URL representation of the saved photo
+     * @param userId the ID of the user uploading the photo.
+     * @param file the multipart image file.
+     * @return the Base64 data URL of the uploaded photo.
      */
     @Transactional
-    public String updateProfilePhoto(Long userId, MultipartFile file) {
+    public String uploadProfilePhoto(Long userId, MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessRuleException("Please select an image file to upload.");
         }
@@ -277,12 +261,14 @@ public class UserProfileService {
         }
     }
 
-
     /**
-     * Retrieves the profile photo binary data for a user.
+     * Retrieves binary photo bytes for the specified user or falls back to person photo.
+     *
+     * @param userId the ID of the user.
+     * @return raw byte array of the photo, or null if no photo is set.
      */
     @Transactional(readOnly = true)
-    public byte[] getUserPhotoBytes(Long userId) {
+    public byte[] getProfilePhotoBytes(Long userId) {
         User user = findUserById(userId);
         byte[] bytes = user.getSystemPhoto();
         if ((bytes == null || bytes.length == 0) && user.getPerson() != null) {
@@ -291,14 +277,15 @@ public class UserProfileService {
         return bytes;
     }
 
-
     /**
-     * Changes password for an authenticated user with verification and validation.
-     * Enforces current password verification, new password confirmation, complexity,
-     * prevents reusing current password, and securely hashes with BCrypt.
+     * Updates an authenticated user's password after verifying the existing password
+     * and checking for complexity and password reuse.
+     *
+     * @param userId the ID of the user changing their password.
+     * @param request the password update request payload.
      */
     @Transactional
-    public void changePassword(Long userId, UpdatePasswordRequest request) {
+    public void updatePassword(Long userId, UpdatePasswordRequest request) {
         User user = findUserById(userId);
 
         if (!request.newPassword().equals(request.confirmPassword())) {
@@ -318,9 +305,11 @@ public class UserProfileService {
         log.info("Password successfully updated and BCrypt-hashed for user ID: {}", userId);
     }
 
-
-
-
+    /**
+     * Checks if two-factor authentication is globally enforced across the system.
+     *
+     * @return true if MFA is globally enforced, false otherwise.
+     */
     @Transactional(readOnly = true)
     public boolean isGlobalMfaEnforced() {
         return systemSettingRepository.findById("global_mfa_enabled")
@@ -328,6 +317,12 @@ public class UserProfileService {
                 .orElse(true);
     }
 
+    /**
+     * Configures the global MFA enforcement flag in the system settings table.
+     *
+     * @param enabled whether MFA enforcement should be active.
+     * @return the saved enabled state.
+     */
     public boolean setGlobalMfaEnforced(boolean enabled) {
         SystemSetting setting = systemSettingRepository.findById("global_mfa_enabled")
                 .orElse(new SystemSetting("global_mfa_enabled", null));

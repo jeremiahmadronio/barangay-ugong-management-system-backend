@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 /**
@@ -27,6 +28,7 @@ public class EmailService {
     /**
      * Sends the 6-digit MFA OTP code to the target email.
      */
+    @Async
     public void sendMfaEmail(String toEmail, String code) {
         String subject = SYSTEM_NAME + " – Verification Code";
         String content = "Good day,\n\n" +
@@ -45,6 +47,7 @@ public class EmailService {
      * Sends initial login credentials (default username & temporary password)
      * to a newly created user account.
      */
+    @Async
     public void sendAccountCredentialsEmail(String toEmail, String username, String tempPassword) {
         String subject = SYSTEM_NAME + " – Account Created";
         String content = "Good day,\n\n" +

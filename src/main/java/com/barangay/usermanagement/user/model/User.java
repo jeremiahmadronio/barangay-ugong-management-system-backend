@@ -21,8 +21,21 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * User entity representing system and staff accounts in the Barangay system.
+ * Handles authentication credentials, role assignments, department affiliations,
+ * and account lifecycle states.
+ */
 @Entity
-@Table(name = "users")
+@Table(name = "users", indexes = {
+        @Index(name = "idx_users_system_email", columnList = "systemEmail"),
+        @Index(name = "idx_users_username", columnList = "username"),
+        @Index(name = "idx_users_person_id", columnList = "person_id"),
+        @Index(name = "idx_users_role_id", columnList = "role_id"),
+        @Index(name = "idx_users_status", columnList = "status"),
+        @Index(name = "idx_users_lifecycle", columnList = "status, is_archived, is_deleted, is_permanent_deleted"),
+        @Index(name = "idx_users_created_at", columnList = "createdAt")
+})
 @Getter @Setter @AllArgsConstructor @NoArgsConstructor
 public class User extends BaseEntity implements Archivable {
 
@@ -94,38 +107,6 @@ public class User extends BaseEntity implements Archivable {
         return Boolean.TRUE.equals(this.totpEnabled) || (this.totpSecret != null && !this.totpSecret.trim().isEmpty());
     }
 
-    public Boolean getIsLocked() {
-        return isLocked;
-    }
-
-    public void setIsLocked(Boolean isLocked) {
-        this.isLocked = isLocked;
-    }
-
-    public Boolean getIsNewAccount() {
-        return isNewAccount;
-    }
-
-    public void setIsNewAccount(Boolean isNewAccount) {
-        this.isNewAccount = isNewAccount;
-    }
-
-    public Boolean getIsSystem() {
-        return isSystem;
-    }
-
-    public void setIsSystem(Boolean isSystem) {
-        this.isSystem = isSystem;
-    }
-
-    public Boolean getIsArchived() {
-        return isArchived;
-    }
-
-    public void setIsArchived(Boolean isArchived) {
-        this.isArchived = isArchived;
-    }
-
     @Column(name = "is_system")
     private Boolean isSystem = false;
 
@@ -142,7 +123,7 @@ public class User extends BaseEntity implements Archivable {
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "person_id", referencedColumnName = "id")
     private Person person;
 
@@ -154,13 +135,11 @@ public class User extends BaseEntity implements Archivable {
     )
     private Set<Department> departments = new HashSet<>();
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "user_permissions",
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "permission_id")
     )
     private Set<Permission> customPermissions = new HashSet<>();
-
-
 }

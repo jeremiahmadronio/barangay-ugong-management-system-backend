@@ -119,6 +119,9 @@ public interface IssuedCertificateRepository extends JpaRepository<IssuedCertifi
         @Param("templateTitle") String templateTitle
     );
 
+    @Query("SELECT COUNT(ic) FROM IssuedCertificate ic WHERE ic.createdAt >= :start AND ic.createdAt <= :end AND (ic.isArchived = false OR ic.isArchived IS NULL) AND (ic.isDeleted = false OR ic.isDeleted IS NULL) AND (ic.isPermanentDeleted = false OR ic.isPermanentDeleted IS NULL)")
+    long countWeeklyIssuedCertificates(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
     /** Find complete issued certificate detail by ID with all relations fetched */
     @Query("""
         SELECT ic FROM IssuedCertificate ic

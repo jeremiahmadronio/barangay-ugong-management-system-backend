@@ -68,6 +68,9 @@ public interface FirstTimeJobSeekerRepository extends JpaRepository<FirstTimeJob
 
     long countByIsArchivedTrue();
 
+    @Query("SELECT COUNT(f) FROM FirstTimeJobSeeker f WHERE f.createdAt >= :start AND f.createdAt <= :end AND (f.isArchived IS NULL OR f.isArchived = false) AND (f.isDeleted IS NULL OR f.isDeleted = false) AND (f.isPermanentDeleted IS NULL OR f.isPermanentDeleted = false)")
+    long countWeeklyJobSeekers(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
     @Query("SELECT COUNT(f) FROM FirstTimeJobSeeker f WHERE f.isArchived = true AND f.archivedAt BETWEEN :start AND :end")
     long countArchiveBetween(
          @Param("start")  LocalDateTime start,

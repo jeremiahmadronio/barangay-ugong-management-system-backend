@@ -104,6 +104,9 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
      */
     boolean existsByCaseNumber(String caseNumber);
 
+    @Query("SELECT COUNT(c) FROM Case c LEFT JOIN c.department d WHERE LOWER(TRIM(d.name)) = LOWER(TRIM(:dept)) AND c.createdAt >= :start AND c.createdAt <= :end AND (c.isDeleted IS NULL OR c.isDeleted = false) AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false) AND (c.isArchived IS NULL OR c.isArchived = false)")
+    long countWeeklyDepartmentCases(@Param("dept") String dept, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
     /**
      * Finds a case by its case number.
      *

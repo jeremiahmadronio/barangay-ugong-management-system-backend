@@ -1,7 +1,5 @@
 package com.barangay.usermanagement.user.controller;
 
-
-
 import com.barangay.auth.dto.TotpConfirmationRequest;
 import com.barangay.auth.dto.TotpEnableSuccessResponse;
 import com.barangay.auth.dto.TotpSetupResponse;
@@ -28,6 +26,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
+/**
+ * Controller exposing endpoints for personal profile management:
+ * view personal profile, update personal information and password,
+ * upload and retrieve profile picture, and setup two-factor authentication (TOTP).
+ */
 @RestController
 @RequestMapping("/api/v1/user-profile")
 @RequiredArgsConstructor
@@ -37,7 +40,7 @@ public class UserProfileController {
     private final TotpSetUpService totpSetUpService;
 
     /**
-     * Endpoint to fetch the current authenticated user's profile details.
+     * Retrieves the profile details of the currently authenticated user.
      */
     @GetMapping("/me")
     public ResponseEntity<UserDetailResponse> getCurrentUserProfile() {
@@ -49,8 +52,7 @@ public class UserProfileController {
     }
 
     /**
-     * Endpoint to partially update personal information for the current authenticated user.
-     * Only altered fields are updated in the database. System email is immutable.
+     * Updates personal information for the current user.
      */
     @PutMapping("/profile")
     @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "UPDATE_PERSONAL_INFO", severity = Severity.INFO)
@@ -59,167 +61,82 @@ public class UserProfileController {
     ) {
         User currentUser = SecurityUtils.getCurrentUser();
         if (currentUser == null) {
-            throw new BusinessRuleException("User must be authenticated to update profile.");
+            throw new BusinessRuleException("User must be authenticated.");
         }
         return ResponseEntity.ok(userProfileService.updatePersonalInfo(currentUser.getId(), request));
     }
 
     /**
-     * Endpoint to partially update personal information by userId.
+     * Changes the password of the current authenticated user after verifying their old password.
      */
-    @PutMapping("/{userId}/profile")
-    @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "UPDATE_PERSONAL_INFO", severity = Severity.INFO)
-    public ResponseEntity<UserResponse> updatePersonalInfo(
-            @PathVariable Long userId,
-            @Valid @RequestBody UpdatePersonalInfoRequest request
-    ) {
-        return ResponseEntity.ok(userProfileService.updatePersonalInfo(userId, request));
-    }
-
-    /**
-     * Endpoint to upload/update profile photo for the current authenticated user.
-     */
-    @PostMapping(value = "/profile/photo", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
-    @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "UPDATE_PROFILE_PHOTO", severity = Severity.INFO)
-    public ResponseEntity<Map<String, String>> uploadCurrentUserProfilePhoto(
-            @RequestParam("file") MultipartFile file
+    @PutMapping("/password")
+    @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "UPDATE_PASSWORD", severity = Severity.WARNING)
+    public ResponseEntity<Map<String, String>> updateCurrentUserPassword(
+            @Valid @RequestBody UpdatePasswordRequest request
     ) {
         User currentUser = SecurityUtils.getCurrentUser();
         if (currentUser == null) {
-            throw new BusinessRuleException("User must be authenticated to update profile photo.");
+            throw new BusinessRuleException("User must be authenticated.");
         }
-        String photoBase64 = userProfileService.updateProfilePhoto(currentUser.getId(), file);
-        return ResponseEntity.ok(java.util.Map.of(
-                "photo", photoBase64,
-                "message", "Profile photo updated successfully."
-        ));
+        userProfileService.updatePassword(currentUser.getId(), request);
+        return ResponseEntity.ok(Map.of("message", "Password updated successfully"));
     }
 
     /**
-     * Endpoint to upload/update profile photo for a user by ID.
+     * Uploads and updates the avatar photo for the currently authenticated user.
      */
-    @PostMapping(value = "/{userId}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "UPDATE_PROFILE_PHOTO", severity = Severity.INFO)
-    public ResponseEntity<Map<String, String>> uploadUserProfilePhoto(
-            @PathVariable Long userId,
-            @RequestParam("file") MultipartFile file
-    ) {
-        String photoBase64 = userProfileService.updateProfilePhoto(userId, file);
-        return ResponseEntity.ok(java.util.Map.of(
-                "photo", photoBase64,
-                "message", "Profile photo updated successfully."
-        ));
+    public ResponseEntity<Map<String, String>> uploadCurrentUserPhoto(@RequestParam("file") MultipartFile file) {
+        User currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new BusinessRuleException("User must be authenticated.");
+        }
+        String base64Image = userProfileService.uploadProfilePhoto(currentUser.getId(), file);
+        return ResponseEntity.ok(Map.of("photo", base64Image));
     }
 
     /**
-     * Endpoint to fetch profile photo binary image for a user.
+     * Retrieves the binary profile photo of the currently authenticated user.
      */
-    @GetMapping(value = "/{userId}/photo", produces = {MediaType.IMAGE_JPEG_VALUE, org.springframework.http.MediaType.IMAGE_PNG_VALUE})
-    public ResponseEntity<byte[]> getUserPhoto(@PathVariable Long userId) {
-        byte[] photoBytes = userProfileService.getUserPhotoBytes(userId);
+    @GetMapping("/photo")
+    public ResponseEntity<byte[]> getCurrentUserPhoto() {
+        User currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new BusinessRuleException("User must be authenticated.");
+        }
+        byte[] photoBytes = userProfileService.getProfilePhotoBytes(currentUser.getId());
         if (photoBytes == null || photoBytes.length == 0) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CACHE_CONTROL, "max-age=3600")
-                .body(photoBytes);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.IMAGE_PNG);
+        return ResponseEntity.ok().headers(headers).body(photoBytes);
     }
 
     /**
-     * Endpoint to change password for the current authenticated user.
+     * Initiates TOTP setup and generates a QR code image for two-factor authentication.
      */
-    @PostMapping("/change-password")
-    @LogAudit(module = AuditModule.SECURITY, action = "CHANGE_PASSWORD", severity = Severity.INFO)
-    public ResponseEntity<Map<String, String>> changeCurrentUserPassword(
-            @Valid @RequestBody UpdatePasswordRequest request
-    ) {
-        User currentUser = SecurityUtils.getCurrentUser();
-        if (currentUser == null) {
-            throw new BusinessRuleException("User must be authenticated to change password.");
-        }
-        userProfileService.changePassword(currentUser.getId(), request);
-        return ResponseEntity.ok(Map.of("message", "Password changed successfully."));
-    }
-
-    /**
-     * Endpoint to change password for a specific user by ID.
-     */
-    @PostMapping("/{userId}/change-password")
-    @LogAudit(module = AuditModule.SECURITY, action = "CHANGE_PASSWORD", severity = Severity.INFO)
-    public ResponseEntity<Map<String, String>> changeUserPassword(
-            @PathVariable Long userId,
-            @Valid @RequestBody UpdatePasswordRequest request
-    ) {
-        userProfileService.changePassword(userId, request);
-        return ResponseEntity.ok(Map.of("message", "Password changed successfully."));
-    }
-
-    /**
-     * Endpoint to fetch the current system-wide Global MFA status.
-     */
-    @GetMapping("/global-mfa")
-    public ResponseEntity<Map<String, Object>> getGlobalMfaStatus() {
-        boolean enabled = userProfileService.isGlobalMfaEnforced();
-        return ResponseEntity.ok(Map.of("globalMfaEnabled", enabled));
-    }
-
-    /**
-     * Endpoint to toggle or set system-wide Global MFA enforcement status.
-     */
-    @PutMapping("/global-mfa")
-    @LogAudit(module = AuditModule.SECURITY, action = "TOGGLE_GLOBAL_MFA", severity = Severity.WARNING)
-    public ResponseEntity<Map<String, Object>> updateGlobalMfa(
-            @RequestBody Map<String, Boolean> request
-    ) {
-        Boolean enabled = request.get("enabled");
-        if (enabled == null) {
-            throw new BusinessRuleException("Field 'enabled' is required.");
-        }
-        userProfileService.setGlobalMfaEnforced(enabled);
-        return ResponseEntity.ok(java.util.Map.of(
-                "globalMfaEnabled", enabled,
-                "message", enabled
-                        ? "System-wide Global MFA has been successfully enabled."
-                        : "System-wide Global MFA has been successfully disabled."
-        ));
-    }
-
-    /**
-     * Endpoint to initiate TOTP setup: generates temporary secret & QR code Base64.
-     */
-    @GetMapping("/totp/setup")
-    public ResponseEntity<TotpSetupResponse> initiateTotpSetup() {
+    @PostMapping("/totp/setup")
+    public ResponseEntity<TotpSetupResponse> setupTotp() {
         User currentUser = SecurityUtils.getCurrentUser();
         if (currentUser == null) {
             throw new BusinessRuleException("User must be authenticated.");
         }
-        return ResponseEntity.ok(totpSetUpService.initiateTotpSetup(currentUser.getId()));
+        return ResponseEntity.ok(totpSetUpService.generateTotpSecret(currentUser.getUsername()));
     }
 
     /**
-     * Endpoint to verify 6-digit TOTP code and enable TOTP for the current user.
+     * Verifies the submitted TOTP code to activate two-factor authentication for the account.
      */
-    @PostMapping("/totp/verify")
-    public ResponseEntity<TotpEnableSuccessResponse> confirmAndEnableTotp(
-            @Valid @RequestBody TotpConfirmationRequest request
-    ) {
+    @PostMapping("/totp/enable")
+    @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "ENABLE_TOTP", severity = Severity.WARNING)
+    public ResponseEntity<TotpEnableSuccessResponse> enableTotp(@Valid @RequestBody TotpConfirmationRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
         if (currentUser == null) {
             throw new BusinessRuleException("User must be authenticated.");
         }
-        return ResponseEntity.ok(totpSetUpService.confirmAndEnable(currentUser.getId(), request, NetworkUtil.getClientIp()));
-    }
-
-    /**
-     * Endpoint to disable TOTP for the current user.
-     */
-    @PostMapping("/totp/disable")
-    public ResponseEntity<java.util.Map<String, String>> disableTotp() {
-        User currentUser = SecurityUtils.getCurrentUser();
-        if (currentUser == null) {
-            throw new BusinessRuleException("User must be authenticated.");
-        }
-        totpSetUpService.disableTotp(currentUser.getId(), NetworkUtil.getClientIp());
-        return ResponseEntity.ok(java.util.Map.of("message", "TOTP authentication has been disabled successfully."));
+        String ipAddress = NetworkUtil.getClientIp();
+        return ResponseEntity.ok(totpSetUpService.enableTotp(currentUser.getUsername(), request.getTotpCode(), ipAddress));
     }
 }

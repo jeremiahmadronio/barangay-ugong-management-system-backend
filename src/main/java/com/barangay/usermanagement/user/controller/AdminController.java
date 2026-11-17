@@ -3,6 +3,7 @@ package com.barangay.usermanagement.user.controller;
 import com.barangay.usermanagement.user.dto.*;
 import com.barangay.usermanagement.user.service.AdminService;
 import com.barangay.zshared.audit.annotations.LogAudit;
+import com.barangay.zshared.dto.ArchiveStatsDTO;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;
 import com.barangay.zshared.enumerated.UserStatus;
@@ -13,11 +14,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
- * Controller exposing endpoints for System User (Officers/Staff only) operations,
- * including Month-over-Month stats, table queries, account locking/unlocking,
- * archiving/restoring, and soft/permanent deletion.
+ * Controller exposing endpoints for System User (Officers and Staff) operations:
+ * dashboard statistics, directory search and table filtering, account details,
+ * provisioning, updates, lock management, and archive/trash lifecycle.
  */
 @RestController
 @RequestMapping({"/api/v1/system-users", "/api/v1/admin/users"})
@@ -27,7 +29,7 @@ public class AdminController {
     private final AdminService adminService;
 
     /**
-     * Endpoint to fetch System User Dashboard statistics with MoM trend percentages.
+     * Retrieves dashboard statistics for system users with month-over-month percentage changes.
      */
     @GetMapping("/stats")
     public ResponseEntity<UserManagementStatsResponse> getSystemUserStats() {
@@ -35,7 +37,8 @@ public class AdminController {
     }
 
     /**
-     * Endpoint to fetch the System User table list with complete search and filtering.
+     * Retrieves the paginated or filtered list of system users based on search keywords,
+     * department, and status filters.
      */
     @GetMapping("/table")
     public ResponseEntity<List<UserTableResponse>> getSystemUsersTable(
@@ -48,7 +51,7 @@ public class AdminController {
     }
 
     /**
-     * Endpoint to fetch detailed System User profile for viewing.
+     * Retrieves full profile details of a specific system user by their ID.
      */
     @GetMapping("/{userId}/details")
     public ResponseEntity<UserDetailResponse> getSystemUserDetail(@PathVariable Long userId) {
@@ -56,7 +59,7 @@ public class AdminController {
     }
 
     /**
-     * Endpoint to create a new System User (Officer) account.
+     * Creates a new officer or staff user account and sends initial login credentials via email.
      */
     @PostMapping
     @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "CREATE_SYSTEM_USER", severity = Severity.INFO)
@@ -66,7 +69,7 @@ public class AdminController {
     }
 
     /**
-     * Endpoint to update an existing System User account.
+     * Updates profile, department, and role details of an existing system user.
      */
     @PutMapping("/{userId}")
     @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "UPDATE_SYSTEM_USER", severity = Severity.INFO)
@@ -78,7 +81,7 @@ public class AdminController {
     }
 
     /**
-     * Endpoint to update a System User's status (ACTIVE / INACTIVE).
+     * Updates the active or inactive status of a system user.
      */
     @PatchMapping("/{userId}/status")
     @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "UPDATE_SYSTEM_USER_STATUS", severity = Severity.INFO)
@@ -90,7 +93,7 @@ public class AdminController {
     }
 
     /**
-     * Endpoint to lock or unlock a System User account.
+     * Toggles the lock state of a system user account.
      */
     @PatchMapping("/{userId}/lock")
     @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "LOCK_UNLOCK_SYSTEM_USER", severity = Severity.WARNING)
@@ -98,11 +101,11 @@ public class AdminController {
             @PathVariable Long userId,
             @RequestBody UserLockRequest request
     ) {
-        return ResponseEntity.ok(adminService.lockUnlockSystemUser(userId, request));
+        return ResponseEntity.ok(adminService.toggleSystemUserLock(userId, request));
     }
 
     /**
-     * Endpoint to archive a System User account (Soft Archive).
+     * Moves a system user account to the archive vault.
      */
     @PatchMapping("/{userId}/archive")
     @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "ARCHIVE_SYSTEM_USER", severity = Severity.INFO)
@@ -114,7 +117,7 @@ public class AdminController {
     }
 
     /**
-     * Endpoint to restore an archived System User account back to active.
+     * Restores an archived system user account back to active service.
      */
     @PatchMapping("/{userId}/restore")
     @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "RESTORE_SYSTEM_USER", severity = Severity.INFO)
@@ -123,7 +126,7 @@ public class AdminController {
     }
 
     /**
-     * Endpoint to soft-delete a System User account (Move to trash).
+     * Moves a system user account into trash (soft delete).
      */
     @DeleteMapping("/{userId}")
     @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "SOFT_DELETE_SYSTEM_USER", severity = Severity.INFO)
@@ -133,12 +136,36 @@ public class AdminController {
     }
 
     /**
-     * Endpoint to permanently delete a System User account.
+     * Permanently deletes a system user account and purges associated records from the database.
      */
     @DeleteMapping("/{userId}/permanent")
     @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "PERMANENT_DELETE_SYSTEM_USER", severity = Severity.CRITICAL)
     public ResponseEntity<Void> permanentDeleteSystemUser(@PathVariable Long userId) {
         adminService.permanentDeleteSystemUser(userId);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Retrieves overall archive and trash statistics for system users.
+     */
+    @GetMapping("/archive/stats")
+    public ResponseEntity<ArchiveStatsDTO> getArchiveStats() {
+        return ResponseEntity.ok(adminService.getArchiveStats());
+    }
+
+    /**
+     * Lists all archived system users with an optional search term.
+     */
+    @GetMapping("/archive/users")
+    public ResponseEntity<List<Map<String, Object>>> getArchivedUsers(@RequestParam(required = false) String search) {
+        return ResponseEntity.ok(adminService.getArchivedUsers(search));
+    }
+
+    /**
+     * Lists all soft-deleted system users currently in trash with an optional search term.
+     */
+    @GetMapping("/archive/trash/users")
+    public ResponseEntity<List<Map<String, Object>>> getTrashUsers(@RequestParam(required = false) String search) {
+        return ResponseEntity.ok(adminService.getTrashUsers(search));
     }
 }
