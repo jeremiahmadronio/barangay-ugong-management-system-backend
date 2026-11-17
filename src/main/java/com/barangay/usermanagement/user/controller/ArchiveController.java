@@ -21,33 +21,6 @@ public class ArchiveController {
     private final ArchiveService archiveService;
 
 
-    // --- Residents ---
-    @GetMapping("/residents")
-    public ResponseEntity<List<Map<String, Object>>> getArchivedResidents(@RequestParam(required = false) String search) {
-        return ResponseEntity.ok(archiveService.getArchivedResidents(search));
-    }
-
-    @PutMapping("/residents/{id}/restore")
-    @LogAudit(module = AuditModule.RESIDENTS, action = "RESTORE_RESIDENT", severity = Severity.INFO)
-    public ResponseEntity<String> restoreResident(@PathVariable Long id) {
-        archiveService.restoreResident(id);
-        return ResponseEntity.ok("Resident restored successfully");
-    }
-
-    @DeleteMapping("/residents/{id}")
-    @LogAudit(module = AuditModule.RESIDENTS, action = "SOFT_DELETE_RESIDENT", severity = Severity.INFO)
-    public ResponseEntity<String> softDeleteResident(@PathVariable Long id) {
-        archiveService.softDeleteResident(id);
-        return ResponseEntity.ok("Resident moved to trash");
-    }
-
-    @DeleteMapping("/residents/{id}/permanent")
-    @LogAudit(module = AuditModule.RESIDENTS, action = "DELETE_RESIDENT_PERMANENT", severity = Severity.WARNING)
-    public ResponseEntity<String> deleteResidentPermanent(@PathVariable Long id) {
-        archiveService.deleteResidentPermanent(id);
-        return ResponseEntity.ok("Resident deleted permanently");
-    }
-
 
     // --- Officers ---
     @GetMapping("/officers")
@@ -76,11 +49,6 @@ public class ArchiveController {
         return ResponseEntity.ok("Officer deleted permanently");
     }
 
-    // --- Trash / Soft-Deleted Lists ---
-    @GetMapping("/trash/residents")
-    public ResponseEntity<List<Map<String, Object>>> getTrashResidents(@RequestParam(required = false) String search) {
-        return ResponseEntity.ok(archiveService.getTrashResidents(search));
-    }
 
 
     @GetMapping("/trash/officers")
