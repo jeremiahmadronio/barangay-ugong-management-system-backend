@@ -94,6 +94,38 @@ public class User extends BaseEntity implements Archivable {
         return Boolean.TRUE.equals(this.totpEnabled) || (this.totpSecret != null && !this.totpSecret.trim().isEmpty());
     }
 
+    public Boolean getIsLocked() {
+        return isLocked;
+    }
+
+    public void setIsLocked(Boolean isLocked) {
+        this.isLocked = isLocked;
+    }
+
+    public Boolean getIsNewAccount() {
+        return isNewAccount;
+    }
+
+    public void setIsNewAccount(Boolean isNewAccount) {
+        this.isNewAccount = isNewAccount;
+    }
+
+    public Boolean getIsSystem() {
+        return isSystem;
+    }
+
+    public void setIsSystem(Boolean isSystem) {
+        this.isSystem = isSystem;
+    }
+
+    public Boolean getIsArchived() {
+        return isArchived;
+    }
+
+    public void setIsArchived(Boolean isArchived) {
+        this.isArchived = isArchived;
+    }
+
     @Column(name = "is_system")
     private Boolean isSystem = false;
 

@@ -1,7 +1,7 @@
 package com.barangay.usermanagement.user.controller;
 
 import com.barangay.usermanagement.user.dto.*;
-import com.barangay.usermanagement.user.service.SystemUserService;
+import com.barangay.usermanagement.user.service.AdminService;
 import com.barangay.zshared.audit.annotations.LogAudit;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;
@@ -22,16 +22,16 @@ import java.util.List;
 @RestController
 @RequestMapping({"/api/v1/system-users", "/api/v1/admin/users"})
 @RequiredArgsConstructor
-public class SystemUserController {
+public class AdminController {
 
-    private final SystemUserService systemUserService;
+    private final AdminService adminService;
 
     /**
      * Endpoint to fetch System User Dashboard statistics with MoM trend percentages.
      */
     @GetMapping("/stats")
     public ResponseEntity<UserManagementStatsResponse> getSystemUserStats() {
-        return ResponseEntity.ok(systemUserService.getSystemUserStats());
+        return ResponseEntity.ok(adminService.getSystemUserStats());
     }
 
     /**
@@ -44,7 +44,7 @@ public class SystemUserController {
             @RequestParam(required = false) UserStatus status
     ) {
         UserFilterRequest filter = new UserFilterRequest(search, null, departmentName, status);
-        return ResponseEntity.ok(systemUserService.getFilteredSystemUsersTable(filter));
+        return ResponseEntity.ok(adminService.getFilteredSystemUsersTable(filter));
     }
 
     /**
@@ -52,7 +52,7 @@ public class SystemUserController {
      */
     @GetMapping("/{userId}/details")
     public ResponseEntity<UserDetailResponse> getSystemUserDetail(@PathVariable Long userId) {
-        return ResponseEntity.ok(systemUserService.getSystemUserDetail(userId));
+        return ResponseEntity.ok(adminService.getSystemUserDetail(userId));
     }
 
     /**
@@ -61,7 +61,7 @@ public class SystemUserController {
     @PostMapping
     @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "CREATE_SYSTEM_USER", severity = Severity.INFO)
     public ResponseEntity<UserResponse> createSystemUser(@Valid @RequestBody UserCreateRequest request) {
-        UserResponse response = systemUserService.createSystemUser(request);
+        UserResponse response = adminService.createSystemUser(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -74,7 +74,7 @@ public class SystemUserController {
             @PathVariable Long userId,
             @Valid @RequestBody UserUpdateRequest request
     ) {
-        return ResponseEntity.ok(systemUserService.updateSystemUser(userId, request));
+        return ResponseEntity.ok(adminService.updateSystemUser(userId, request));
     }
 
     /**
@@ -86,7 +86,7 @@ public class SystemUserController {
             @PathVariable Long userId,
             @Valid @RequestBody UserStatusUpdateRequest request
     ) {
-        return ResponseEntity.ok(systemUserService.updateSystemUserStatus(userId, request));
+        return ResponseEntity.ok(adminService.updateSystemUserStatus(userId, request));
     }
 
     /**
@@ -98,7 +98,7 @@ public class SystemUserController {
             @PathVariable Long userId,
             @RequestBody UserLockRequest request
     ) {
-        return ResponseEntity.ok(systemUserService.lockUnlockSystemUser(userId, request));
+        return ResponseEntity.ok(adminService.lockUnlockSystemUser(userId, request));
     }
 
     /**
@@ -110,7 +110,7 @@ public class SystemUserController {
             @PathVariable Long userId,
             @RequestBody(required = false) UserArchiveRequest request
     ) {
-        return ResponseEntity.ok(systemUserService.archiveSystemUser(userId, request));
+        return ResponseEntity.ok(adminService.archiveSystemUser(userId, request));
     }
 
     /**
@@ -119,7 +119,7 @@ public class SystemUserController {
     @PatchMapping("/{userId}/restore")
     @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "RESTORE_SYSTEM_USER", severity = Severity.INFO)
     public ResponseEntity<UserResponse> restoreSystemUser(@PathVariable Long userId) {
-        return ResponseEntity.ok(systemUserService.restoreSystemUser(userId));
+        return ResponseEntity.ok(adminService.restoreSystemUser(userId));
     }
 
     /**
@@ -128,7 +128,7 @@ public class SystemUserController {
     @DeleteMapping("/{userId}")
     @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "SOFT_DELETE_SYSTEM_USER", severity = Severity.INFO)
     public ResponseEntity<Void> softDeleteSystemUser(@PathVariable Long userId) {
-        systemUserService.softDeleteSystemUser(userId);
+        adminService.softDeleteSystemUser(userId);
         return ResponseEntity.noContent().build();
     }
 
@@ -138,7 +138,7 @@ public class SystemUserController {
     @DeleteMapping("/{userId}/permanent")
     @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "PERMANENT_DELETE_SYSTEM_USER", severity = Severity.CRITICAL)
     public ResponseEntity<Void> permanentDeleteSystemUser(@PathVariable Long userId) {
-        systemUserService.permanentDeleteSystemUser(userId);
+        adminService.permanentDeleteSystemUser(userId);
         return ResponseEntity.noContent().build();
     }
 }

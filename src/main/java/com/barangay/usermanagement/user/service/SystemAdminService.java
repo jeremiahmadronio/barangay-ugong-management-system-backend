@@ -13,6 +13,7 @@ import com.barangay.usermanagement.role.repository.RoleRepository;
 import com.barangay.usermanagement.user.dto.*;
 import com.barangay.usermanagement.user.model.User;
 import com.barangay.usermanagement.user.repository.UserRepository;
+import com.barangay.zshared.audit.repository.AuditLogsRepository;
 import com.barangay.zshared.enumerated.MfaType;
 import com.barangay.zshared.enumerated.UserStatus;
 import com.barangay.zshared.exception.BusinessRuleException;
@@ -43,14 +44,14 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class UserService {
+public class SystemAdminService {
 
     private final UserRepository userRepository;
     private final PersonRepository personRepository;
     private final RoleRepository roleRepository;
     private final DepartmentRepository departmentRepository;
     private final PermissionRepository permissionRepository;
-    private final com.barangay.zshared.audit.repository.AuditLogsRepository auditLogsRepository;
+    private final AuditLogsRepository auditLogsRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
 
@@ -168,6 +169,8 @@ public class UserService {
         );
     }
 
+
+
     /**
      * Updates an existing Officer user account (email, backup email, departments, permissions, status).
      */
@@ -245,158 +248,12 @@ public class UserService {
         return mapToResponse(savedAdmin);
     }
 
-    /**
-     * Partially updates personal info (username, contact number, and optionally first/last name).
-     * Only fields that actually changed are updated and saved to the database.
-     * System email is strictly read-only and immutable.
-     */
-    @Transactional
-    public UserResponse updatePersonalInfo(Long userId, UpdatePersonalInfoRequest request) {
-        User user = findUserById(userId);
-        boolean userModified = false;
-        boolean personModified = false;
 
-        // 1. Partial update: Username (only if changed and valid)
-        if (request.username() != null && !request.username().isBlank()) {
-            String trimmedUsername = request.username().trim();
-            if (!trimmedUsername.equalsIgnoreCase(user.getUsername())) {
-                if (userRepository.existsByUsernameExcludingUser(trimmedUsername, user.getId())) {
-                    throw new DuplicateEntryException("Username '" + trimmedUsername + "' is already in use by another account.");
-                }
-                user.setUsername(trimmedUsername);
-                userModified = true;
-                log.info("Updated username for user ID: {} to '{}'", userId, trimmedUsername);
-            }
-        }
 
-        // 2. Partial update: Person details (contactNumber, firstName, lastName)
-        Person person = user.getPerson();
-        if (person != null) {
-            // Contact Number (only if changed)
-            if (request.contactNumber() != null) {
-                String trimmedContact = request.contactNumber().trim();
-                String currentContact = person.getContactNumber() != null ? person.getContactNumber().trim() : "";
-                if (!trimmedContact.equals(currentContact)) {
-                    person.setContactNumber(trimmedContact);
-                    personModified = true;
-                    log.info("Updated contact number for person ID: {} (user ID: {}) to '{}'", person.getId(), userId, trimmedContact);
-                }
-            }
 
-            // First Name (only if changed)
-            if (request.firstName() != null && !request.firstName().isBlank()) {
-                String trimmedFirstName = request.firstName().trim();
-                String currentFirstName = person.getFirstName() != null ? person.getFirstName().trim() : "";
-                if (!trimmedFirstName.equalsIgnoreCase(currentFirstName)) {
-                    person.setFirstName(trimmedFirstName);
-                    personModified = true;
-                    log.info("Updated first name for person ID: {} (user ID: {}) to '{}'", person.getId(), userId, trimmedFirstName);
-                }
-            }
 
-            // Last Name (only if changed)
-            if (request.lastName() != null && !request.lastName().isBlank()) {
-                String trimmedLastName = request.lastName().trim();
-                String currentLastName = person.getLastName() != null ? person.getLastName().trim() : "";
-                if (!trimmedLastName.equalsIgnoreCase(currentLastName)) {
-                    person.setLastName(trimmedLastName);
-                    personModified = true;
-                    log.info("Updated last name for person ID: {} (user ID: {}) to '{}'", person.getId(), userId, trimmedLastName);
-                }
-            }
 
-            if (personModified) {
-                personRepository.save(person);
-            }
-        }
 
-        if (userModified) {
-            user = userRepository.save(user);
-        }
-
-        return mapToResponse(user);
-    }
-
-    /**
-     * Updates the profile photo for a user account (and linked person entity if present).
-     * Validates file size (max 5MB) and mime type (images only).
-     *
-     * @param userId the ID of the user whose photo is to be updated
-     * @param file   the uploaded image file
-     * @return Base64 data URL representation of the saved photo
-     */
-    @Transactional
-    public String updateProfilePhoto(Long userId, MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new BusinessRuleException("Please select an image file to upload.");
-        }
-        if (file.getSize() > 5 * 1024 * 1024) {
-            throw new BusinessRuleException("Profile photo size must not exceed 5MB.");
-        }
-
-        String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new BusinessRuleException("Only valid image formats (JPEG, PNG, WebP) are accepted.");
-        }
-
-        User user = findUserById(userId);
-        try {
-            byte[] bytes = file.getBytes();
-            user.setSystemPhoto(bytes);
-            userRepository.save(user);
-
-            if (user.getPerson() != null) {
-                Person person = user.getPerson();
-                person.setPhoto(bytes);
-                personRepository.save(person);
-            }
-
-            log.info("Profile photo successfully updated for user ID: {}", userId);
-            return "data:" + contentType + ";base64," + Base64.getEncoder().encodeToString(bytes);
-        } catch (java.io.IOException e) {
-            log.error("Failed to read uploaded photo for user ID: {}", userId, e);
-            throw new BusinessRuleException("Failed to process uploaded photo: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Retrieves the profile photo binary data for a user.
-     */
-    @Transactional(readOnly = true)
-    public byte[] getUserPhotoBytes(Long userId) {
-        User user = findUserById(userId);
-        byte[] bytes = user.getSystemPhoto();
-        if ((bytes == null || bytes.length == 0) && user.getPerson() != null) {
-            bytes = user.getPerson().getPhoto();
-        }
-        return bytes;
-    }
-
-    /**
-     * Changes password for an authenticated user with verification and validation.
-     * Enforces current password verification, new password confirmation, complexity,
-     * prevents reusing current password, and securely hashes with BCrypt.
-     */
-    @Transactional
-    public void changePassword(Long userId, UpdatePasswordRequest request) {
-        User user = findUserById(userId);
-
-        if (!request.newPassword().equals(request.confirmPassword())) {
-            throw new BusinessRuleException("New password and confirmation password do not match.");
-        }
-
-        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
-            throw new BusinessRuleException("The current password you entered is incorrect.");
-        }
-
-        if (passwordEncoder.matches(request.newPassword(), user.getPassword())) {
-            throw new BusinessRuleException("New password cannot be the same as your current password.");
-        }
-
-        user.setPassword(passwordEncoder.encode(request.newPassword()));
-        userRepository.save(user);
-        log.info("Password successfully updated and BCrypt-hashed for user ID: {}", userId);
-    }
 
     /**
      * Updates a user's status (ACTIVE / INACTIVE).

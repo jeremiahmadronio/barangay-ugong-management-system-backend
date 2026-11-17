@@ -20,21 +20,6 @@ public class ArchiveController {
 
     private final ArchiveService archiveService;
 
-    @GetMapping("/settings")
-    public ResponseEntity<ArchiveSettingsDTO> getSettings() {
-        return ResponseEntity.ok(archiveService.getSettings());
-    }
-
-    @PutMapping("/settings")
-    @LogAudit(module = AuditModule.SYSTEM, action = "UPDATE_ARCHIVE_SETTINGS", severity = Severity.INFO)
-    public ResponseEntity<ArchiveSettingsDTO> updateSettings(@RequestBody ArchiveSettingsDTO request) {
-        return ResponseEntity.ok(archiveService.updateSettings(request));
-    }
-
-    @GetMapping("/stats")
-    public ResponseEntity<ArchiveStatsDTO> getArchiveStats() {
-        return ResponseEntity.ok(archiveService.getArchiveStats());
-    }
 
     // --- Residents ---
     @GetMapping("/residents")
@@ -63,32 +48,6 @@ public class ArchiveController {
         return ResponseEntity.ok("Resident deleted permanently");
     }
 
-    // --- Users ---
-    @GetMapping("/users")
-    public ResponseEntity<List<Map<String, Object>>> getArchivedUsers(@RequestParam(required = false) String search) {
-        return ResponseEntity.ok(archiveService.getArchivedUsers(search));
-    }
-
-    @PutMapping("/users/{id}/restore")
-    @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "RESTORE_USER", severity = Severity.INFO)
-    public ResponseEntity<String> restoreUser(@PathVariable Long id) {
-        archiveService.restoreUser(id);
-        return ResponseEntity.ok("User restored successfully");
-    }
-
-    @DeleteMapping("/users/{id}")
-    @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "SOFT_DELETE_USER", severity = Severity.INFO)
-    public ResponseEntity<String> softDeleteUser(@PathVariable Long id) {
-        archiveService.softDeleteUser(id);
-        return ResponseEntity.ok("User moved to trash");
-    }
-
-    @DeleteMapping("/users/{id}/permanent")
-    @LogAudit(module = AuditModule.USER_MANAGEMENT, action = "DELETE_USER_PERMANENT", severity = Severity.WARNING)
-    public ResponseEntity<String> deleteUserPermanent(@PathVariable Long id) {
-        archiveService.deleteUserPermanent(id);
-        return ResponseEntity.ok("User deleted permanently");
-    }
 
     // --- Officers ---
     @GetMapping("/officers")
@@ -123,10 +82,6 @@ public class ArchiveController {
         return ResponseEntity.ok(archiveService.getTrashResidents(search));
     }
 
-    @GetMapping("/trash/users")
-    public ResponseEntity<List<Map<String, Object>>> getTrashUsers(@RequestParam(required = false) String search) {
-        return ResponseEntity.ok(archiveService.getTrashUsers(search));
-    }
 
     @GetMapping("/trash/officers")
     public ResponseEntity<List<Map<String, Object>>> getTrashOfficers(@RequestParam(required = false) String search) {

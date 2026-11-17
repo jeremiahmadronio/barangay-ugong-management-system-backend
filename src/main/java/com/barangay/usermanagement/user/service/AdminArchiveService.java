@@ -141,7 +141,6 @@ public class AdminArchiveService {
         );
     }
 
-    // ── Archived System Users ────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getArchivedUsers(String search) {
@@ -263,8 +262,7 @@ public class AdminArchiveService {
         userRepository.save(user);
     }
 
-    // ── Residents Logic ─────────────────────────────────────────────────────
-
+    
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getArchivedResidents(String search) {
         try {

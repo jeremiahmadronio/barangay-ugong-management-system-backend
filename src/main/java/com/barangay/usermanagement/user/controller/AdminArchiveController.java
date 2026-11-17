@@ -29,7 +29,6 @@ public class AdminArchiveController {
         return ResponseEntity.ok(adminArchiveService.getArchiveStats());
     }
 
-    // --- Residents ---
     @GetMapping("/residents")
     public ResponseEntity<List<Map<String, Object>>> getArchivedResidents(@RequestParam(required = false) String search) {
         return ResponseEntity.ok(adminArchiveService.getArchivedResidents(search));
@@ -56,7 +55,6 @@ public class AdminArchiveController {
         return ResponseEntity.ok("Resident deleted permanently");
     }
 
-    // --- System Users ---
     @GetMapping("/users")
     public ResponseEntity<List<Map<String, Object>>> getArchivedUsers(@RequestParam(required = false) String search) {
         return ResponseEntity.ok(adminArchiveService.getArchivedUsers(search));

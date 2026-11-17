@@ -44,7 +44,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class SystemUserService {
+public class AdminService {
 
     private final UserRepository userRepository;
     private final PersonRepository personRepository;
