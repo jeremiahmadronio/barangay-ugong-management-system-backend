@@ -1,48 +1,24 @@
-package com.barangay.usermanagement.user.service;
+package com.barangay.people.officer.service;
 
 import com.barangay.people.officer.model.Officer;
 import com.barangay.people.officer.repository.OfficerRepository;
 import com.barangay.people.person.model.Person;
-import com.barangay.people.resident.model.Resident;
-import com.barangay.people.resident.repository.ResidentRepository;
-import com.barangay.usermanagement.department.model.Department;
-import com.barangay.usermanagement.user.model.User;
-import com.barangay.usermanagement.user.repository.UserRepository;
-import com.barangay.zshared.dto.ArchiveSettingsDTO;
-import com.barangay.zshared.dto.ArchiveStatsDTO;
-import com.barangay.zshared.entity.ArchiveSettings;
 import com.barangay.zshared.enumerated.OfficerStatus;
-import com.barangay.zshared.enumerated.ResidentStatus;
-import com.barangay.zshared.enumerated.UserStatus;
-import com.barangay.zshared.repository.ArchiveSettingsRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class ArchiveService {
+public class ArchiveOfficerService {
 
-    private final ArchiveSettingsRepository archiveSettingsRepository;
-    private final ResidentRepository residentRepository;
     private final OfficerRepository officerRepository;
-    private final UserRepository userRepository;
 
-
-
-    // --- Archived Residents ---
-
-
-    // --- Archived Users ---
-
-
-    // --- Archived Officers ---
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getArchivedOfficers(String search) {
         try {
@@ -109,47 +85,6 @@ public class ArchiveService {
         }
     }
 
-
-
-    @Transactional(readOnly = true)
-    public List<Map<String, Object>> getTrashUsers(String search) {
-        try {
-            List<User> users = userRepository.findAll();
-            String query = search != null ? search.toLowerCase().trim() : "";
-
-            return users.stream()
-                    .filter(u -> Boolean.TRUE.equals(u.getIsDeleted()) && !Boolean.TRUE.equals(u.getIsPermanentDeleted()))
-                    .filter(u -> {
-                        if (query.isEmpty()) return true;
-                        Person p = u.getPerson();
-                        String fullName = p != null ? (p.getFirstName() + " " + p.getLastName()).toLowerCase() : (u.getUsername() != null ? u.getUsername().toLowerCase() : "");
-                        String email = u.getSystemEmail() != null ? u.getSystemEmail().toLowerCase() : "";
-                        return fullName.contains(query) || email.contains(query);
-                    })
-                    .map(u -> {
-                        Person p = u.getPerson();
-                        Map<String, Object> map = new LinkedHashMap<>();
-                        map.put("id", u.getId());
-                        map.put("fullName", p != null ? (p.getFirstName() + " " + p.getLastName()) : (u.getUsername() != null ? u.getUsername() : "User"));
-                        map.put("email", u.getSystemEmail() != null ? u.getSystemEmail() : "N/A");
-                        map.put("role", u.getRole() != null ? u.getRole().getRoleName() : "N/A");
-                        String depts = u.getDepartments() != null
-                                ? u.getDepartments().stream().map(Department::getName).collect(Collectors.joining(", "))
-                                : "N/A";
-                        map.put("departments", depts.isEmpty() ? "N/A" : depts);
-                        map.put("status", "DELETED");
-                        map.put("deletedAt", u.getDeletedAt() != null ? u.getDeletedAt().toString() : "");
-                        map.put("lastLogin", u.getLastLoginAt() != null ? u.getLastLoginAt().toString() : "—");
-                        return map;
-                    })
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            log.warn("getTrashUsers fallback: {}", e.getMessage());
-            return Collections.emptyList();
-        }
-    }
-
-    // --- Trash / Soft-Deleted Officers ---
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getTrashOfficers(String search) {
         try {
