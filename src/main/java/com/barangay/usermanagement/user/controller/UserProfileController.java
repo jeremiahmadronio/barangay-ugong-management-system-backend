@@ -123,7 +123,7 @@ public class UserProfileController {
         if (currentUser == null) {
             throw new BusinessRuleException("User must be authenticated.");
         }
-        return ResponseEntity.ok(totpSetUpService.generateTotpSecret(currentUser.getUsername()));
+        return ResponseEntity.ok(totpSetUpService.initiateTotpSetup(currentUser.getId()));
     }
 
     /**
@@ -137,6 +137,6 @@ public class UserProfileController {
             throw new BusinessRuleException("User must be authenticated.");
         }
         String ipAddress = NetworkUtil.getClientIp();
-        return ResponseEntity.ok(totpSetUpService.enableTotp(currentUser.getUsername(), request.getTotpCode(), ipAddress));
+        return ResponseEntity.ok(totpSetUpService.confirmAndEnable(currentUser.getId(), request, ipAddress));
     }
 }
