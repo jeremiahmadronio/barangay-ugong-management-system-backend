@@ -10,7 +10,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "complainants")
+@Table(name = "complainants", indexes = {
+        @Index(name = "idx_complainant_person_id", columnList = "person_id")
+})
 @Getter
 @Setter
 @AllArgsConstructor

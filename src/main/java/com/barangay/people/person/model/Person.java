@@ -24,7 +24,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "person")
+@Table(name = "person", indexes = {
+        @Index(name = "idx_person_name", columnList = "last_name, first_name"),
+        @Index(name = "idx_person_is_resident", columnList = "is_resident"),
+        @Index(name = "idx_person_birth_date", columnList = "birth_date")
+})
 @Getter
 @Setter
 @AllArgsConstructor

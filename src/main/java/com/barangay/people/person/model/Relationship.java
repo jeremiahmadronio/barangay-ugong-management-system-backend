@@ -8,7 +8,11 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "person_relationship")
+@Table(name = "person_relationship", indexes = {
+        @Index(name = "idx_rel_person_id", columnList = "person_id"),
+        @Index(name = "idx_rel_relative_id", columnList = "relative_id"),
+        @Index(name = "idx_rel_pair", columnList = "person_id, relative_id")
+})
 @Getter
 @Setter
 @AllArgsConstructor

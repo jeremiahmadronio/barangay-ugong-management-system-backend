@@ -14,7 +14,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "witnesses")
+@Table(name = "witnesses", indexes = {
+        @Index(name = "idx_witness_case_id", columnList = "case_id"),
+        @Index(name = "idx_witness_person_id", columnList = "person_id")
+})
 @Getter
 @Setter
 @AllArgsConstructor
