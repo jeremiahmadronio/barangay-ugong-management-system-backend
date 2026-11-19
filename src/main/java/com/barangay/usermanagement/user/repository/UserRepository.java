@@ -18,27 +18,8 @@ import java.util.Optional;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
 
+    // Common standard Spring Data JPA method signatures & convenience lookups
     List<User> findAllByStatus(UserStatus status);
-
-    @Query("SELECT COUNT(u) FROM User u WHERE (u.status = com.barangay.zshared.enumerated.UserStatus.ARCHIVED OR u.isArchived = true) AND (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)")
-    long countArchivedUsers();
-
-    @Query("SELECT COUNT(u) FROM User u WHERE u.isDeleted = true AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)")
-    long countTrashUsers();
-
-    @Query("SELECT DISTINCT u FROM User u " +
-            "LEFT JOIN FETCH u.person " +
-            "LEFT JOIN FETCH u.role " +
-            "LEFT JOIN FETCH u.departments " +
-            "WHERE u.status = :status AND (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)")
-    List<User> findArchivedUsersWithDetails(@Param("status") UserStatus status);
-
-    @Query("SELECT DISTINCT u FROM User u " +
-            "LEFT JOIN FETCH u.person " +
-            "LEFT JOIN FETCH u.role " +
-            "LEFT JOIN FETCH u.departments " +
-            "WHERE u.isDeleted = true AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)")
-    List<User> findTrashUsersWithDetails();
 
     Optional<User> findByUsername(String username);
 
@@ -72,6 +53,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
         return countNonAdminUsersCreatedBetweenInternal(start, end, UserStatus.ARCHIVED);
     }
 
+    // Single-line JPQL count, existence, and lookup queries
+    @Query("SELECT COUNT(u) FROM User u WHERE (u.status = com.barangay.zshared.enumerated.UserStatus.ARCHIVED OR u.isArchived = true) AND (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)")
+    long countArchivedUsers();
+
+    @Query("SELECT COUNT(u) FROM User u WHERE u.isDeleted = true AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)")
+    long countTrashUsers();
+
     @Query("SELECT COUNT(u) > 0 FROM User u WHERE LOWER(TRIM(u.systemEmail)) = LOWER(TRIM(:systemEmail)) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)")
     boolean existsActiveOrRecentDeletedBySystemEmail(@Param("systemEmail") String systemEmail);
 
@@ -89,30 +77,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u FROM User u WHERE u.isDeleted = true AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) AND u.deletedAt <= :cutoff")
     List<User> findExpiredSoftDeletedUsers(@Param("cutoff") LocalDateTime cutoff);
-
-    @Query("SELECT u FROM User u " +
-            "LEFT JOIN FETCH u.role " +
-            "LEFT JOIN FETCH u.departments " +
-            "WHERE LOWER(TRIM(u.systemEmail)) = LOWER(TRIM(:email)) " +
-            "AND (u.isArchived = false OR u.isArchived IS NULL) " +
-            "AND (u.status IS NULL OR u.status <> :archivedStatus) " +
-            "AND (u.isDeleted = false OR u.isDeleted IS NULL) " +
-            "AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) " +
-            "ORDER BY CASE WHEN u.status = :activeStatus THEN 0 ELSE 1 END ASC, u.id DESC")
-    List<User> findByEmailWithRoleAndDepartmentsInternal(
-            @Param("email") String email,
-            @Param("archivedStatus") UserStatus archivedStatus,
-            @Param("activeStatus") UserStatus activeStatus
-    );
-
-    @Query("SELECT u FROM User u WHERE LOWER(TRIM(u.systemEmail)) = LOWER(TRIM(:systemEmail)) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) " +
-            "ORDER BY CASE " +
-            "  WHEN (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isArchived = false OR u.isArchived IS NULL) AND u.status = :activeStatus THEN 0 " +
-            "  WHEN (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isArchived = false OR u.isArchived IS NULL) THEN 1 " +
-            "  WHEN (u.isDeleted = false OR u.isDeleted IS NULL) THEN 2 " +
-            "  ELSE 3 " +
-            "END ASC, u.id DESC")
-    List<User> findAllActiveOrRecentBySystemEmail(@Param("systemEmail") String systemEmail, @Param("activeStatus") UserStatus activeStatus);
 
     @Query("SELECT COUNT(u) FROM User u LEFT JOIN u.role r WHERE (u.isArchived = false OR u.isArchived IS NULL) AND (u.status IS NULL OR u.status <> :archivedStatus) AND (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) AND (u.isSystem = false OR u.isSystem IS NULL) AND (r.roleName IS NULL OR UPPER(r.roleName) NOT IN ('SYSTEM_ADMIN', 'ROOTADMIN', 'ROOT_ADMIN', 'ROLE_SYSTEM_ADMIN', 'ROLE_ROOT_ADMIN')) AND (u.username IS NULL OR LOWER(u.username) <> 'superadmin')")
     long countTotalUsersInternal(@Param("archivedStatus") UserStatus archivedStatus);
@@ -164,6 +128,45 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT COUNT(u) FROM User u LEFT JOIN u.role r WHERE (u.isArchived = false OR u.isArchived IS NULL) AND (u.status IS NULL OR u.status <> :archivedStatus) AND (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) AND (u.isSystem = false OR u.isSystem IS NULL) AND (u.username IS NULL OR LOWER(u.username) <> 'superadmin') AND (r.roleName IS NOT NULL AND UPPER(r.roleName) NOT LIKE '%ADMIN%') AND u.status = :inactiveStatus AND u.createdAt >= :start AND u.createdAt <= :end")
     long countInactiveSystemUsersBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end, @Param("archivedStatus") UserStatus archivedStatus, @Param("inactiveStatus") UserStatus inactiveStatus);
+
+    // Multi-line complex JPQL queries (Joins, Fetch joins, Case-when ranking, and Filter logic)
+    @Query("SELECT DISTINCT u FROM User u " +
+            "LEFT JOIN FETCH u.person " +
+            "LEFT JOIN FETCH u.role " +
+            "LEFT JOIN FETCH u.departments " +
+            "WHERE u.status = :status AND (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)")
+    List<User> findArchivedUsersWithDetails(@Param("status") UserStatus status);
+
+    @Query("SELECT DISTINCT u FROM User u " +
+            "LEFT JOIN FETCH u.person " +
+            "LEFT JOIN FETCH u.role " +
+            "LEFT JOIN FETCH u.departments " +
+            "WHERE u.isDeleted = true AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL)")
+    List<User> findTrashUsersWithDetails();
+
+    @Query("SELECT u FROM User u " +
+            "LEFT JOIN FETCH u.role " +
+            "LEFT JOIN FETCH u.departments " +
+            "WHERE LOWER(TRIM(u.systemEmail)) = LOWER(TRIM(:email)) " +
+            "AND (u.isArchived = false OR u.isArchived IS NULL) " +
+            "AND (u.status IS NULL OR u.status <> :archivedStatus) " +
+            "AND (u.isDeleted = false OR u.isDeleted IS NULL) " +
+            "AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) " +
+            "ORDER BY CASE WHEN u.status = :activeStatus THEN 0 ELSE 1 END ASC, u.id DESC")
+    List<User> findByEmailWithRoleAndDepartmentsInternal(
+            @Param("email") String email,
+            @Param("archivedStatus") UserStatus archivedStatus,
+            @Param("activeStatus") UserStatus activeStatus
+    );
+
+    @Query("SELECT u FROM User u WHERE LOWER(TRIM(u.systemEmail)) = LOWER(TRIM(:systemEmail)) AND (u.isPermanentDeleted = false OR u.isPermanentDeleted IS NULL) " +
+            "ORDER BY CASE " +
+            "  WHEN (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isArchived = false OR u.isArchived IS NULL) AND u.status = :activeStatus THEN 0 " +
+            "  WHEN (u.isDeleted = false OR u.isDeleted IS NULL) AND (u.isArchived = false OR u.isArchived IS NULL) THEN 1 " +
+            "  WHEN (u.isDeleted = false OR u.isDeleted IS NULL) THEN 2 " +
+            "  ELSE 3 " +
+            "END ASC, u.id DESC")
+    List<User> findAllActiveOrRecentBySystemEmail(@Param("systemEmail") String systemEmail, @Param("activeStatus") UserStatus activeStatus);
 
     @Query("SELECT DISTINCT u FROM User u " +
             "LEFT JOIN FETCH u.person p " +

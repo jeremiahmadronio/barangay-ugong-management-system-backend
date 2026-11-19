@@ -16,7 +16,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "resident")
+@Table(name = "resident", indexes = {
+        @Index(name = "idx_resident_person_id", columnList = "person_id"),
+        @Index(name = "idx_resident_status", columnList = "status"),
+        @Index(name = "idx_resident_lifecycle", columnList = "status, is_deleted, is_permanent_deleted"),
+        @Index(name = "idx_resident_created_at", columnList = "createdAt")
+})
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
@@ -27,7 +32,7 @@ public class Resident extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long residentId;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "person_id", nullable = false)
     @JsonBackReference
     private Person person;

@@ -19,7 +19,6 @@ import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -60,22 +59,20 @@ class AdminDashboardServiceTest {
         when(residentRepository.countTotalResidents()).thenReturn(5000L);
         when(officerRepository.countTotalOfficers()).thenReturn(25L);
         when(auditLogsRepository.count()).thenReturn(1200L);
-        when(userRepository.countTotalUsersBetween(any(LocalDateTime.class), any(LocalDateTime.class), any())).thenReturn(10L);
-        when(residentRepository.countTotalResidentsBetween(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(20L);
-        when(officerRepository.countTotalOfficersBetween(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(2L);
-        when(auditLogsRepository.countAuditLogsBetween(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(50L);
-        when(auditLogsRepository.findAllByOrderByCreatedAtDesc(any(Pageable.class))).thenReturn(Collections.emptyList());
+        when(userRepository.countNonAdminUsersCreatedBetween(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(10L);
+        when(residentRepository.countResidentsCreatedBetween(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(20L);
+        when(auditLogsRepository.findByOrderByCreatedAtDesc(any(Pageable.class))).thenReturn(Collections.emptyList());
 
         // Act
         AdminDashboardDTO result = adminDashboardService.getDashboardStats();
 
         // Assert
         assertNotNull(result);
-        assertEquals(150L, result.totalUsers());
-        assertEquals(5000L, result.totalResidents());
-        assertEquals(25L, result.totalOfficers());
-        assertEquals(1200L, result.totalAuditLogs());
-        assertNotNull(result.systemHealth());
+        assertEquals(150L, result.getTotalUsers());
+        assertEquals(5000L, result.getTotalResidents());
+        assertEquals(25L, result.getTotalOfficers());
+        assertEquals(1200L, result.getTotalAuditEntries());
+        assertNotNull(result.getHealthStatus());
 
         verify(userRepository, times(1)).countTotalUsers();
         verify(residentRepository, times(1)).countTotalResidents();
@@ -91,11 +88,9 @@ class AdminDashboardServiceTest {
         when(residentRepository.countTotalResidents()).thenReturn(0L);
         when(officerRepository.countTotalOfficers()).thenReturn(0L);
         when(auditLogsRepository.count()).thenReturn(0L);
-        when(userRepository.countTotalUsersBetween(any(LocalDateTime.class), any(LocalDateTime.class), any())).thenReturn(0L);
-        when(residentRepository.countTotalResidentsBetween(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(0L);
-        when(officerRepository.countTotalOfficersBetween(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(0L);
-        when(auditLogsRepository.countAuditLogsBetween(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(0L);
-        when(auditLogsRepository.findAllByOrderByCreatedAtDesc(any(Pageable.class))).thenReturn(Collections.emptyList());
+        when(userRepository.countNonAdminUsersCreatedBetween(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(0L);
+        when(residentRepository.countResidentsCreatedBetween(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(0L);
+        when(auditLogsRepository.findByOrderByCreatedAtDesc(any(Pageable.class))).thenReturn(Collections.emptyList());
 
         // Act
         AdminDashboardDTO result = adminDashboardService.getDashboardStats();
@@ -103,10 +98,10 @@ class AdminDashboardServiceTest {
         // Assert
         assertAll("Zero counts validation",
                 () -> assertNotNull(result),
-                () -> assertEquals(0L, result.totalUsers()),
-                () -> assertEquals(0L, result.totalResidents()),
-                () -> assertEquals(0L, result.totalOfficers()),
-                () -> assertEquals(0L, result.totalAuditLogs())
+                () -> assertEquals(0L, result.getTotalUsers()),
+                () -> assertEquals(0L, result.getTotalResidents()),
+                () -> assertEquals(0L, result.getTotalOfficers()),
+                () -> assertEquals(0L, result.getTotalAuditEntries())
         );
     }
 
@@ -114,25 +109,27 @@ class AdminDashboardServiceTest {
     @DisplayName("getDashboardKpiStats - Happy path returns weekly operational overview")
     void getDashboardKpiStats_ValidData_ReturnsOperationalKpis() {
         // Arrange
-        when(caseRepository.countCasesCreatedBetween(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(5L);
-        when(issuedCertificateRepository.countCertificatesCreatedBetween(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(12L);
-        when(firstTimeJobSeekerRepository.countApplicationsCreatedBetween(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(3L);
-        when(caseRepository.countByIsDeletedFalseAndIsPermanentDeletedFalse()).thenReturn(40L);
-        when(issuedCertificateRepository.countByIsDeletedFalseAndIsPermanentDeletedFalse()).thenReturn(150L);
-        when(firstTimeJobSeekerRepository.countByIsDeletedFalseAndIsPermanentDeletedFalse()).thenReturn(20L);
+        when(userRepository.countTotalUsers()).thenReturn(100L);
+        when(residentRepository.countTotalResidents()).thenReturn(2000L);
+        when(officerRepository.countTotalOfficers()).thenReturn(10L);
+        when(issuedCertificateRepository.countWeeklyIssuedCertificates(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(15L);
+        when(caseRepository.countWeeklyDepartmentCases(anyString(), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(3L);
+        when(firstTimeJobSeekerRepository.countWeeklyJobSeekers(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(5L);
 
         // Act
         BarangayAdminDashboardKpiDTO result = adminDashboardService.getDashboardKpiStats();
 
         // Assert
         assertNotNull(result);
-        assertEquals(40L, result.totalActiveCases());
-        assertEquals(150L, result.totalIssuedClearances());
-        assertEquals(20L, result.totalFtjsApplications());
-        assertNotNull(result.weeklyOverview());
-        assertFalse(result.weeklyOverview().isEmpty());
+        assertEquals(100L, result.getTotalUsers());
+        assertEquals(2000L, result.getTotalResidents());
+        assertEquals(10L, result.getTotalOfficers());
+        assertEquals(15L, result.getServicesIssuedThisWeek());
+        assertNotNull(result.getDepartmentOverview());
+        assertEquals(15L, result.getDepartmentOverview().getClearance());
+        assertEquals(5L, result.getDepartmentOverview().getFtjs());
 
-        verify(caseRepository, atLeastOnce()).countCasesCreatedBetween(any(LocalDateTime.class), any(LocalDateTime.class));
-        verify(issuedCertificateRepository, atLeastOnce()).countCertificatesCreatedBetween(any(LocalDateTime.class), any(LocalDateTime.class));
+        verify(issuedCertificateRepository, atLeastOnce()).countWeeklyIssuedCertificates(any(LocalDateTime.class), any(LocalDateTime.class));
+        verify(caseRepository, atLeastOnce()).countWeeklyDepartmentCases(anyString(), any(LocalDateTime.class), any(LocalDateTime.class));
     }
 }

@@ -92,7 +92,7 @@ class AdminServiceTest {
         // Assert
         assertNotNull(response);
         assertNotNull(response.totalUsers());
-        assertEquals(50L, response.totalUsers().currentValue());
+        assertEquals(50L, response.totalUsers().count());
         verify(userRepository, times(1)).countTotalSystemUsers(UserStatus.ARCHIVED);
     }
 
@@ -128,8 +128,8 @@ class AdminServiceTest {
                 personId,
                 "officer@test.com",
                 null,
-                List.of(1L),
-                Collections.emptyList(),
+                Set.of(1L),
+                Collections.emptySet(),
                 true
         );
 
@@ -181,7 +181,7 @@ class AdminServiceTest {
     @DisplayName("createSystemUser - When Person is not found throws ResourceNotFoundException")
     void createSystemUser_PersonNotFound_ThrowsException() {
         // Arrange
-        UserCreateRequest request = new UserCreateRequest(999L, "email@test.com", null, List.of(1L), Collections.emptyList(), true);
+        UserCreateRequest request = new UserCreateRequest(999L, "email@test.com", null, Set.of(1L), Collections.emptySet(), true);
         when(personRepository.findById(999L)).thenReturn(Optional.empty());
 
         // Act & Assert
@@ -195,7 +195,7 @@ class AdminServiceTest {
     void createSystemUser_DuplicatePerson_ThrowsDuplicateEntryException() {
         // Arrange
         Long personId = 1L;
-        UserCreateRequest request = new UserCreateRequest(personId, "email@test.com", null, List.of(1L), Collections.emptyList(), true);
+        UserCreateRequest request = new UserCreateRequest(personId, "email@test.com", null, Set.of(1L), Collections.emptySet(), true);
         when(personRepository.findById(personId)).thenReturn(Optional.of(new Person()));
         when(userRepository.existsActiveOrRecentDeletedByPersonId(personId)).thenReturn(true);
 
@@ -209,7 +209,7 @@ class AdminServiceTest {
     void createSystemUser_DuplicateEmail_ThrowsDuplicateEntryException() {
         // Arrange
         Long personId = 1L;
-        UserCreateRequest request = new UserCreateRequest(personId, "email@test.com", null, List.of(1L), Collections.emptyList(), true);
+        UserCreateRequest request = new UserCreateRequest(personId, "email@test.com", null, Set.of(1L), Collections.emptySet(), true);
         when(personRepository.findById(personId)).thenReturn(Optional.of(new Person()));
         when(userRepository.existsActiveOrRecentDeletedByPersonId(personId)).thenReturn(false);
         when(userRepository.existsActiveOrRecentDeletedBySystemEmail("email@test.com")).thenReturn(true);
@@ -231,7 +231,7 @@ class AdminServiceTest {
         role.setRoleName("OFFICER");
         user.setRole(role);
 
-        UserUpdateRequest updateRequest = new UserUpdateRequest("new@test.com", null, List.of(1L), Collections.emptyList(), true);
+        UserUpdateRequest updateRequest = new UserUpdateRequest("new@test.com", null, Set.of(1L), Collections.emptySet(), true);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userRepository.existsActiveOrRecentDeletedBySystemEmailExcludingUser("new@test.com", userId)).thenReturn(true);
@@ -258,7 +258,7 @@ class AdminServiceTest {
         when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
 
         // Act
-        UserResponse response = adminService.toggleSystemUserLock(userId, new UserLockRequest(true, "Suspicious activity", 30));
+        UserResponse response = adminService.toggleSystemUserLock(userId, new UserLockRequest(true, 30, "Suspicious activity"));
 
         // Assert
         assertNotNull(response);

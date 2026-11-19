@@ -54,16 +54,7 @@ public class DepartmentService {
         return new UserDepartmentResponse(userId, deptIds, deptResponses);
     }
 
-    /**
-     * Retrieves all departments regardless of active status.
-     */
-    @Transactional(readOnly = true)
-    public List<DepartmentResponse> getAllDepartments() {
-        return departmentRepository.findAll()
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
+
 
     private DepartmentResponse mapToResponse(Department dept) {
         return new DepartmentResponse(

@@ -33,6 +33,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -96,7 +97,7 @@ class SystemAdminServiceTest {
 
         // Assert
         assertNotNull(response);
-        assertEquals(100L, response.totalUsers().currentValue());
+        assertEquals(100L, response.totalUsers().count());
         verify(userRepository, times(1)).countTotalUsersInternal(UserStatus.ARCHIVED);
     }
 
@@ -109,8 +110,8 @@ class SystemAdminServiceTest {
                 personId,
                 "officer@test.com",
                 null,
-                List.of(1L),
-                Collections.emptyList(),
+                Set.of(1L),
+                Collections.emptySet(),
                 true
         );
 
@@ -151,19 +152,23 @@ class SystemAdminServiceTest {
     @DisplayName("createAdmin - Happy path creates admin account and provisions admin role")
     void createAdmin_ValidRequest_Success() {
         // Arrange
+        Long personId = 2L;
         AdminCreateRequest request = new AdminCreateRequest(
-                "Super",
-                "Admin",
+                personId,
                 "admin@barangay.gov.ph",
                 null,
-                "ADMIN",
                 true
         );
+
+        Person person = new Person();
+        person.setId(personId);
 
         Role adminRole = new Role();
         adminRole.setId(1L);
         adminRole.setRoleName("ADMIN");
 
+        when(personRepository.findById(personId)).thenReturn(Optional.of(person));
+        when(userRepository.existsActiveOrRecentDeletedByPersonId(personId)).thenReturn(false);
         when(userRepository.existsActiveOrRecentDeletedBySystemEmail("admin@barangay.gov.ph")).thenReturn(false);
         when(roleRepository.findByRoleName("ADMIN")).thenReturn(Optional.of(adminRole));
         when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
@@ -195,7 +200,7 @@ class SystemAdminServiceTest {
         systemUser.setId(userId);
         systemUser.setIsSystem(true);
 
-        UserUpdateRequest request = new UserUpdateRequest("email@test.com", null, List.of(1L), Collections.emptyList(), true);
+        UserUpdateRequest request = new UserUpdateRequest("email@test.com", null, Set.of(1L), Collections.emptySet(), true);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(systemUser));
 

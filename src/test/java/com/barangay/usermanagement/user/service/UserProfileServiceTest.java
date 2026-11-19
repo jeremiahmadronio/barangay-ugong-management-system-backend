@@ -1,5 +1,6 @@
 package com.barangay.usermanagement.user.service;
 
+import com.barangay.contentmanagement.repository.SystemSettingRepository;
 import com.barangay.people.person.model.Person;
 import com.barangay.people.person.repository.PersonRepository;
 import com.barangay.usermanagement.user.dto.UpdatePasswordRequest;
@@ -8,6 +9,7 @@ import com.barangay.usermanagement.user.dto.UserDetailResponse;
 import com.barangay.usermanagement.user.dto.UserResponse;
 import com.barangay.usermanagement.user.model.User;
 import com.barangay.usermanagement.user.repository.UserRepository;
+import com.barangay.zshared.audit.repository.AuditLogsRepository;
 import com.barangay.zshared.exception.BusinessRuleException;
 import com.barangay.zshared.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +23,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -37,7 +40,13 @@ class UserProfileServiceTest {
     private PersonRepository personRepository;
 
     @Mock
+    private AuditLogsRepository auditLogsRepository;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private SystemSettingRepository systemSettingRepository;
 
     @InjectMocks
     private UserProfileService userProfileService;
@@ -60,6 +69,7 @@ class UserProfileServiceTest {
         user.setPerson(person);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(auditLogsRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(Collections.emptyList());
 
         // Act
         UserDetailResponse response = userProfileService.getUserDetail(userId);
@@ -68,8 +78,8 @@ class UserProfileServiceTest {
         assertNotNull(response);
         assertEquals(userId, response.id());
         assertEquals("juan_dc", response.username());
-        assertNotNull(response.personalInfo());
-        assertEquals("Juan Dela Cruz", response.personalInfo().fullName());
+        assertNotNull(response.personInfo());
+        assertEquals("Juan Dela Cruz", response.personInfo().fullName());
         verify(userRepository, times(1)).findById(userId);
     }
 
@@ -91,6 +101,7 @@ class UserProfileServiceTest {
         Long userId = 1L;
         User user = new User();
         user.setId(userId);
+        user.setUsername("old_user");
         user.setSystemEmail("juan@barangay.gov.ph");
 
         Person person = new Person();
@@ -101,17 +112,13 @@ class UserProfileServiceTest {
 
         UpdatePersonalInfoRequest request = new UpdatePersonalInfoRequest(
                 "Johnny",
-                null,
                 "Dela Cruz",
-                null,
-                "09123456789",
-                "New Address",
-                null,
-                null,
-                null
+                "new_user",
+                "09123456789"
         );
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.existsByUsernameExcludingUser("new_user", userId)).thenReturn(false);
         when(personRepository.save(any(Person.class))).thenAnswer(i -> i.getArgument(0));
         when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -124,7 +131,10 @@ class UserProfileServiceTest {
         verify(personRepository).save(personCaptor.capture());
         Person savedPerson = personCaptor.getValue();
         assertEquals("Johnny", savedPerson.getFirstName());
-        assertEquals("New Address", savedPerson.getCompleteAddress());
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
+        assertEquals("new_user", userCaptor.getValue().getUsername());
     }
 
     @Test
@@ -136,10 +146,11 @@ class UserProfileServiceTest {
         user.setId(userId);
         user.setPassword("oldHashedPassword");
 
-        UpdatePasswordRequest request = new UpdatePasswordRequest("OldPassword123!", "NewPassword123!");
+        UpdatePasswordRequest request = new UpdatePasswordRequest("OldPassword123!", "NewPassword123!", "NewPassword123!");
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("OldPassword123!", "oldHashedPassword")).thenReturn(true);
+        when(passwordEncoder.matches("NewPassword123!", "oldHashedPassword")).thenReturn(false);
         when(passwordEncoder.encode("NewPassword123!")).thenReturn("newHashedPassword");
         when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -161,7 +172,7 @@ class UserProfileServiceTest {
         user.setId(userId);
         user.setPassword("oldHashedPassword");
 
-        UpdatePasswordRequest request = new UpdatePasswordRequest("WrongPassword!", "NewPassword123!");
+        UpdatePasswordRequest request = new UpdatePasswordRequest("WrongPassword!", "NewPassword123!", "NewPassword123!");
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("WrongPassword!", "oldHashedPassword")).thenReturn(false);

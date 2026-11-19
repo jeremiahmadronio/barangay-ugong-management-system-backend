@@ -15,15 +15,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Service managing archived and trash life-cycle operations for Barangay Residents.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ArchiveResidentService {
 
-
     private final ResidentRepository residentRepository;
 
-
+    /**
+     * Retrieves archived residents matching optional search keyword.
+     *
+     * @param search optional name or barangay ID filter.
+     * @return a list of archived resident maps.
+     */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getArchivedResidents(String search) {
         try {
@@ -56,6 +63,11 @@ public class ArchiveResidentService {
         }
     }
 
+    /**
+     * Restores an archived or soft-deleted resident back to active status.
+     *
+     * @param residentId the resident ID to restore.
+     */
     @Transactional
     public void restoreResident(Long residentId) {
         Resident resident = residentRepository.findById(residentId).orElse(null);
@@ -66,6 +78,11 @@ public class ArchiveResidentService {
         }
     }
 
+    /**
+     * Moves a resident to trash (soft-delete).
+     *
+     * @param residentId the resident ID to soft-delete.
+     */
     @Transactional
     public void softDeleteResident(Long residentId) {
         Resident resident = residentRepository.findById(residentId).orElse(null);
@@ -76,6 +93,11 @@ public class ArchiveResidentService {
         }
     }
 
+    /**
+     * Permanently deletes a resident from the system.
+     *
+     * @param residentId the resident ID to permanently purge.
+     */
     @Transactional
     public void deleteResidentPermanent(Long residentId) {
         Resident resident = residentRepository.findById(residentId).orElse(null);
@@ -85,7 +107,12 @@ public class ArchiveResidentService {
         }
     }
 
-
+    /**
+     * Retrieves all soft-deleted residents currently in the trash bin.
+     *
+     * @param search optional name or barangay ID filter.
+     * @return a list of soft-deleted resident maps.
+     */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getTrashResidents(String search) {
         try {
@@ -118,5 +145,4 @@ public class ArchiveResidentService {
             return Collections.emptyList();
         }
     }
-
 }

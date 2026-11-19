@@ -28,6 +28,10 @@ import java.time.YearMonth;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Service managing Barangay Resident registration, profiles, demographics,
+ * family associations, attached documents, and directory queries.
+ */
 @Service
 @RequiredArgsConstructor
 public class ResidentService {
@@ -40,6 +44,11 @@ public class ResidentService {
     private final IssuedCertificateRepository issuedCertificateRepository;
     private final FirstTimeJobSeekerRepository ftjsRepository;
 
+    /**
+     * Calculates demographic metrics and Month-over-Month growth statistics for residents.
+     *
+     * @return a {@link ResidentManagementStatsResponse} with trend data.
+     */
     @Transactional(readOnly = true)
     public ResidentManagementStatsResponse getResidentStats() {
         List<ResidentStatus> activeAndInactive = List.of(ResidentStatus.ACTIVE, ResidentStatus.INACTIVE);
@@ -88,6 +97,12 @@ public class ResidentService {
         return new StatMetric(current, rounded, direction, text);
     }
 
+    /**
+     * Retrieves filtered and searched residents for directory table display.
+     *
+     * @param filter criteria for keyword, status, gender, and age group.
+     * @return a list of {@link ResidentTableResponse}.
+     */
     @Transactional(readOnly = true)
     public List<ResidentTableResponse> getFilteredResidentsTable(ResidentFilterRequest filter) {
         String searchPattern = (filter != null && filter.search() != null && !filter.search().isBlank())
@@ -127,6 +142,12 @@ public class ResidentService {
         };
     }
 
+    /**
+     * Retrieves full resident profile details, linked person data, and documents.
+     *
+     * @param id the resident ID.
+     * @return a {@link ResidentDetailResponse}.
+     */
     @Transactional(readOnly = true)
     public ResidentDetailResponse getResidentDetail(Long id) {
         Resident resident = residentRepository.findById(id)
@@ -134,6 +155,12 @@ public class ResidentService {
         return mapToDetailResponse(resident);
     }
 
+    /**
+     * Registers a new resident, creates the linked Person record, and links family associations and files.
+     *
+     * @param request creation request data.
+     * @return the created {@link ResidentTableResponse}.
+     */
     @Transactional
     public ResidentTableResponse createResident(ResidentCreateRequest request) {
         Person person = new Person();
@@ -165,6 +192,13 @@ public class ResidentService {
         return mapToTableResponse(resident);
     }
 
+    /**
+     * Updates an existing resident's demographic and barangay information.
+     *
+     * @param id the resident ID to update.
+     * @param request the update data payload.
+     * @return the updated {@link ResidentTableResponse}.
+     */
     @Transactional
     public ResidentTableResponse updateResident(Long id, ResidentUpdateRequest request) {
         Resident resident = residentRepository.findById(id)
@@ -268,6 +302,13 @@ public class ResidentService {
         }
     }
 
+    /**
+     * Updates a resident's status (ACTIVE, INACTIVE, etc.) and records remarks.
+     *
+     * @param id the resident ID.
+     * @param request the status update request.
+     * @return the updated {@link ResidentTableResponse}.
+     */
     @Transactional
     public ResidentTableResponse updateResidentStatus(Long id, ResidentStatusUpdateRequest request) {
         Resident resident = residentRepository.findById(id)
@@ -281,6 +322,12 @@ public class ResidentService {
         return mapToTableResponse(resident);
     }
 
+    /**
+     * Soft archives a resident record.
+     *
+     * @param id the resident ID.
+     * @return the updated {@link ResidentTableResponse}.
+     */
     @Transactional
     public ResidentTableResponse archiveResident(Long id) {
         Resident resident = residentRepository.findById(id)
@@ -292,6 +339,12 @@ public class ResidentService {
         return mapToTableResponse(resident);
     }
 
+    /**
+     * Restores an archived resident back to active state.
+     *
+     * @param id the resident ID.
+     * @return the restored {@link ResidentTableResponse}.
+     */
     @Transactional
     public ResidentTableResponse restoreResident(Long id) {
         Resident resident = residentRepository.findById(id)
@@ -303,6 +356,11 @@ public class ResidentService {
         return mapToTableResponse(resident);
     }
 
+    /**
+     * Soft deletes a resident record (moves to trash).
+     *
+     * @param id the resident ID to soft-delete.
+     */
     @Transactional
     public void deleteResident(Long id) {
         Resident resident = residentRepository.findById(id)
@@ -312,6 +370,11 @@ public class ResidentService {
         residentRepository.save(resident);
     }
 
+    /**
+     * Generates auto-suggested next sequential Barangay ID and household number.
+     *
+     * @return a {@link ResidentSuggestionsResponse}.
+     */
     @Transactional(readOnly = true)
     public ResidentSuggestionsResponse getSuggestions() {
         String nextBarangayId = residentRepository.findLatestResident()
@@ -328,6 +391,12 @@ public class ResidentService {
         return new ResidentSuggestionsResponse(nextBarangayId, suggestedHousehold);
     }
 
+    /**
+     * Searches active residents for selection options across blotter, certificates, and cases.
+     *
+     * @param search keyword for name or barangay ID.
+     * @return a list of {@link ResidentSearchOptionResponse}.
+     */
     @Transactional(readOnly = true)
     public List<ResidentSearchOptionResponse> searchActiveResidents(String search) {
         String query = search != null ? search.trim() : "";
@@ -360,6 +429,12 @@ public class ResidentService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Finds active residents with matching last name for family relative suggestions.
+     *
+     * @param lastName the last name to search.
+     * @return a list of {@link ResidentRelativeResponse}.
+     */
     @Transactional(readOnly = true)
     public List<ResidentRelativeResponse> getRelativesByLastName(String lastName) {
         if (lastName == null || lastName.isBlank()) return Collections.emptyList();
@@ -388,6 +463,9 @@ public class ResidentService {
                 })
                 .collect(Collectors.toList());
     }
+
+
+
 
     // ─── Private helpers ──────────────────────────────────────────────
 

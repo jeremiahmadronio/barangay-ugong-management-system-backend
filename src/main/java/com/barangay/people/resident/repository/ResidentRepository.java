@@ -13,31 +13,72 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repository interface for managing Resident entity database persistence,
+ * demographic analytics, lifecycle state queries, and directory lookups.
+ */
 @Repository
 public interface ResidentRepository extends JpaRepository<Resident, Long> {
+
+    // Common standard Spring Data JPA method signatures & convenience lookups
     Optional<Resident> findByBarangayIdNumber(String barangayIdNumber);
+
     Optional<Resident> findByPersonId(Long personId);
+
     Optional<Resident> findByPerson_Id(Long personId);
+
     boolean existsByBarangayIdNumber(String barangayIdNumber);
 
     long countByStatus(ResidentStatus status);
+
     List<Resident> findAllByStatus(ResidentStatus status);
 
+    long countByStatusIn(Collection<ResidentStatus> statuses);
+
+    long countByStatusInAndIsHeadOfFamilyTrue(Collection<ResidentStatus> statuses);
+
+    long countByStatusInAndIsHeadOfFamilyTrueAndCreatedAtBetween(Collection<ResidentStatus> statuses, LocalDateTime start, LocalDateTime end);
+
+    long countByStatusInAndCreatedAtBetween(Collection<ResidentStatus> statuses, LocalDateTime start, LocalDateTime end);
+
+    // Single-line JPQL count and lookup queries
     @Query("SELECT COUNT(r) FROM Resident r WHERE r.isDeleted = true AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL)")
     long countTrashResidents();
 
     @Query("SELECT COUNT(r) FROM Resident r WHERE (r.isDeleted = false OR r.isDeleted IS NULL) AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED)")
     long countTotalResidents();
 
-    @Query("""
-        SELECT COUNT(r) FROM Resident r
-        WHERE (r.isDeleted = false OR r.isDeleted IS NULL)
-          AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL)
-          AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED)
-          AND r.isHeadOfFamily = true
-    """)
+    @Query("SELECT COUNT(r) FROM Resident r WHERE (r.isDeleted = false OR r.isDeleted IS NULL) AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED) AND r.isHeadOfFamily = true")
     long countActiveHeadsOfFamily();
 
+    @Query("SELECT COUNT(r) FROM Resident r JOIN r.person p WHERE (r.isDeleted = false OR r.isDeleted IS NULL) AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED) AND UPPER(p.gender) LIKE UPPER(CONCAT(:genderPrefix, '%'))")
+    long countActiveByGenderPrefix(@Param("genderPrefix") String genderPrefix);
+
+    @Query("SELECT COUNT(r) FROM Resident r JOIN r.person p WHERE r.status IN :statuses AND (p.age >= 60 OR (p.birthDate IS NOT NULL AND p.birthDate <= :seniorCutoff))")
+    long countSeniorCitizensByStatuses(@Param("seniorCutoff") LocalDate seniorCutoff, @Param("statuses") Collection<ResidentStatus> statuses);
+
+    @Query("SELECT COUNT(r) FROM Resident r JOIN r.person p WHERE r.status IN :statuses AND (p.age >= 60 OR (p.birthDate IS NOT NULL AND p.birthDate <= :seniorCutoff)) AND r.createdAt BETWEEN :start AND :end")
+    long countSeniorCitizensByStatusesBetween(@Param("seniorCutoff") LocalDate seniorCutoff, @Param("statuses") Collection<ResidentStatus> statuses, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    @Query("SELECT r.barangayIdNumber FROM Resident r WHERE r.barangayIdNumber IS NOT NULL ORDER BY r.residentId DESC LIMIT 1")
+    Optional<String> findLatestBarangayIdNumber();
+
+    @Query("SELECT r FROM Resident r ORDER BY r.residentId DESC LIMIT 1")
+    Optional<Resident> findLatestResident();
+
+    @Query("SELECT r.householdNumber FROM Resident r WHERE r.householdNumber IS NOT NULL ORDER BY r.residentId DESC LIMIT 1")
+    Optional<String> findLatestHouseholdNumber();
+
+    @Query("SELECT r FROM Resident r JOIN FETCH r.person p WHERE LOWER(p.lastName) = LOWER(:lastName) AND r.status = 'ACTIVE'")
+    List<Resident> findActiveResidentsByLastName(@Param("lastName") String lastName);
+
+    @Query("SELECT COUNT(r) FROM Resident r WHERE (r.isDeleted = false OR r.isDeleted IS NULL) AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED) AND r.createdAt BETWEEN :start AND :end")
+    long countResidentsCreatedBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    @Query("SELECT r FROM Resident r WHERE r.isDeleted = true AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND r.deletedAt <= :cutoff")
+    List<Resident> findExpiredSoftDeletedResidents(@Param("cutoff") LocalDateTime cutoff);
+
+    // Multi-line complex JPQL queries (Joins, Fetch joins, Demographics, and Filter logic)
     @Query("""
         SELECT COUNT(r) FROM Resident r JOIN r.person p
         WHERE (r.isDeleted = false OR r.isDeleted IS NULL)
@@ -56,27 +97,7 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
     """)
     long countActiveMinors(@Param("minorCutoff") LocalDate minorCutoff);
 
-    @Query("""
-        SELECT COUNT(r) FROM Resident r JOIN r.person p
-        WHERE (r.isDeleted = false OR r.isDeleted IS NULL)
-          AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL)
-          AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED)
-          AND UPPER(p.gender) LIKE UPPER(CONCAT(:genderPrefix, '%'))
-    """)
-    long countActiveByGenderPrefix(@Param("genderPrefix") String genderPrefix);
-
-    long countByStatusIn(Collection<ResidentStatus> statuses);
-    long countByStatusInAndIsHeadOfFamilyTrue(Collection<ResidentStatus> statuses);
-    long countByStatusInAndIsHeadOfFamilyTrueAndCreatedAtBetween(Collection<ResidentStatus> statuses, LocalDateTime start, LocalDateTime end);
-    long countByStatusInAndCreatedAtBetween(Collection<ResidentStatus> statuses, LocalDateTime start, LocalDateTime end);
-
-    @Query("SELECT COUNT(r) FROM Resident r JOIN r.person p WHERE r.status IN :statuses AND (p.age >= 60 OR (p.birthDate IS NOT NULL AND p.birthDate <= :seniorCutoff))")
-    long countSeniorCitizensByStatuses(@Param("seniorCutoff") LocalDate seniorCutoff, @Param("statuses") Collection<ResidentStatus> statuses);
-
-    @Query("SELECT COUNT(r) FROM Resident r JOIN r.person p WHERE r.status IN :statuses AND (p.age >= 60 OR (p.birthDate IS NOT NULL AND p.birthDate <= :seniorCutoff)) AND r.createdAt BETWEEN :start AND :end")
-    long countSeniorCitizensByStatusesBetween(@Param("seniorCutoff") LocalDate seniorCutoff, @Param("statuses") Collection<ResidentStatus> statuses, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
-
-    @Query("SELECT r FROM Resident r JOIN r.person p WHERE " +
+    @Query("SELECT r FROM Resident r JOIN FETCH r.person p WHERE " +
            "(r.isDeleted = false OR r.isDeleted IS NULL) AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND " +
            "(:searchPattern IS NULL OR LOWER(p.firstName) LIKE :searchPattern OR LOWER(p.lastName) LIKE :searchPattern OR LOWER(r.barangayIdNumber) LIKE :searchPattern) AND " +
            "((:status IS NULL AND r.status IN (com.barangay.zshared.enumerated.ResidentStatus.ACTIVE, com.barangay.zshared.enumerated.ResidentStatus.INACTIVE)) OR r.status = :status) AND " +
@@ -87,13 +108,7 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
             @Param("gender") String gender
     );
 
-    /** Returns the highest numeric sequence from barangay_id_number, for generating the next one. */
-    @Query("SELECT r.barangayIdNumber FROM Resident r WHERE r.barangayIdNumber IS NOT NULL ORDER BY r.residentId DESC LIMIT 1")
-    Optional<String> findLatestBarangayIdNumber();
-
-    /** Finds residents matching search term for Blotter/Officer/FTJS selection, excluding archived records.
-     * Prioritizes prefix matches (starts with) on First Name, Last Name, or Full Name. */
-    @Query("SELECT r FROM Resident r LEFT JOIN r.person p WHERE (r.isDeleted = false OR r.isDeleted IS NULL) AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED) AND (" +
+    @Query("SELECT r FROM Resident r LEFT JOIN FETCH r.person p WHERE (r.isDeleted = false OR r.isDeleted IS NULL) AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED) AND (" +
            ":search IS NULL OR TRIM(:search) = '' OR " +
            "LOWER(p.firstName) LIKE LOWER(CONCAT(TRIM(:search), '%')) OR " +
            "LOWER(p.lastName) LIKE LOWER(CONCAT(TRIM(:search), '%')) OR " +
@@ -109,25 +124,4 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
            "  ELSE 3 " +
            "END ASC, p.firstName ASC, p.lastName ASC")
     List<Resident> searchActiveResidents(@Param("search") String search);
-
-    /** Returns the most recently created resident to derive the next sequential ID. */
-    @Query("SELECT r FROM Resident r ORDER BY r.residentId DESC LIMIT 1")
-    Optional<Resident> findLatestResident();
-
-    /** Returns the latest household number used, for suggesting the next one. */
-    @Query("SELECT r.householdNumber FROM Resident r WHERE r.householdNumber IS NOT NULL ORDER BY r.residentId DESC LIMIT 1")
-    Optional<String> findLatestHouseholdNumber();
-
-    /** Finds all residents whose person last name matches (case-insensitive), used for relative suggestions. */
-    @Query("SELECT r FROM Resident r JOIN r.person p WHERE LOWER(p.lastName) = LOWER(:lastName) AND r.status = 'ACTIVE'")
-    List<Resident> findActiveResidentsByLastName(@Param("lastName") String lastName);
-
-    @Query("SELECT COUNT(r) FROM Resident r WHERE (r.isDeleted = false OR r.isDeleted IS NULL) AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED) AND r.createdAt <= :cutoff")
-    long countResidentsCreatedOnOrBefore(@Param("cutoff") LocalDateTime cutoff);
-
-    @Query("SELECT COUNT(r) FROM Resident r WHERE (r.isDeleted = false OR r.isDeleted IS NULL) AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND (r.status IS NULL OR r.status != com.barangay.zshared.enumerated.ResidentStatus.ARCHIVED) AND r.createdAt BETWEEN :start AND :end")
-    long countResidentsCreatedBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
-
-    @Query("SELECT r FROM Resident r WHERE r.isDeleted = true AND (r.isPermanentDeleted = false OR r.isPermanentDeleted IS NULL) AND r.deletedAt <= :cutoff")
-    List<Resident> findExpiredSoftDeletedResidents(@Param("cutoff") LocalDateTime cutoff);
 }
