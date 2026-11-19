@@ -12,15 +12,17 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
+/**
+ * Spring Data JPA repository for managing Officer entity database queries,
+ * directory lookups, status counts, and Lupon assignments.
+ */
 @Repository
 public interface OfficerRepository extends JpaRepository<Officer, Long> {
 
+    // Common standard Spring Data JPA method signatures & convenience lookups
     long countByStatus(OfficerStatus status);
 
     List<Officer> findAllByStatus(OfficerStatus status);
-
-    @Query("SELECT COUNT(o) FROM Officer o WHERE (o.isDeleted = false OR o.isDeleted IS NULL) AND (o.isPermanentDeleted = false OR o.isPermanentDeleted IS NULL) AND (o.status IS NULL OR o.status != com.barangay.zshared.enumerated.OfficerStatus.ARCHIVED)")
-    long countTotalOfficers();
 
     long countByStatusIn(Collection<OfficerStatus> statuses);
 
@@ -28,7 +30,15 @@ public interface OfficerRepository extends JpaRepository<Officer, Long> {
 
     long countByCreatedAtBetweenAndStatusIn(LocalDateTime start, LocalDateTime end, Collection<OfficerStatus> statuses);
 
-    @Query("SELECT o FROM Officer o LEFT JOIN o.person p LEFT JOIN o.department d WHERE " +
+    // Single-line JPQL count and soft-delete queries
+    @Query("SELECT COUNT(o) FROM Officer o WHERE (o.isDeleted = false OR o.isDeleted IS NULL) AND (o.isPermanentDeleted = false OR o.isPermanentDeleted IS NULL) AND (o.status IS NULL OR o.status != com.barangay.zshared.enumerated.OfficerStatus.ARCHIVED)")
+    long countTotalOfficers();
+
+    @Query("SELECT o FROM Officer o WHERE o.isDeleted = true AND (o.isPermanentDeleted = false OR o.isPermanentDeleted IS NULL) AND o.deletedAt <= :cutoff")
+    List<Officer> findExpiredSoftDeletedOfficers(@Param("cutoff") LocalDateTime cutoff);
+
+    // Multi-line complex JPQL queries (Fetch joins, DTO projection, and Filter logic)
+    @Query("SELECT o FROM Officer o LEFT JOIN FETCH o.person p LEFT JOIN FETCH o.department d WHERE " +
            "(:search IS NULL OR :search = '' OR " +
            " LOWER(p.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            " LOWER(p.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
@@ -63,7 +73,4 @@ public interface OfficerRepository extends JpaRepository<Officer, Long> {
            ORDER BY p.lastName ASC, p.firstName ASC
            """)
     List<LuponOfficerResponse> findLuponOfficer();
-
-    @Query("SELECT o FROM Officer o WHERE o.isDeleted = true AND (o.isPermanentDeleted = false OR o.isPermanentDeleted IS NULL) AND o.deletedAt <= :cutoff")
-    List<Officer> findExpiredSoftDeletedOfficers(@Param("cutoff") LocalDateTime cutoff);
 }
