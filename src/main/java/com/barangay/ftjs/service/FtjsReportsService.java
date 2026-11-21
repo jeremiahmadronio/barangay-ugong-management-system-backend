@@ -151,6 +151,9 @@ public class FtjsReportsService {
         return new PurposeDistributionResponse(points, totalVolume);
     }
 
+    /**
+     * Computes issuance type breakdown (Original vs Re-issuance) for FTJS certificates.
+     */
     public IssuanceTypeDistributionResponse generateIssuanceTypeDistribution(FtjsReportFilterDto filter) {
         LocalDate rawEnd = filter.dateTo() != null ? filter.dateTo() : LocalDate.now();
         LocalDate rawStart = filter.dateFrom() != null ? filter.dateFrom() : rawEnd.minusMonths(6);
@@ -180,6 +183,9 @@ public class FtjsReportsService {
         return new IssuanceTypeDistributionResponse(points, totalVolume);
     }
 
+    /**
+     * Generates paginated and filtered report table rows with applicant demographic and certificate details.
+     */
     public Page<FtjsReportTableResponse> generateReportTable(
             FtjsReportFilterDto filter,
             String search,

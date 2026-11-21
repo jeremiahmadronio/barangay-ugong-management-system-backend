@@ -12,6 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Service managing archived and soft-deleted Barangay Officers.
+ * Handles retrieval of archived records, lifecycle restorations, soft deletion,
+ * permanent purging, and trash inspection.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -19,6 +24,12 @@ public class ArchiveOfficerService {
 
     private final OfficerRepository officerRepository;
 
+    /**
+     * Retrieve all officers marked with ARCHIVED status matching an optional search term.
+     *
+     * @param search keyword matching employee name or position
+     * @return list of mapped officer archive summaries
+     */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getArchivedOfficers(String search) {
         try {
@@ -56,6 +67,11 @@ public class ArchiveOfficerService {
         }
     }
 
+    /**
+     * Restore an archived or soft-deleted officer back to ACTIVE status.
+     *
+     * @param officerId primary key identifier of the officer
+     */
     @Transactional
     public void restoreOfficer(Long officerId) {
         Officer officer = officerRepository.findById(officerId).orElse(null);
@@ -66,6 +82,11 @@ public class ArchiveOfficerService {
         }
     }
 
+    /**
+     * Move an officer to the trash bin (soft delete) and set status to INACTIVE.
+     *
+     * @param officerId primary key identifier of the officer
+     */
     @Transactional
     public void softDeleteOfficer(Long officerId) {
         Officer officer = officerRepository.findById(officerId).orElse(null);
@@ -76,6 +97,11 @@ public class ArchiveOfficerService {
         }
     }
 
+    /**
+     * Mark an officer as permanently deleted.
+     *
+     * @param officerId primary key identifier of the officer
+     */
     @Transactional
     public void deleteOfficerPermanent(Long officerId) {
         Officer officer = officerRepository.findById(officerId).orElse(null);
@@ -85,6 +111,12 @@ public class ArchiveOfficerService {
         }
     }
 
+    /**
+     * Retrieve all soft-deleted officers currently stored in the recycle bin.
+     *
+     * @param search keyword matching employee name or position
+     * @return list of mapped trash officer summaries
+     */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getTrashOfficers(String search) {
         try {

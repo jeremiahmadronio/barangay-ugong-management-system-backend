@@ -1,5 +1,7 @@
 package com.barangay.ftjs.service;
 
+import com.barangay.cases.shared.repository.CaseEvidenceRepository;
+import com.barangay.cases.shared.repository.CaseRepository;
 import com.barangay.ftjs.dto.FtjsTimelineDto;
 import com.barangay.ftjs.dto.ReIssuanceHistoryDto;
 import com.barangay.ftjs.dto.ReIssuanceRequestDto;
@@ -48,6 +50,12 @@ class FtjsReIssuanceServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private CaseRepository caseRepository;
+
+    @Mock
+    private CaseEvidenceRepository caseEvidenceRepository;
 
     @InjectMocks
     private FtjsReIssuanceService ftjsReIssuanceService;

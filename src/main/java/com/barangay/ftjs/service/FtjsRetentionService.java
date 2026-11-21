@@ -25,10 +25,10 @@ public class FtjsRetentionService {
     private static final String DEFAULT_RETENTION = "30";
 
 
-    @Transactional(readOnly = true)
     /**
      * Fetches current system-wide retention period setting.
      */
+    @Transactional(readOnly = true)
     public RetentionSettingDto.Response getCurrentRetentionSetting() {
         String value = ftjsSettingRepository.findById(RETENTION_KEY)
                 .map(FtjsSystemSetting::getSettingValue)
@@ -36,10 +36,10 @@ public class FtjsRetentionService {
         return new RetentionSettingDto.Response(value);
     }
 
-    @Transactional
     /**
      * Updates system-wide retention period setting.
      */
+    @Transactional
     public void updateRetentionSetting(RetentionSettingDto.Request request) {
         FtjsSystemSetting setting = ftjsSettingRepository.findById(RETENTION_KEY)
                 .orElseGet(() -> new FtjsSystemSetting(RETENTION_KEY, request.retentionPeriod()));
@@ -47,12 +47,11 @@ public class FtjsRetentionService {
         ftjsSettingRepository.save(setting);
     }
 
-
-    @Scheduled(cron = "0 0 0 * * ?")
-    @Transactional
     /**
      * Scheduled task executing periodic cleanup of soft-deleted records past retention threshold.
      */
+    @Scheduled(cron = "0 0 0 * * ?")
+    @Transactional
     public void cleanupExpiredDeletedRecords() {
         String currentSetting = getCurrentRetentionSetting().retentionPeriod();
 

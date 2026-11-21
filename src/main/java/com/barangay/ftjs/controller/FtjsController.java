@@ -32,8 +32,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * REST Controller for FTJS Resident Search, returning unified Resident Information,
- * FTJS Issuance History, and Barangay Case History.
+ * REST Controller for First Time Job Seeker endpoints.
  */
 @Slf4j
 @RestController
@@ -43,21 +42,16 @@ import lombok.extern.slf4j.Slf4j;
 public class FtjsController {
 
     private final FtjsService ftjsService;
-    private final FtjsReIssuanceService  ftjsReIssuanceService;
+    private final FtjsReIssuanceService ftjsReIssuanceService;
     private final FtjsNoteService ftjsNoteService;
     private final FtjsArchiveAndDeleteService archiveAndDeleteService;
     private final FtjsRetentionService retentionService;
     private final FtjsReportsService ftjsReportsService;
 
-
     /**
-     * Search residents by name/query for FTJS verification.
-     * Returns list of FtjsResidentSearchResponse objects containing demographics, issuance history, and case history.
+     * Search residents by query string.
      */
     @GetMapping("/search-resident")
-    /**
-     * Searches residents by query string for FTJS issuance.
-     */
     public ResponseEntity<List<FtjsResidentSearchResponse>> searchResidents(
             @RequestParam(required = false) String query,
             @RequestParam(required = false) String search) {
@@ -66,28 +60,17 @@ public class FtjsController {
     }
 
     /**
-     * Aggregate statistics for the FTJS dashboard cards.
+     * Get FTJS dashboard statistics.
      */
     @GetMapping("/stats")
-    /**
-     * Retrieves FTJS high-level statistics and trend metrics.
-     */
     public ResponseEntity<FtjsStatsResponse> getStats() {
         return ResponseEntity.ok(ftjsService.getStats());
     }
 
     /**
-     * Paginated, filterable FTJS records for the management table.
-     *
-     * @param search       optional text filter (FTJS number or applicant name)
-     * @param status       optional FtjsStatus filter
-     * @param purpose      optional purpose/document type filter
-     * @param issuanceCount optional issuance count filter
+     * Get paginated FTJS management table.
      */
     @GetMapping("/summary")
-    /**
-     * Retrieves paginated FTJS management table records.
-     */
     public ResponseEntity<Page<FtjsSummaryResponse>> getSummaryTable(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) FtjsStatus status,
@@ -98,18 +81,15 @@ public class FtjsController {
     }
 
     /**
-     * Get FTJS resident response profile by resident ID.
+     * Get FTJS profile of a resident.
      */
     @GetMapping("/resident/{residentId}")
-    /**
-     * Fetches resident FTJS profile, previous issuances, and case history.
-     */
     public ResponseEntity<FtjsResidentSearchResponse> getResidentFtjsProfile(@PathVariable Long residentId) {
         return ResponseEntity.ok(ftjsService.getResidentFtjsProfile(residentId));
     }
 
     /**
-     * Create and save a new FTJS entry into DB with byte[] files and write Audit Logs.
+     * Create a new FTJS certificate entry.
      */
     @PostMapping("/entry")
     @LogAudit(module = AuditModule.FTJS, action = "CREATE_FTJS_ENTRY", severity = Severity.INFO)
@@ -123,24 +103,29 @@ public class FtjsController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/detail/{id}")
     /**
-     * Retrieves detailed FTJS applicant record information.
+     * Get FTJS applicant detail by ID.
      */
-    public ResponseEntity<FtjsDetailResponse> getFtjsDetail( @PathVariable Long id) {
+    @GetMapping("/detail/{id}")
+    public ResponseEntity<FtjsDetailResponse> getFtjsDetail(@PathVariable Long id) {
         if (!SecurityUtils.hasPermission("View FTJS")) {
             throw new AccessDeniedException("Access Denied: You do not have permission to view FTJS details.");
         }
         FtjsDetailResponse ftjs = ftjsService.getFtjsApplicantDetail(id);
         return ResponseEntity.ok(ftjs);
-
     }
 
-        @GetMapping("/linked-blotter/{ftjsId}")
+    /**
+     * Get linked blotter details for re-issuance.
+     */
+    @GetMapping("/linked-blotter/{ftjsId}")
     public ResponseEntity<LinkedBlotterResponseDTO> getLinkedBlotter(@PathVariable Long ftjsId) {
         return ResponseEntity.ok(ftjsReIssuanceService.getLinkedBlotter(ftjsId));
     }
 
+    /**
+     * Request FTJS certificate re-issuance.
+     */
     @PostMapping("/re-issuance-request/{ftjsId}")
     @LogAudit(module = AuditModule.FTJS, action = "CREATE_RE-ISSUANCE_REQUEST", severity = Severity.INFO)
     public ResponseEntity<ReIssuanceRequestDto> createReIssuanceRequest(@PathVariable Long ftjsId, @RequestBody ReIssuanceRequestDto request) throws BadRequestException {
@@ -151,24 +136,25 @@ public class FtjsController {
         return ResponseEntity.ok(reIssuanceReq);
     }
 
-
-    @GetMapping("/{ftjsId}/re-issuances/history")
     /**
-     * Retrieves re-issuance history for a given FTJS application.
+     * Get re-issuance history by FTJS ID.
      */
+    @GetMapping("/{ftjsId}/re-issuances/history")
     public ResponseEntity<List<ReIssuanceHistoryDto>> getReIssuanceHistory(@PathVariable Long ftjsId) {
         return ResponseEntity.ok(ftjsReIssuanceService.getReIssuanceHistory(ftjsId));
     }
 
-    @GetMapping("/{ftjsId}/timeline/")
     /**
-     * Retrieves event timeline for a given FTJS application.
+     * Get FTJS timeline events by FTJS ID.
      */
+    @GetMapping("/{ftjsId}/timeline/")
     public ResponseEntity<List<FtjsTimelineDto>> getTimeline(@PathVariable Long ftjsId) {
         return ResponseEntity.ok(ftjsReIssuanceService.getFtjsTimeline(ftjsId));
     }
 
-
+    /**
+     * Add a note to an FTJS record.
+     */
     @PostMapping("/notes-entry/{ftjsId}")
     @LogAudit(module = AuditModule.FTJS, action = "ADD_FTJS_NOTE", severity = Severity.INFO,
             captureOldValue = true, oldValueArgIndex = 1, captureNewValue = true)
@@ -180,11 +166,10 @@ public class FtjsController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-
-    @GetMapping("/notes-history/{ftjsId}")
     /**
-     * Retrieves administrative notes history for an FTJS record.
+     * Get all notes for an FTJS record.
      */
+    @GetMapping("/notes-history/{ftjsId}")
     public ResponseEntity<List<FtjsNoteResponse>> getNotes(@PathVariable Long ftjsId) {
         if (!SecurityUtils.hasPermission("Manage FTJS Notes")) {
             throw new AccessDeniedException("Access Denied: You do not have permission to view or manage FTJS notes.");
@@ -193,12 +178,12 @@ public class FtjsController {
         return ResponseEntity.ok(notes);
     }
 
+    /**
+     * Archive an FTJS record.
+     */
     @PostMapping("/archive/{id}")
     @LogAudit(module = AuditModule.FTJS, action = "ARCHIVE_FTJS_RECORD", severity = Severity.INFO,
             captureOldValue = true, oldValueArgIndex = 0, captureNewValue = false)
-    /**
-     * Archives an FTJS record.
-     */
     public ResponseEntity<Void> archiveFtjs(@PathVariable Long id){
         if (!SecurityUtils.hasPermission("Archive FTJS")) {
             throw new AccessDeniedException("Access Denied: You do not have permission to archive FTJS records.");
@@ -207,12 +192,12 @@ public class FtjsController {
         return ResponseEntity.ok().build();
     }
 
+    /**
+     * Restore an archived FTJS record.
+     */
     @PostMapping("/restore/{id}")
     @LogAudit(module = AuditModule.FTJS, action = "RESTORE_FTJS_RECORD", severity = Severity.INFO,
             captureOldValue = true, oldValueArgIndex = 0, captureNewValue = false)
-    /**
-     * Restores an archived or soft-deleted FTJS record.
-     */
     public ResponseEntity<Void> restoreFtjs(@PathVariable Long id){
         if (!SecurityUtils.hasPermission("Restore FTJS")) {
             throw new AccessDeniedException("Access Denied: You do not have permission to restore FTJS records.");
@@ -221,20 +206,19 @@ public class FtjsController {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/archive/stats")
     /**
-     * Retrieves stats for archived and soft-deleted FTJS records.
+     * Get archive and trash statistics.
      */
+    @GetMapping("/archive/stats")
     public ResponseEntity<FtjsArchiveStatsResponse> getArchiveAndDeleteStats(){
         FtjsArchiveStatsResponse stats = archiveAndDeleteService.getArchiveStats();
         return ResponseEntity.ok(stats);
     }
 
-
-    @GetMapping("/archives/summary")
     /**
-     * Retrieves paginated table of archived FTJS records.
+     * Get table of archived FTJS records.
      */
+    @GetMapping("/archives/summary")
     public ResponseEntity<Page<FtjsSummaryResponse>> getArchivedSummaryTable(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) FtjsStatus status,
@@ -247,10 +231,10 @@ public class FtjsController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/trash/summary")
     /**
-     * Retrieves paginated table of soft-deleted FTJS records.
+     * Get table of deleted FTJS records.
      */
+    @GetMapping("/trash/summary")
     public ResponseEntity<PageResponse<FtjsSummaryResponse>> getDeletedSummaryTable(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) FtjsStatus status,
@@ -262,30 +246,30 @@ public class FtjsController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/display-retention")
     /**
-     * Retrieves current system data retention setting.
+     * Get data retention setting.
      */
+    @GetMapping("/display-retention")
     public ResponseEntity<RetentionSettingDto.Response> getRetentionSetting() {
         return ResponseEntity.ok(retentionService.getCurrentRetentionSetting());
     }
 
+    /**
+     * Update data retention setting.
+     */
     @PutMapping("/update-retention")
     @LogAudit(module = AuditModule.FTJS, action = "UPDATE_FTJS_RETENTION_SETTING", severity = Severity.WARNING,
             captureOldValue = true, oldValueArgIndex = 0)
-    /**
-     * Updates system data retention setting.
-     */
     public ResponseEntity<Void> updateRetentionSetting(@Valid @RequestBody RetentionSettingDto.Request request) {
         retentionService.updateRetentionSetting(request);
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Soft delete an FTJS record.
+     */
     @DeleteMapping("/{id}")
     @LogAudit(module = AuditModule.FTJS, action = "SOFT_DELETE_FTJS_RECORD", severity = Severity.LOW)
-    /**
-     * Soft-deletes an FTJS record.
-     */
     public ResponseEntity<Void> softDelete(@PathVariable Long id) {
         if (!SecurityUtils.hasPermission("Delete FTJS")) {
             throw new AccessDeniedException("Access Denied: You do not have permission to delete FTJS records.");
@@ -294,12 +278,11 @@ public class FtjsController {
         return ResponseEntity.noContent().build();
     }
 
-
+    /**
+     * Permanently delete an FTJS record.
+     */
     @DeleteMapping("/trash/{id}/permanent")
     @LogAudit(module = AuditModule.FTJS, action = "PERMANENT_DELETE_FTJS_RECORD", severity = Severity.WARNING)
-    /**
-     * Permanently deletes an FTJS record and child data.
-     */
     public ResponseEntity<Void> permanentlyDelete(@PathVariable Long id) {
         if (!SecurityUtils.hasPermission("Permanent Delete FTJS")) {
             throw new AccessDeniedException("Access Denied: You do not have permission to permanently delete FTJS records.");
@@ -308,12 +291,11 @@ public class FtjsController {
         return ResponseEntity.noContent().build();
     }
 
-
+    /**
+     * Permanently delete multiple FTJS records.
+     */
     @DeleteMapping("/trash/permanent/batch")
     @LogAudit(module = AuditModule.FTJS, action = "BATCH_PERMANENT_DELETE_FTJS_RECORDS", severity = Severity.CRITICAL)
-    /**
-     * Batch permanently deletes multiple FTJS records.
-     */
     public ResponseEntity<Void> permanentlyDeleteBatch(@RequestBody List<Long> ids) {
         if (!SecurityUtils.hasPermission("Permanent Delete FTJS")) {
             throw new AccessDeniedException("Access Denied: You do not have permission to permanently delete FTJS records.");
@@ -322,47 +304,46 @@ public class FtjsController {
         return ResponseEntity.noContent().build();
     }
 
-
-    @GetMapping("/trend")
     /**
-     * Generates trend report for FTJS analytics dashboard.
+     * Get monthly trend report.
      */
+    @GetMapping("/trend")
     public ResponseEntity<TrendReportResponse> getTrendReport(FtjsReportFilterDto filter) {
         TrendReportResponse response = ftjsReportsService.generateAdaptiveTrendReport(filter);
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/education-distribution")
     /**
-     * Generates education level distribution analytics.
+     * Get educational background distribution report.
      */
+    @GetMapping("/education-distribution")
     public ResponseEntity<EducationDistributionResponse> getEducationDistribution(FtjsReportFilterDto filter) {
         EducationDistributionResponse response = ftjsReportsService.generateEducationDistribution(filter);
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/purpose-distribution")
     /**
-     * Generates application purpose distribution analytics.
+     * Get purpose distribution report.
      */
+    @GetMapping("/purpose-distribution")
     public ResponseEntity<PurposeDistributionResponse> getPurposeDistribution(FtjsReportFilterDto filter) {
         PurposeDistributionResponse response = ftjsReportsService.generatePurposeDistribution(filter);
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/issuance-distribution")
     /**
-     * Generates issuance type distribution analytics.
+     * Get issuance type distribution report.
      */
+    @GetMapping("/issuance-distribution")
     public ResponseEntity<IssuanceTypeDistributionResponse> getIssuanceTypeDistribution(FtjsReportFilterDto filter) {
         IssuanceTypeDistributionResponse response = ftjsReportsService.generateIssuanceTypeDistribution(filter);
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/reports/table")
     /**
-     * Generates paginated report table for analytics export.
+     * Get paginated FTJS report table.
      */
+    @GetMapping("/reports/table")
     public ResponseEntity<Page<FtjsReportTableResponse>> getReportTable(
             FtjsReportFilterDto filter,
             @RequestParam(required = false) String search,
@@ -371,20 +352,19 @@ public class FtjsController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/reports/kpi")
     /**
-     * Calculates report KPIs for FTJS analytics dashboard.
+     * Get FTJS report KPI summary cards.
      */
+    @GetMapping("/reports/kpi")
     public ResponseEntity<FtjsReportKpiResponse> getReportKpi(FtjsReportFilterDto filter) {
         FtjsReportKpiResponse response = ftjsReportsService.generateReportKpi(filter);
         return ResponseEntity.ok(response);
     }
 
-
-    @GetMapping("/dashboard-stats")
     /**
-     * Retrieves dashboard summary statistics.
+     * Get dashboard summary statistics.
      */
+    @GetMapping("/dashboard-stats")
     public ResponseEntity<FtjsDashboardSummaryDto> getSummaryStats() {
         return ResponseEntity.ok(ftjsService.getDashboardSummary());
     }

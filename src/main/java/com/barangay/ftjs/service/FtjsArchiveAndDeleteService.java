@@ -27,24 +27,21 @@ import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.List;
 
-@Service
-@RequiredArgsConstructor
 /**
  * Service class executing soft delete, archive, restore, and permanent deletion operations for FTJS records.
  */
+@Service
+@RequiredArgsConstructor
 public class FtjsArchiveAndDeleteService {
 
     private final FirstTimeJobSeekerRepository ftjsRepository;
     private final FtjsSystemSettingRepository ftjsSettingRepository;
     private final FirstTimeJobSeekerTimeLineRepository ftjsTimeLineRepository;
 
-
-
-
-    @Transactional
     /**
      * Archives an active FTJS record.
      */
+    @Transactional
     public void archiveFtjs(Long id){
 
         int affectedRows = ftjsRepository.archiveRecordNative(id);
@@ -67,12 +64,10 @@ public class FtjsArchiveAndDeleteService {
 
     }
 
-
-
-    @Transactional
     /**
      * Restores an archived or soft-deleted FTJS record back to active state.
      */
+    @Transactional
     public void restoreFtjs(Long id){
 
         int affectedRows = ftjsRepository.restoreRecordNative(id);
@@ -95,11 +90,10 @@ public class FtjsArchiveAndDeleteService {
 
     }
 
-
-    @Transactional(readOnly = true)
     /**
      * Computes metrics and statistics for archived and soft-deleted FTJS records.
      */
+    @Transactional(readOnly = true)
     public FtjsArchiveStatsResponse getArchiveStats() {
         YearMonth currentYearMonth = YearMonth.now();
         LocalDateTime startOfCurrentMonth = currentYearMonth.atDay(1).atStartOfDay();
@@ -143,12 +137,18 @@ public class FtjsArchiveAndDeleteService {
 
 
 
+    /**
+     * Gets paginated list of archived FTJS records matching optional filters.
+     */
     @Transactional(readOnly = true)
     public Page<FtjsSummaryResponse> getArchivedSummaryTable(
             String search, FtjsStatus status, String purpose, Integer issuanceCount, Pageable pageable) {
         return ftjsRepository.findArchiveSummaryFiltered(search, status, purpose, issuanceCount, pageable);
     }
 
+    /**
+     * Gets paginated list of soft-deleted FTJS records from trash with mapped applicant details.
+     */
     @Transactional(readOnly = true)
     public PageResponse<FtjsSummaryResponse> getDeletedSummaryTable(
             String search, FtjsStatus status, String purpose, Integer issuanceCount, Pageable pageable) {
@@ -176,10 +176,10 @@ public class FtjsArchiveAndDeleteService {
 
 
 
-    @Transactional
     /**
      * Permanently deletes an FTJS record and all associated child entities.
      */
+    @Transactional
     public void permanentlyDelete(Long id) {
         ftjsRepository.deleteChildAffidavits(id);
         ftjsRepository.deleteChildTimelines(id);
@@ -192,6 +192,9 @@ public class FtjsArchiveAndDeleteService {
     }
 
 
+    /**
+     * Permanently deletes multiple FTJS records and their child entities in batch.
+     */
     @Transactional
     public void permanentlyDeleteBatch(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
@@ -204,10 +207,10 @@ public class FtjsArchiveAndDeleteService {
     }
 
 
-    @Transactional
     /**
      * Performs a soft delete on an FTJS record.
      */
+    @Transactional
     public void softDelete(Long id) {
         FirstTimeJobSeeker ftjs = ftjsRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Active FTJS record with ID " + id + " not found."));

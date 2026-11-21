@@ -46,6 +46,9 @@ public class FtjsReIssuanceService {
     private final CaseRepository caseRepository;
     private final CaseEvidenceRepository caseEvidenceRepository;
 
+    /**
+     * Resolves and maps linked blotter details and affidavits for certificate re-issuance.
+     */
     @Transactional(readOnly = true)
     public LinkedBlotterResponseDTO getLinkedBlotter(Long ftjsId) {
         List<Case> blotters = caseRepository.findAllByFtjsApplicationIdAndRelatedBarangayServiceOrderByCreatedAtDesc(
@@ -128,10 +131,10 @@ public class FtjsReIssuanceService {
         );
     }
 
-    @Transactional
     /**
      * Creates a re-issuance request for an FTJS certificate subject to 1-year validity rules.
      */
+    @Transactional
     public ReIssuanceRequestDto createReIssuanceRequest(Long ftjsId, ReIssuanceRequestDto request) throws BadRequestException {
 
         FirstTimeJobSeeker ftjs = firstTimeJobSeekerRepository.findById(ftjsId).orElseThrow(()
@@ -258,10 +261,10 @@ public class FtjsReIssuanceService {
         );
     }
 
-    @Transactional(readOnly = true)
     /**
      * Retrieves complete re-issuance history records for a given FTJS application.
      */
+    @Transactional(readOnly = true)
     public List<ReIssuanceHistoryDto> getReIssuanceHistory(Long ftjsId) {
         if (!firstTimeJobSeekerRepository.existsById(ftjsId)) {
             throw new ResourceNotFoundException("FTJS record not found with id: " + ftjsId);
@@ -324,10 +327,10 @@ public class FtjsReIssuanceService {
         return sb.isEmpty() ? (user.getUsername() != null ? user.getUsername() : "System") : sb.toString();
     }
 
-    @Transactional(readOnly = true)
     /**
      * Retrieves historical timeline audit events for a given FTJS application.
      */
+    @Transactional(readOnly = true)
     public List<FtjsTimelineDto> getFtjsTimeline(Long ftjsId) {
         if (!firstTimeJobSeekerRepository.existsById(ftjsId)) {
             throw new ResourceNotFoundException("FTJS record not found with id: " + ftjsId);

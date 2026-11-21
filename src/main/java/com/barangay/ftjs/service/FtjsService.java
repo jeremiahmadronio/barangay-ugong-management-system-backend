@@ -456,6 +456,9 @@ public class FtjsService {
         );
     }
 
+    /**
+     * Calculates real-time dashboard summary metrics including daily, weekly, youth, and female counts.
+     */
     @Transactional(readOnly = true)
     public FtjsDashboardSummaryDto getDashboardSummary() {
         FtjsDashboardStatsProjection stats = ftjsRepository.getDashboardSummaryMetrics();
