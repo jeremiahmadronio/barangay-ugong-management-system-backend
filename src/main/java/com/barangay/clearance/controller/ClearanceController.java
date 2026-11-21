@@ -4,6 +4,7 @@ import com.barangay.clearance.dto.ClearanceResidentSearchResponse;
 import com.barangay.clearance.dto.ClearanceStatsResponse;
 import com.barangay.clearance.dto.IssueClearanceRequest;
 import com.barangay.clearance.dto.IssueClearanceResponse;
+import com.barangay.clearance.dto.IssuedCertificateDetailResponse;
 import com.barangay.clearance.dto.IssuedCertificateTableResponse;
 import com.barangay.clearance.service.ClearanceService;
 import com.barangay.clearance.service.ClearanceTemplateService;
@@ -90,7 +91,7 @@ public class ClearanceController {
      * @return 200 OK with {@link com.barangay.clearance.dto.IssuedCertificateDetailResponse}
      */
     @GetMapping({"/issued-certificates/{id}", "/{id}"})
-    public ResponseEntity<com.barangay.clearance.dto.IssuedCertificateDetailResponse> getIssuedCertificateDetail(@PathVariable Long id) {
+    public ResponseEntity<IssuedCertificateDetailResponse> getIssuedCertificateDetail(@PathVariable Long id) {
         if (!SecurityUtils.hasPermission("View Clearance")) {
             throw new AccessDeniedException("Access Denied: You do not have permission to view clearance details.");
         }

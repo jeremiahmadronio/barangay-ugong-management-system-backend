@@ -25,7 +25,7 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.NoSuchElementException;
 
 /**
- * Service managing Clearance Archive Vault, Trash lifecycle, and KPI statistics.
+ * Service managing clearance archive vault, trash lifecycle, and KPI statistics.
  */
 @Service
 @RequiredArgsConstructor
@@ -34,9 +34,7 @@ public class ClearanceArchive {
     private final IssuedCertificateRepository issuedCertificateRepository;
 
     /**
-     * Calculates the 4 lifecycle KPI metrics for Clearance Archive and Trash Vault.
-     *
-     * @return {@link ClearanceLifecycleKpiResponse}
+     * Calculates monthly lifecycle KPI metrics for clearance archive and trash vaults.
      */
     @Transactional(readOnly = true)
     public ClearanceLifecycleKpiResponse getClearanceLifecycleKpi() {
@@ -68,11 +66,6 @@ public class ClearanceArchive {
 
     /**
      * Retrieves paginated archived clearance records.
-     *
-     * @param search Search query
-     * @param page   0-based page number
-     * @param size   Page size
-     * @return {@link PageResponse} of {@link ClearanceArchiveItemResponse}
      */
     @Transactional(readOnly = true)
     public PageResponse<ClearanceArchiveItemResponse> getArchivedCertificates(String search, int page, int size) {
@@ -87,11 +80,6 @@ public class ClearanceArchive {
 
     /**
      * Retrieves paginated recently deleted clearance records in the trash vault.
-     *
-     * @param search Search query
-     * @param page   0-based page number
-     * @param size   Page size
-     * @return {@link PageResponse} of {@link ClearanceRecentDeleteItemResponse}
      */
     @Transactional(readOnly = true)
     public PageResponse<ClearanceRecentDeleteItemResponse> getRecentDeletedCertificates(String search, int page, int size) {
@@ -105,10 +93,7 @@ public class ClearanceArchive {
     }
 
     /**
-     * Moves an issued certificate to the archive.
-     *
-     * @param id      Issued certificate ID
-     * @param request {@link ArchiveClearanceRequest} with optional remarks
+     * Moves an issued certificate to the archive vault.
      */
     @Transactional
     public void archiveCertificate(Long id, ArchiveClearanceRequest request) {
@@ -137,8 +122,6 @@ public class ClearanceArchive {
 
     /**
      * Restores an archived certificate back to active records.
-     *
-     * @param id Issued certificate ID
      */
     @Transactional
     public void restoreArchivedCertificate(Long id) {
@@ -161,9 +144,7 @@ public class ClearanceArchive {
     }
 
     /**
-     * Moves a certificate to the recycle bin (soft delete).
-     *
-     * @param id Issued certificate ID
+     * Soft deletes an issued certificate and moves it to trash.
      */
     @Transactional
     public void softDelete(Long id) {
@@ -182,9 +163,7 @@ public class ClearanceArchive {
     }
 
     /**
-     * Restores a soft-deleted certificate from the recycle bin back to active records.
-     *
-     * @param id Issued certificate ID
+     * Restores a soft-deleted certificate from trash back to active records.
      */
     @Transactional
     public void restoreDeletedCertificate(Long id) {
@@ -209,9 +188,7 @@ public class ClearanceArchive {
     }
 
     /**
-     * Permanently flags a certificate in the trash as purged.
-     *
-     * @param id Issued certificate ID
+     * Permanently purges a soft-deleted certificate from the trash vault.
      */
     @Transactional
     public void permanentDeleteCertificate(Long id) {

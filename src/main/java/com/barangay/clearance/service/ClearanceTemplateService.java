@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Service handling clearance and certificate template operations.
+ * Service handling clearance templates, applicant resident verification, and issuance.
  */
 @Slf4j
 @Service
@@ -46,10 +46,7 @@ public class ClearanceTemplateService {
     private final CaseRepository caseRepository;
 
     /**
-     * Retrieves lightweight document options (id and certTitle) for active templates.
-     * Used for populating the Document Type selection grid and dropdown menus.
-     *
-     * @return List of {@link TemplateOptionResponse}
+     * Gets document options for active certificate templates.
      */
     @Transactional(readOnly = true)
     public List<TemplateOptionResponse> getTemplateOptions() {
@@ -60,10 +57,7 @@ public class ClearanceTemplateService {
     }
 
     /**
-     * Retrieves full template details (body sections, issue fields, pricing, requirements) for issuance form.
-     *
-     * @param id Template ID
-     * @return Detailed {@link TemplateDetailResponse}
+     * Gets complete template details by ID for the issuance form.
      */
     @Transactional(readOnly = true)
     public TemplateDetailResponse getTemplateById(Long id) {
@@ -85,11 +79,7 @@ public class ClearanceTemplateService {
     }
 
     /**
-     * Searches active barangay residents for clearance issuance and builds their demographic info,
-     * previous clearance issuance history, and multi-department case history (BCPC, VAWC, Lupon, Blotter).
-     *
-     * @param query Name or Barangay ID search string
-     * @return List of {@link ClearanceResidentSearchResponse}
+     * Searches active residents and resolves demographic profile, issuance history, and multi-department case records.
      */
     @Transactional(readOnly = true)
     public List<ClearanceResidentSearchResponse> searchResidents(String query) {
@@ -105,10 +95,7 @@ public class ClearanceTemplateService {
     }
 
     /**
-     * Retrieves a single resident's clearance profile by Resident ID.
-     *
-     * @param residentId Resident ID
-     * @return {@link ClearanceResidentSearchResponse}
+     * Gets a single resident's clearance profile by Resident ID.
      */
     @Transactional(readOnly = true)
     public ClearanceResidentSearchResponse getResidentClearanceProfile(Long residentId) {
@@ -265,10 +252,7 @@ public class ClearanceTemplateService {
     }
 
     /**
-     * Issues a new clearance or certificate and stores the record in database.
-     *
-     * @param request {@link IssueClearanceRequest}
-     * @return {@link IssueClearanceResponse}
+     * Issues a new clearance certificate and generates the unique tracking number.
      */
     @Transactional
     public IssueClearanceResponse issueClearance(IssueClearanceRequest request) {

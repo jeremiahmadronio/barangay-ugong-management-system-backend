@@ -16,8 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -27,10 +29,7 @@ public class BlotterArchiveAndDeleteService {
 
 
     /**
-     * Calculates the 4 lifecycle KPIs exclusively for Blotter cases: Total Archived,
-     * Archived this month, Total in Trash, and Deleted this month.
-     *
-     * @return {@link BlotterLifecycleKpiResponse}
+     * Calculates the 4 lifecycle KPIs exclusively for Blotter cases: Total Archived,.
      */
     @Transactional(readOnly = true)
     public BlotterLifecycleKpiResponse getBlotterLifecycleKpi() {
@@ -62,9 +61,6 @@ public class BlotterArchiveAndDeleteService {
 
     /**
      * Retrieves paginated archived blotter cases for the Archive Table.
-     *
-     * @param filter {@link BlotterArchiveFilterRequest} search and filingType criteria
-     * @return {@link PageResponse} of {@link BlotterArchiveItemResponse}
      */
     @Transactional(readOnly = true)
     public PageResponse<BlotterArchiveItemResponse> getArchivedBlotterCases(BlotterArchiveFilterRequest filter) {
@@ -78,10 +74,6 @@ public class BlotterArchiveAndDeleteService {
 
     /**
      * Retrieves paginated soft-deleted blotter cases for the Recent Delete / Trash Table.
-     * Excludes permanently deleted records.
-     *
-     * @param filter {@link BlotterArchiveFilterRequest} search and filingType criteria
-     * @return {@link PageResponse} of {@link BlotterRecentDeleteItemResponse}
      */
     @Transactional(readOnly = true)
     public PageResponse<BlotterRecentDeleteItemResponse> getRecentDeletedBlotterCases(BlotterArchiveFilterRequest filter) {
@@ -104,7 +96,7 @@ public class BlotterArchiveAndDeleteService {
     private Case findRootCase(Case targetCase) {
         Case root = targetCase;
         while (root.getPreviousCaseNumber() != null && !root.getPreviousCaseNumber().trim().isEmpty()) {
-            java.util.Optional<Case> prevOpt = caseRepository.findByCaseNumber(root.getPreviousCaseNumber().trim());
+            Optional<Case> prevOpt = caseRepository.findByCaseNumber(root.getPreviousCaseNumber().trim());
             if (prevOpt.isPresent()) {
                 root = prevOpt.get();
             } else {
@@ -115,11 +107,11 @@ public class BlotterArchiveAndDeleteService {
     }
 
     private List<Case> getCaseLineage(Case rootCase) {
-        List<Case> lineage = new java.util.ArrayList<>();
+        List<Case> lineage = new ArrayList<>();
         Case curr = rootCase;
         lineage.add(curr);
         while (curr.getReOpenedCaseNumber() != null && !curr.getReOpenedCaseNumber().trim().isEmpty()) {
-            java.util.Optional<Case> nextOpt = caseRepository.findByCaseNumber(curr.getReOpenedCaseNumber().trim());
+            Optional<Case> nextOpt = caseRepository.findByCaseNumber(curr.getReOpenedCaseNumber().trim());
             if (nextOpt.isPresent()) {
                 curr = nextOpt.get();
                 lineage.add(curr);
@@ -132,15 +124,11 @@ public class BlotterArchiveAndDeleteService {
 
     /**
      * Moves a closed or completed case chain to the archive.
-     * Uses the status of the endmost child case as the primary status check.
-     *
-     * @param caseId  the database identifier of any case in the chain
-     * @param request payload containing archive remarks
      */
     @Transactional
     public void archiveCase(Long caseId, ArchiveCaseRequest request) {
         Case targetCase = caseRepository.findById(caseId)
-                .orElseThrow(() -> new java.util.NoSuchElementException("Case not found with ID: " + caseId));
+                .orElseThrow(() -> new NoSuchElementException("Case not found with ID: " + caseId));
 
         Case rootCase = findRootCase(targetCase);
         List<Case> lineage = getCaseLineage(rootCase);
@@ -178,13 +166,11 @@ public class BlotterArchiveAndDeleteService {
 
     /**
      * Restores an archived case chain (root case and all child cases) back to active records.
-     *
-     * @param caseId the database identifier of any case in the chain
      */
     @Transactional
     public void restoreArchivedCase(Long caseId) {
         Case targetCase = caseRepository.findById(caseId)
-                .orElseThrow(() -> new java.util.NoSuchElementException("Case not found with ID: " + caseId));
+                .orElseThrow(() -> new NoSuchElementException("Case not found with ID: " + caseId));
 
         Case rootCase = findRootCase(targetCase);
         List<Case> lineage = getCaseLineage(rootCase);
@@ -203,8 +189,6 @@ public class BlotterArchiveAndDeleteService {
 
     /**
      * Moves a case chain to the recycle bin (soft delete).
-     *
-     * @param caseId the database identifier of any case in the chain
      */
     @Transactional
     public void softDelete(Long caseId) {
@@ -241,8 +225,6 @@ public class BlotterArchiveAndDeleteService {
 
     /**
      * Flags the case chain as permanently deleted (audit-safe purge).
-     *
-     * @param caseId the database identifier of any case in the chain
      */
     @Transactional
     public void permanentDeleteCaseByFlag(Long caseId) {

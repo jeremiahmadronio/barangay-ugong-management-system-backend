@@ -1,8 +1,6 @@
 package com.barangay.clearance.controller;
 
-import com.barangay.clearance.dto.ClearanceDailyTrendResponse;
-import com.barangay.clearance.dto.ClearanceMonthlyTrendResponse;
-import com.barangay.clearance.dto.ClearanceReportKpiResponse;
+import com.barangay.clearance.dto.*;
 import com.barangay.clearance.service.ClearanceReportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -26,7 +24,7 @@ public class ClearanceReportController {
      * Get real-time Operational Dashboard KPIs (Today, Month, Active, Top Cert).
      */
     @GetMapping("/dashboard/kpi")
-    public ResponseEntity<com.barangay.clearance.dto.ClearanceDashboardKpiResponse> getDashboardKpis() {
+    public ResponseEntity<ClearanceDashboardKpiResponse> getDashboardKpis() {
         return ResponseEntity.ok(clearanceReportService.getDashboardKpis());
     }
 
@@ -79,7 +77,7 @@ public class ClearanceReportController {
      * Get Certificate Template type breakdown and distribution.
      */
     @GetMapping("/breakdown/types")
-    public ResponseEntity<com.barangay.clearance.dto.ClearanceTypeBreakdownResponse> getTypeBreakdown(
+    public ResponseEntity<ClearanceTypeBreakdownResponse> getTypeBreakdown(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
     ) {
@@ -93,7 +91,7 @@ public class ClearanceReportController {
      * Get Application Purpose distribution breakdown.
      */
     @GetMapping("/breakdown/purposes")
-    public ResponseEntity<com.barangay.clearance.dto.ClearancePurposeBreakdownResponse> getPurposeBreakdown(
+    public ResponseEntity<ClearancePurposeBreakdownResponse> getPurposeBreakdown(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
     ) {

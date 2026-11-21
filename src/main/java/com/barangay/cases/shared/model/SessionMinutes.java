@@ -11,7 +11,9 @@ import lombok.Setter;
 
 
 @Entity
-@Table(name = "session_minutes")
+@Table(name = "session_minutes", indexes = {
+        @Index(name = "idx_session_minutes_session_id", columnList = "session_id")
+})
 @Getter @Setter @AllArgsConstructor @NoArgsConstructor
 public class SessionMinutes extends BaseEntity {
     @Id

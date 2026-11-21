@@ -1,17 +1,25 @@
 package com.barangay.clearance.service;
 
 import com.barangay.clearance.dto.ClearanceStatsResponse;
+import com.barangay.clearance.dto.IssuedCertificateDetailResponse;
+import com.barangay.clearance.dto.IssuedCertificateDetailResponse.ClearanceApplicantSummary;
+import com.barangay.clearance.dto.IssuedCertificateDetailResponse.ClearanceOfficerSummary;
 import com.barangay.clearance.dto.IssuedCertificateHistoryItem;
 import com.barangay.clearance.dto.IssuedCertificateTableResponse;
 import com.barangay.clearance.model.IssuedCertificate;
 import com.barangay.clearance.repository.CertificateTemplateRepository;
 import com.barangay.clearance.repository.IssuedCertificateRepository;
+import com.barangay.people.person.model.Person;
+import com.barangay.people.resident.model.Resident;
+import com.barangay.usermanagement.user.model.User;
+import com.barangay.zshared.exception.ResourceNotFoundException;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -29,9 +37,6 @@ public class ClearanceService {
 
     /**
      * Computes dashboard KPI statistics for clearance and certificate issuance.
-     * Excludes archived, soft-deleted, and permanently deleted certificates.
-     *
-     * @return {@link ClearanceStatsResponse}
      */
     @Transactional(readOnly = true)
     public ClearanceStatsResponse getClearanceStats() {
@@ -82,15 +87,6 @@ public class ClearanceService {
 
     /**
      * Retrieves filtered active issued certificates for the management table.
-     * For registered barangay residents (with person_id), multiple issuances are grouped
-     * so only the most recent certificate is displayed in the main row, with all past
-     * certificates included in its history timeline.
-     * For non-residents/walk-ins, each transaction is displayed individually.
-     *
-     * @param search Search term matching certificate number, requestor name prefix, or person name prefix
-     * @param typeOfCert Filter by certificate template title
-     * @param purpose Filter by purpose
-     * @return List of {@link IssuedCertificateTableResponse}
      */
     @Transactional(readOnly = true)
     public List<IssuedCertificateTableResponse> getIssuedCertificates(
@@ -286,22 +282,19 @@ public class ClearanceService {
     }
 
     /**
-     * Retrieves full, exhaustive details of an issued certificate by ID.
-     *
-     * @param id Issued Certificate primary key ID
-     * @return {@link com.barangay.clearance.dto.IssuedCertificateDetailResponse}
+     * Retrieves full details of an issued certificate by ID.
      */
     @Transactional(readOnly = true)
-    public com.barangay.clearance.dto.IssuedCertificateDetailResponse getIssuedCertificateDetail(Long id) {
+    public IssuedCertificateDetailResponse getIssuedCertificateDetail(Long id) {
         IssuedCertificate ic = issuedCertificateRepository.findDetailById(id)
-                .orElseThrow(() -> new com.barangay.zshared.exception.ResourceNotFoundException(
+                .orElseThrow(() -> new ResourceNotFoundException(
                         "Issued Certificate with ID " + id + " not found."
                 ));
 
         // 1. Build Issuing Officer Summary
-        com.barangay.clearance.dto.IssuedCertificateDetailResponse.ClearanceOfficerSummary officerSummary = null;
+        ClearanceOfficerSummary officerSummary = null;
         if (ic.getIssuedBy() != null) {
-            com.barangay.usermanagement.user.model.User u = ic.getIssuedBy();
+            User u = ic.getIssuedBy();
             String officerName = null;
             if (u.getPerson() != null) {
                 officerName = formatPersonDirect(u.getPerson());
@@ -315,7 +308,7 @@ public class ClearanceService {
                     ? u.getPerson().getResident().getBarangayIdNumber()
                     : null;
 
-            officerSummary = new com.barangay.clearance.dto.IssuedCertificateDetailResponse.ClearanceOfficerSummary(
+            officerSummary = new ClearanceOfficerSummary(
                     u.getId(),
                     officerName,
                     u.getUsername(),
@@ -325,10 +318,10 @@ public class ClearanceService {
         }
 
         // 2. Build Applicant Demographics Summary
-        com.barangay.clearance.dto.IssuedCertificateDetailResponse.ClearanceApplicantSummary applicantSummary;
+        ClearanceApplicantSummary applicantSummary;
         if (ic.getPerson() != null) {
-            com.barangay.people.person.model.Person p = ic.getPerson();
-            com.barangay.people.resident.model.Resident r = p.getResident();
+            Person p = ic.getPerson();
+            Resident r = p.getResident();
 
             String fullName = formatPersonDirect(p);
             Integer age = p.getAge() != null ? p.getAge().intValue() : null;
@@ -336,7 +329,7 @@ public class ClearanceService {
             Long residentId = r != null ? r.getResidentId() : null;
             String citizenship = r != null ? r.getCitizenship() : "Filipino";
 
-            applicantSummary = new com.barangay.clearance.dto.IssuedCertificateDetailResponse.ClearanceApplicantSummary(
+            applicantSummary = new ClearanceApplicantSummary(
                     p.getId(),
                     residentId,
                     p.getFirstName(),
@@ -366,7 +359,7 @@ public class ClearanceService {
             String civilStatus = (fields != null && fields.hasNonNull("civilStatus")) ? fields.get("civilStatus").asText() : null;
             String occupation = (fields != null && fields.hasNonNull("occupation")) ? fields.get("occupation").asText() : null;
 
-            applicantSummary = new com.barangay.clearance.dto.IssuedCertificateDetailResponse.ClearanceApplicantSummary(
+            applicantSummary = new ClearanceApplicantSummary(
                     null,
                     null,
                     null,
@@ -407,7 +400,7 @@ public class ClearanceService {
         String templateTitle = ic.getTemplate() != null ? ic.getTemplate().getCertTitle() : "Barangay Clearance";
         Long templateId = ic.getTemplate() != null ? ic.getTemplate().getId() : null;
 
-        return new com.barangay.clearance.dto.IssuedCertificateDetailResponse(
+        return new IssuedCertificateDetailResponse(
                 ic.getId(),
                 ic.getCertNumber(),
                 templateId,
@@ -416,7 +409,7 @@ public class ClearanceService {
                 extractPurpose(ic),
                 ic.getOrNumber(),
                 ic.getCtnNumber(),
-                ic.getAmountPaid() != null ? ic.getAmountPaid() : java.math.BigDecimal.ZERO,
+                ic.getAmountPaid() != null ? ic.getAmountPaid() : BigDecimal.ZERO,
                 ic.isFree(),
                 ic.getSignatoryName(),
                 ic.getSignatoryPosition(),
@@ -435,7 +428,7 @@ public class ClearanceService {
         );
     }
 
-    private String formatPersonDirect(com.barangay.people.person.model.Person person) {
+    private String formatPersonDirect(Person person) {
         if (person == null) return null;
         StringBuilder sb = new StringBuilder();
         if (person.getFirstName() != null && !person.getFirstName().isBlank()) {

@@ -19,7 +19,13 @@ import java.util.List;
         uniqueConstraints = @UniqueConstraint(
                 name = "uk_case_session_summon",
                 columnNames = {"case_id", "summon_number"}
-        )
+        ),
+        indexes = {
+                @Index(name = "idx_case_session_case_id", columnList = "case_id"),
+                @Index(name = "idx_case_session_hearing_type", columnList = "hearing_type"),
+                @Index(name = "idx_case_session_status", columnList = "status"),
+                @Index(name = "idx_case_session_scheduled_start", columnList = "scheduled_start")
+        }
 )
 @Getter
 @Setter

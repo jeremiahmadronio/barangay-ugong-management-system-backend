@@ -20,7 +20,6 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Service for retrieving binary files (narratives, evidence, witness statements) for Blotter cases.
- * Seamlessly resolves files from root case records when viewing reopened case cycles.
  */
 @Service
 @RequiredArgsConstructor
@@ -32,10 +31,6 @@ public class CaseFileService {
 
     /**
      * Retrieves the narrative statement attachment for a given case.
-     * If the case is a reopened cycle without attached files, traverses back to the root case.
-     *
-     * @param caseId the case ID
-     * @return {@link ResponseEntity} containing file byte array
      */
     @Transactional(readOnly = true)
     public ResponseEntity<byte[]> getNarrativeFile(Long caseId) {
@@ -72,10 +67,6 @@ public class CaseFileService {
 
     /**
      * Retrieves the evidence file for a given evidence entry.
-     * If the evidence entry has no direct binary data (e.g. from reopened cycle), traverses back to the root case.
-     *
-     * @param evidenceId the evidence ID
-     * @return {@link ResponseEntity} containing file byte array
      */
     @Transactional(readOnly = true)
     public ResponseEntity<byte[]> getEvidenceFile(Long evidenceId) {
@@ -142,10 +133,6 @@ public class CaseFileService {
 
     /**
      * Retrieves the witness statement file for a given witness entry.
-     * If the witness entry has no direct binary data (e.g. from reopened cycle), traverses back to the root case.
-     *
-     * @param witnessId the witness ID
-     * @return {@link ResponseEntity} containing file byte array
      */
     @Transactional(readOnly = true)
     public ResponseEntity<byte[]> getWitnessFile(Long witnessId) {

@@ -4,6 +4,7 @@ import com.barangay.clearance.dto.*;
 import com.barangay.clearance.model.IssuedCertificate;
 import com.barangay.clearance.projection.*;
 import com.barangay.clearance.repository.IssuedCertificateRepository;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,9 +14,12 @@ import java.math.RoundingMode;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
-import java.util.stream.Collectors;
 
+/**
+ * Service managing analytics and statistical reports for clearance issuance.
+ */
 @Service
 @RequiredArgsConstructor
 public class ClearanceReportService {
@@ -24,12 +28,7 @@ public class ClearanceReportService {
     private static final DateTimeFormatter DAY_LABEL_FORMATTER = DateTimeFormatter.ofPattern("MMM d");
 
     /**
-     * Calculates date-filtered KPI statistics for Clearance reports.
-     *
-     * @param startDate  Start date filter (inclusive)
-     * @param endDate    End date filter (inclusive)
-     * @param templateId Optional Certificate Template ID filter
-     * @return {@link ClearanceReportKpiResponse}
+     * Calculates date-filtered KPI statistics for clearance reports.
      */
     @Transactional(readOnly = true)
     public ClearanceReportKpiResponse getReportKpis(
@@ -93,11 +92,6 @@ public class ClearanceReportService {
 
     /**
      * Generates daily issuance trend report with zero-fill handling.
-     *
-     * @param startDate  Start date
-     * @param endDate    End date
-     * @param templateId Optional Template filter
-     * @return List of {@link ClearanceDailyTrendResponse}
      */
     @Transactional(readOnly = true)
     public List<ClearanceDailyTrendResponse> getDailyTrendReport(
@@ -148,11 +142,6 @@ public class ClearanceReportService {
 
     /**
      * Generates monthly issuance trend report with zero-fill handling.
-     *
-     * @param startDate  Start date
-     * @param endDate    End date
-     * @param templateId Optional Template filter
-     * @return List of {@link ClearanceMonthlyTrendResponse}
      */
     @Transactional(readOnly = true)
     public List<ClearanceMonthlyTrendResponse> getMonthlyTrendReport(
@@ -206,11 +195,7 @@ public class ClearanceReportService {
     }
 
     /**
-     * Generates Certificate Template Type breakdown and distribution report.
-     *
-     * @param startDate Start date
-     * @param endDate   End date
-     * @return {@link ClearanceTypeBreakdownResponse}
+     * Generates certificate template type breakdown and distribution report.
      */
     @Transactional(readOnly = true)
     public ClearanceTypeBreakdownResponse getTypeBreakdownReport(
@@ -264,11 +249,7 @@ public class ClearanceReportService {
     }
 
     /**
-     * Generates Application Purpose distribution breakdown report.
-     *
-     * @param startDate Start date
-     * @param endDate   End date
-     * @return {@link ClearancePurposeBreakdownResponse}
+     * Generates application purpose distribution breakdown report.
      */
     @Transactional(readOnly = true)
     public ClearancePurposeBreakdownResponse getPurposeBreakdownReport(
@@ -284,13 +265,13 @@ public class ClearanceReportService {
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
 
-        List<com.barangay.clearance.model.IssuedCertificate> certs = issuedCertificateRepository.findCertificatesInDateRange(
+        List<IssuedCertificate> certs = issuedCertificateRepository.findCertificatesInDateRange(
                 startDateTime,
                 endDateTime
         );
 
         Map<String, Long> purposeCountMap = new LinkedHashMap<>();
-        for (com.barangay.clearance.model.IssuedCertificate ic : certs) {
+        for (IssuedCertificate ic : certs) {
             String purpose = extractPurpose(ic);
             purposeCountMap.put(purpose, purposeCountMap.getOrDefault(purpose, 0L) + 1L);
         }
@@ -330,11 +311,7 @@ public class ClearanceReportService {
     }
 
     /**
-     * Calculates real-time 4 core KPIs for Clearance Operational Dashboard:
-     * 1. Total Issued Today
-     * 2. Total Issued This Week (Monday to Sunday)
-     * 3. Total Active Clearances
-     * 4. Most Issued Certificate (This Week)
+     * Calculates real-time core KPIs for the clearance operational dashboard.
      */
     @Transactional(readOnly = true)
     public ClearanceDashboardKpiResponse getDashboardKpis() {
@@ -342,8 +319,8 @@ public class ClearanceReportService {
         LocalDateTime todayStart = today.atStartOfDay();
         LocalDateTime todayEnd = today.atTime(LocalTime.MAX);
 
-        LocalDate weekStart = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        LocalDate weekEnd = today.with(java.time.temporal.TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+        LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekEnd = today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
         LocalDateTime weekStartDateTime = weekStart.atStartOfDay();
         LocalDateTime weekEndDateTime = weekEnd.atTime(LocalTime.MAX);
 
@@ -400,9 +377,9 @@ public class ClearanceReportService {
         );
     }
 
-    private String extractPurpose(com.barangay.clearance.model.IssuedCertificate ic) {
+    private String extractPurpose(IssuedCertificate ic) {
         String purpose = null;
-        com.fasterxml.jackson.databind.JsonNode fields = ic.getFieldValues();
+        JsonNode fields = ic.getFieldValues();
         if (fields != null && fields.hasNonNull("purpose")) {
             purpose = fields.get("purpose").asText();
         }

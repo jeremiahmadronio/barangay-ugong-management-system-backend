@@ -9,6 +9,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -18,7 +19,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "session_follow_up")
+@Table(name = "session_follow_up", indexes = {
+        @Index(name = "idx_session_follow_up_session_id", columnList = "session_id")
+})
 @Getter
 @Setter
 @NoArgsConstructor @AllArgsConstructor

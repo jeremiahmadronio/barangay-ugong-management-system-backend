@@ -1,5 +1,19 @@
 package com.barangay.cases.blotter.service;
 
+import com.barangay.cases.blotter.dto.ExtendCaseRequest;
+import com.barangay.cases.blotter.dto.UpdateCaseStatusRequest;
+import com.barangay.cases.shared.model.CertificateToFileAction;
+import com.barangay.cases.shared.repository.CertificateToFileActionRepository;
+import com.barangay.ftjs.model.FirstTimeJobSeeker;
+import com.barangay.ftjs.repository.FirstTimeJobSeekerRepository;
+import com.barangay.zshared.dto.RespondentCreateDto;
+import com.barangay.zshared.enumerated.DocumentReissuanceStatus;
+import com.barangay.zshared.enumerated.RelatedBarangayService;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -71,8 +85,8 @@ public class BlotterCaseService {
     private final WitnessRepository witnessRepository;
     private final CaseTimelineService caseTimelineService;
     private final CaseSessionRepository caseSessionRepository;
-    private final com.barangay.cases.shared.repository.CertificateToFileActionRepository certificateToFileActionRepository;
-    private final com.barangay.ftjs.repository.FirstTimeJobSeekerRepository firstTimeJobSeekerRepository;
+    private final CertificateToFileActionRepository certificateToFileActionRepository;
+    private final FirstTimeJobSeekerRepository firstTimeJobSeekerRepository;
 
     private final ComplainantMapper complainantMapper;
     private final RespondentMapper respondentMapper;
@@ -83,9 +97,6 @@ public class BlotterCaseService {
 
     /**
      * Retrieves paginated and filtered Blotter cases without using findAll().
-     *
-     * @param filter the filtering criteria and pagination params
-     * @return {@link PageResponse} of {@link BlotterCaseDetailResponse}
      */
     @Transactional(readOnly = true)
     public PageResponse<BlotterTableRowResponse> getBlotterCases(BlotterFilterRequest filter) {
@@ -101,14 +112,13 @@ public class BlotterCaseService {
 
     /**
      * Maps a root {@link Case} entity to {@link BlotterTableRowResponse} for the Blotter Records Table.
-     * Traverses the reOpenedCaseNumber chain to find the latest active child case, effective status, and cycle count.
      */
     private BlotterTableRowResponse toTableRowResponse(Case rootCase) {
         if (rootCase == null) return null;
 
         Case trueRoot = rootCase;
         while (trueRoot.getPreviousCaseNumber() != null && !trueRoot.getPreviousCaseNumber().trim().isEmpty()) {
-            java.util.Optional<Case> prevOpt = caseRepository.findByCaseNumber(trueRoot.getPreviousCaseNumber().trim());
+            Optional<Case> prevOpt = caseRepository.findByCaseNumber(trueRoot.getPreviousCaseNumber().trim());
             if (prevOpt.isPresent()) {
                 trueRoot = prevOpt.get();
             } else {
@@ -120,7 +130,7 @@ public class BlotterCaseService {
         Case curr = trueRoot;
         lineage.add(curr);
         while (curr.getReOpenedCaseNumber() != null && !curr.getReOpenedCaseNumber().trim().isEmpty()) {
-            java.util.Optional<Case> nextOpt = caseRepository.findByCaseNumber(curr.getReOpenedCaseNumber().trim());
+            Optional<Case> nextOpt = caseRepository.findByCaseNumber(curr.getReOpenedCaseNumber().trim());
             if (nextOpt.isPresent()) {
                 curr = nextOpt.get();
                 lineage.add(curr);
@@ -173,11 +183,7 @@ public class BlotterCaseService {
     }
 
     /**
-     * Retrieves single blotter case details by ID including full complainant, respondent,
-     * incident details, narrative statement, evidence, witnesses, and officer assignments.
-     *
-     * @param id the case ID
-     * @return {@link BlotterCaseDetailResponse} containing all case sub-entities
+     * Retrieves single blotter case details by ID including full complainant, respondent,.
      */
     @Transactional(readOnly = true)
     public BlotterCaseDetailResponse getBlotterCaseById(Long id) {
@@ -189,8 +195,6 @@ public class BlotterCaseService {
 
     /**
      * Calculates Blotter KPI Statistics with month-to-date vs full previous calendar month trend percentages.
-     *
-     * @return {@link BlotterStatsResponse}
      */
     @Transactional(readOnly = true)
     public BlotterStatsResponse getBlotterStats() {
@@ -234,9 +238,6 @@ public class BlotterCaseService {
 
     /**
      * Creates a new Blotter Case (Formal Complaint or For the Record).
-     *
-     * @param request the case creation payload containing complainant, respondent, incident details, narrative, and witnesses
-     * @return the created case details mapped to {@link BlotterCaseDetailResponse}
      */
     @Transactional
     public BlotterCaseDetailResponse createBlotterCase(BlotterCaseCreateRequest request) {
@@ -309,11 +310,11 @@ public class BlotterCaseService {
         }
         if (rawRelService != null && !rawRelService.isBlank()) {
             try {
-                com.barangay.zshared.enumerated.RelatedBarangayService relService =
-                        com.barangay.zshared.enumerated.RelatedBarangayService.valueOf(rawRelService.trim().toUpperCase());
+                RelatedBarangayService relService =
+                        RelatedBarangayService.valueOf(rawRelService.trim().toUpperCase());
                 aCase.setRelatedBarangayService(relService);
-                if (relService == com.barangay.zshared.enumerated.RelatedBarangayService.FTJS_REISSUANCE) {
-                    aCase.setDocumentReissuanceStatus(com.barangay.zshared.enumerated.DocumentReissuanceStatus.APPROVED_FOR_REISSUANCE);
+                if (relService == RelatedBarangayService.FTJS_REISSUANCE) {
+                    aCase.setDocumentReissuanceStatus(DocumentReissuanceStatus.APPROVED_FOR_REISSUANCE);
                     aCase.setDocumentReissuanceReviewedAt(LocalDateTime.now());
                     if (currentUser != null) {
                         aCase.setDocumentReissuanceReviewedBy(currentUser);
@@ -405,8 +406,6 @@ public class BlotterCaseService {
 
     /**
      * Updates an existing Blotter Case with modified fields.
-     * Selectively updates respondent relationship/living status, incident specifics,
-     * narrative statement text/file, evidences, and witnesses.
      */
     @Transactional
     public BlotterCaseDetailResponse updateBlotterCase(Long caseId, BlotterCaseUpdateRequest request) {
@@ -455,8 +454,8 @@ public class BlotterCaseService {
         // 4. Update Evidences (Selective update without losing existing evidence files)
         if (request.evidences() != null) {
             List<CaseEvidence> existingEvidences = caseEvidenceRepository.findByCasesId(aCase.getId());
-            java.util.Map<String, CaseEvidence> existingEvMapByName = new java.util.HashMap<>();
-            java.util.Map<Long, CaseEvidence> existingEvMapById = new java.util.HashMap<>();
+            Map<String, CaseEvidence> existingEvMapByName = new HashMap<>();
+            Map<Long, CaseEvidence> existingEvMapById = new HashMap<>();
             for (CaseEvidence ce : existingEvidences) {
                 if (ce.getId() != null) {
                     existingEvMapById.put(ce.getId(), ce);
@@ -513,8 +512,8 @@ public class BlotterCaseService {
                     ? new ArrayList<>(aCase.getWitnesses())
                     : witnessRepository.findByCaseId(aCase.getId());
 
-            java.util.Map<Long, Witness> existingWitnessById = new java.util.HashMap<>();
-            java.util.Map<Integer, Witness> existingWitnessByIndex = new java.util.HashMap<>();
+            Map<Long, Witness> existingWitnessById = new HashMap<>();
+            Map<Integer, Witness> existingWitnessByIndex = new HashMap<>();
             int idx = 0;
             for (Witness w : currentWitnessList) {
                 if (w.getId() != null) {
@@ -598,9 +597,6 @@ public class BlotterCaseService {
 
     /**
      * Retrieves all timeline events for a case.
-     *
-     * @param caseId the blotter case ID
-     * @return list of {@link TimelineEventResponse}
      */
     @Transactional(readOnly = true)
     public List<TimelineEventResponse> getCaseTimeline(Long caseId) {
@@ -609,7 +605,6 @@ public class BlotterCaseService {
 
     /**
      * Formats month-to-date count vs full previous month count trend.
-     * Formula: trend = ((thisMonth - lastMonth) / lastMonth) * 100
      */
     private String calculateMonthlyTrend(long currentCount, long prevCount) {
         if (prevCount == 0) {
@@ -622,7 +617,6 @@ public class BlotterCaseService {
 
     /**
      * Generates a guaranteed unique case number checked against the database.
-     * Format: BC-YYYYMMDD-XXXX (e.g. BC-20260805-0001)
      */
     private String generateUniqueCaseNumber() {
         String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
@@ -635,8 +629,7 @@ public class BlotterCaseService {
     }
 
     /**
-     * Traverses the case lineage (both backwards via previousCaseNumber and forwards via reOpenedCaseNumber)
-     * to return all cases belonging to the same case family.
+     * Traverses the case lineage (both backwards via previousCaseNumber and forwards via reOpenedCaseNumber).
      */
     private List<CaseHistoryItemResponse> buildCaseHistory(Case currentCase) {
         if (currentCase == null) return List.of();
@@ -644,7 +637,7 @@ public class BlotterCaseService {
         // 1. Find root case
         Case rootCase = currentCase;
         while (rootCase.getPreviousCaseNumber() != null && !rootCase.getPreviousCaseNumber().trim().isEmpty()) {
-            java.util.Optional<Case> prevOpt = caseRepository.findByCaseNumber(rootCase.getPreviousCaseNumber().trim());
+            Optional<Case> prevOpt = caseRepository.findByCaseNumber(rootCase.getPreviousCaseNumber().trim());
             if (prevOpt.isPresent()) {
                 rootCase = prevOpt.get();
             } else {
@@ -657,7 +650,7 @@ public class BlotterCaseService {
         Case curr = rootCase;
         lineage.add(curr);
         while (curr.getReOpenedCaseNumber() != null && !curr.getReOpenedCaseNumber().trim().isEmpty()) {
-            java.util.Optional<Case> nextOpt = caseRepository.findByCaseNumber(curr.getReOpenedCaseNumber().trim());
+            Optional<Case> nextOpt = caseRepository.findByCaseNumber(curr.getReOpenedCaseNumber().trim());
             if (nextOpt.isPresent()) {
                 curr = nextOpt.get();
                 lineage.add(curr);
@@ -697,7 +690,7 @@ public class BlotterCaseService {
         // Find root case for deadline calculations and missing intake details fallback
         Case rootCase = aCase;
         while (rootCase.getPreviousCaseNumber() != null && !rootCase.getPreviousCaseNumber().trim().isEmpty()) {
-            java.util.Optional<Case> prevOpt = caseRepository.findByCaseNumber(rootCase.getPreviousCaseNumber().trim());
+            Optional<Case> prevOpt = caseRepository.findByCaseNumber(rootCase.getPreviousCaseNumber().trim());
             if (prevOpt.isPresent()) {
                 rootCase = prevOpt.get();
             } else {
@@ -833,7 +826,7 @@ public class BlotterCaseService {
     }
 
     @Transactional
-    public BlotterCaseDetailResponse updateCaseStatus(Long id, com.barangay.cases.blotter.dto.UpdateCaseStatusRequest request) {
+    public BlotterCaseDetailResponse updateCaseStatus(Long id, UpdateCaseStatusRequest request) {
         Case aCase = caseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Blotter case not found with id: " + id));
 
@@ -873,9 +866,9 @@ public class BlotterCaseService {
         if (newStatus == CaseStatus.CERTIFIED_TO_FILE_ACTION) {
             aCase.setIsAttested(true);
             try {
-                com.barangay.cases.shared.model.CertificateToFileAction cfa = certificateToFileActionRepository
+                CertificateToFileAction cfa = certificateToFileActionRepository
                         .findByCases_Id(aCase.getId())
-                        .orElse(new com.barangay.cases.shared.model.CertificateToFileAction());
+                        .orElse(new CertificateToFileAction());
                 cfa.setCases(aCase);
                 cfa.setGrounds(request.getRemarks() != null && !request.getRemarks().trim().isEmpty()
                         ? request.getRemarks().trim()
@@ -975,10 +968,6 @@ public class BlotterCaseService {
 
     /**
      * Reopens a closed, settled, or dismissed blotter case by creating a new case cycle.
-     *
-     * @param oldCaseId the ID of the closed or dismissed case
-     * @param request   the reopen request payload containing remarks
-     * @return {@link BlotterCaseDetailResponse} of the newly created reopened case
      */
     @Transactional
     public BlotterCaseDetailResponse reopenCase(Long oldCaseId, ReopenCaseRequest request) {
@@ -1030,7 +1019,7 @@ public class BlotterCaseService {
         Case sourceCase = oldCase;
         while ((sourceCase.getComplainant() == null || sourceCase.getIncidentDetail() == null) &&
                 sourceCase.getPreviousCaseNumber() != null && !sourceCase.getPreviousCaseNumber().trim().isEmpty()) {
-            java.util.Optional<Case> prev = caseRepository.findByCaseNumber(sourceCase.getPreviousCaseNumber().trim());
+            Optional<Case> prev = caseRepository.findByCaseNumber(sourceCase.getPreviousCaseNumber().trim());
             if (prev.isPresent()) {
                 sourceCase = prev.get();
             } else {
@@ -1149,13 +1138,9 @@ public class BlotterCaseService {
 
     /**
      * Extends the case mediation period by 15 days (one-time allowable extension).
-     *
-     * @param id      the case ID
-     * @param request the extension request containing reason
-     * @return updated {@link BlotterCaseDetailResponse}
      */
     @Transactional
-    public BlotterCaseDetailResponse extendCase(Long id, com.barangay.cases.blotter.dto.ExtendCaseRequest request) {
+    public BlotterCaseDetailResponse extendCase(Long id, ExtendCaseRequest request) {
         Case aCase = caseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Case not found with id: " + id));
 
@@ -1173,7 +1158,7 @@ public class BlotterCaseService {
         }
 
         LocalDateTime now = LocalDateTime.now();
-        User currentUser = com.barangay.zshared.security.SecurityUtils.getCurrentUser();
+        User currentUser = SecurityUtils.getCurrentUser();
 
         aCase.setIsExtended(true);
         aCase.setExtensionCount(1);
@@ -1201,9 +1186,8 @@ public class BlotterCaseService {
 
     /**
      * Checks if respondent information contains real, identifying details.
-     * Prevents saving dummy "N/A" or blank person rows when a For the Record entry has no opposing party.
      */
-    private boolean hasValidRespondent(com.barangay.zshared.dto.RespondentCreateDto dto) {
+    private boolean hasValidRespondent(RespondentCreateDto dto) {
         if (dto == null) return false;
         String first = dto.firstName() != null ? dto.firstName().trim() : "";
         String last = dto.lastName() != null ? dto.lastName().trim() : "";
@@ -1221,7 +1205,7 @@ public class BlotterCaseService {
     @Transactional(readOnly = true)
     public List<FtjsSearchDTO> searchFtjsApplications(String query) {
         Pageable pageable = PageRequest.of(0, 20);
-        List<com.barangay.ftjs.model.FirstTimeJobSeeker> results =
+        List<FirstTimeJobSeeker> results =
                 firstTimeJobSeekerRepository.searchEligibleForReissuance(query != null ? query.trim() : "", pageable);
 
         return results.stream().map(ftjs -> {
@@ -1230,8 +1214,8 @@ public class BlotterCaseService {
 
             List<Case> activeCases = caseRepository.findActiveDocumentReissuanceRequests(
                     ftjs.getId(),
-                    com.barangay.zshared.enumerated.RelatedBarangayService.FTJS_REISSUANCE,
-                    List.of(com.barangay.zshared.enumerated.DocumentReissuanceStatus.PENDING_VERIFICATION, com.barangay.zshared.enumerated.DocumentReissuanceStatus.APPROVED_FOR_REISSUANCE)
+                    RelatedBarangayService.FTJS_REISSUANCE,
+                    List.of(DocumentReissuanceStatus.PENDING_VERIFICATION, DocumentReissuanceStatus.APPROVED_FOR_REISSUANCE)
             );
             boolean hasActive = !activeCases.isEmpty();
             String activeBlotterNumber = hasActive ? activeCases.get(0).getCaseNumber() : null;
@@ -1272,22 +1256,22 @@ public class BlotterCaseService {
         Case aCase = caseRepository.findById(caseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Blotter case not found: " + caseId));
 
-        if (aCase.getRelatedBarangayService() != com.barangay.zshared.enumerated.RelatedBarangayService.FTJS_REISSUANCE) {
+        if (aCase.getRelatedBarangayService() != RelatedBarangayService.FTJS_REISSUANCE) {
             throw new IllegalArgumentException("This Blotter case is not eligible for FTJS reissuance verification.");
         }
 
-        if (aCase.getDocumentReissuanceStatus() != com.barangay.zshared.enumerated.DocumentReissuanceStatus.PENDING_VERIFICATION) {
+        if (aCase.getDocumentReissuanceStatus() != DocumentReissuanceStatus.PENDING_VERIFICATION) {
             throw new IllegalStateException("Cannot change verification status from current state: " + aCase.getDocumentReissuanceStatus());
         }
 
         User currentUser = SecurityUtils.getCurrentUser();
-        String action = dto.action() != null ? dto.action().trim().toUpperCase(java.util.Locale.ROOT) : "";
+        String action = dto.action() != null ? dto.action().trim().toUpperCase(Locale.ROOT) : "";
 
         if ("REJECT".equals(action)) {
             if (dto.remarks() == null || dto.remarks().trim().isEmpty()) {
                 throw new IllegalArgumentException("Remarks are required when rejecting document reissuance.");
             }
-            aCase.setDocumentReissuanceStatus(com.barangay.zshared.enumerated.DocumentReissuanceStatus.REJECTED);
+            aCase.setDocumentReissuanceStatus(DocumentReissuanceStatus.REJECTED);
             aCase.setDocumentReissuanceRemarks(dto.remarks().trim());
             aCase.setDocumentReissuanceReviewedBy(currentUser);
             aCase.setDocumentReissuanceReviewedAt(LocalDateTime.now());
@@ -1305,7 +1289,7 @@ public class BlotterCaseService {
                 log.warn("Failed to log timeline event: {}", e.getMessage());
             }
         } else if ("APPROVE".equals(action)) {
-            aCase.setDocumentReissuanceStatus(com.barangay.zshared.enumerated.DocumentReissuanceStatus.APPROVED_FOR_REISSUANCE);
+            aCase.setDocumentReissuanceStatus(DocumentReissuanceStatus.APPROVED_FOR_REISSUANCE);
             aCase.setDocumentReissuanceRemarks(dto.remarks() != null && !dto.remarks().trim().isEmpty() ? dto.remarks().trim() : "Approved for document reissuance.");
             aCase.setDocumentReissuanceReviewedBy(currentUser);
             aCase.setDocumentReissuanceReviewedAt(LocalDateTime.now());

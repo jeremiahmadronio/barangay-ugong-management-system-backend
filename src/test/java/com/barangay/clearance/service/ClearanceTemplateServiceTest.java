@@ -2,14 +2,13 @@ package com.barangay.clearance.service;
 
 import com.barangay.cases.shared.model.Case;
 import com.barangay.cases.shared.model.IncidentDetail;
-import com.barangay.people.complainant.model.Complainant;
-import com.barangay.people.respondent.model.Respondent;
 import com.barangay.cases.shared.repository.CaseRepository;
 import com.barangay.clearance.dto.*;
 import com.barangay.clearance.model.CertificateTemplate;
 import com.barangay.clearance.model.IssuedCertificate;
 import com.barangay.clearance.repository.CertificateTemplateRepository;
 import com.barangay.clearance.repository.IssuedCertificateRepository;
+import com.barangay.people.complainant.model.Complainant;
 import com.barangay.people.person.model.Person;
 import com.barangay.people.person.repository.PersonRepository;
 import com.barangay.people.resident.model.Resident;
@@ -34,8 +33,14 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.times;
 
+/**
+ * Unit tests for {@link ClearanceTemplateService}.
+ */
 @ExtendWith(MockitoExtension.class)
 class ClearanceTemplateServiceTest {
 
@@ -60,12 +65,16 @@ class ClearanceTemplateServiceTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Nested
-    @DisplayName("getTemplateOptions Tests")
+    @DisplayName("getTemplateOptions Method Tests")
     class GetTemplateOptionsTests {
 
+        /**
+         * Verifies retrieval of active certificate template options.
+         */
         @Test
-        @DisplayName("should return active template options list")
-        void shouldReturnActiveTemplateOptions() {
+        @DisplayName("shouldReturnActiveTemplateOptions_whenActiveTemplatesExist")
+        void shouldReturnActiveTemplateOptions_whenActiveTemplatesExist() {
+            // Given
             CertificateTemplate t1 = new CertificateTemplate();
             t1.setId(1L);
             t1.setCertTitle("BARANGAY CLEARANCE");
@@ -74,11 +83,13 @@ class ClearanceTemplateServiceTest {
             t2.setId(2L);
             t2.setCertTitle("BUILDING CLEARANCE");
 
-            when(certificateTemplateRepository.findAllByIsArchivedFalseAndIsDeletedFalse())
-                    .thenReturn(List.of(t1, t2));
+            given(certificateTemplateRepository.findAllByIsArchivedFalseAndIsDeletedFalse())
+                    .willReturn(List.of(t1, t2));
 
+            // When
             List<TemplateOptionResponse> results = clearanceTemplateService.getTemplateOptions();
 
+            // Then
             assertThat(results).hasSize(2);
             assertThat(results.get(0).certTitle()).isEqualTo("BARANGAY CLEARANCE");
             assertThat(results.get(1).certTitle()).isEqualTo("BUILDING CLEARANCE");
@@ -86,12 +97,16 @@ class ClearanceTemplateServiceTest {
     }
 
     @Nested
-    @DisplayName("getTemplateById Tests")
+    @DisplayName("getTemplateById Method Tests")
     class GetTemplateByIdTests {
 
+        /**
+         * Verifies retrieval of template details when template exists.
+         */
         @Test
-        @DisplayName("should return template details when found")
-        void shouldReturnTemplateDetails_whenFound() {
+        @DisplayName("shouldReturnTemplateDetails_whenTemplateFound")
+        void shouldReturnTemplateDetails_whenTemplateFound() {
+            // Given
             CertificateTemplate t = new CertificateTemplate();
             t.setId(1L);
             t.setCertTitle("BARANGAY CLEARANCE");
@@ -100,10 +115,12 @@ class ClearanceTemplateServiceTest {
             t.setRequiresThumbmark(true);
             t.setIsDeleted(false);
 
-            when(certificateTemplateRepository.findById(1L)).thenReturn(Optional.of(t));
+            given(certificateTemplateRepository.findById(1L)).willReturn(Optional.of(t));
 
+            // When
             TemplateDetailResponse response = clearanceTemplateService.getTemplateById(1L);
 
+            // Then
             assertThat(response).isNotNull();
             assertThat(response.id()).isEqualTo(1L);
             assertThat(response.certTitle()).isEqualTo("BARANGAY CLEARANCE");
@@ -111,11 +128,16 @@ class ClearanceTemplateServiceTest {
             assertThat(response.requiresPhoto()).isTrue();
         }
 
+        /**
+         * Verifies 404 response when template is not found.
+         */
         @Test
-        @DisplayName("should throw 404 when template not found or deleted")
-        void shouldThrow404_whenNotFound() {
-            when(certificateTemplateRepository.findById(99L)).thenReturn(Optional.empty());
+        @DisplayName("shouldThrowResponseStatusException_whenTemplateNotFound")
+        void shouldThrowResponseStatusException_whenTemplateNotFound() {
+            // Given
+            given(certificateTemplateRepository.findById(99L)).willReturn(Optional.empty());
 
+            // When / Then
             assertThatThrownBy(() -> clearanceTemplateService.getTemplateById(99L))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Certificate template not found");
@@ -123,20 +145,28 @@ class ClearanceTemplateServiceTest {
     }
 
     @Nested
-    @DisplayName("searchResidents Tests")
+    @DisplayName("searchResidents Method Tests")
     class SearchResidentsTests {
 
+        /**
+         * Verifies empty result when search query is blank or shorter than minimum requirement.
+         */
         @Test
-        @DisplayName("should return empty list when query is blank or short")
-        void shouldReturnEmpty_whenQueryIsShort() {
+        @DisplayName("shouldReturnEmptyList_whenQueryIsShortOrBlank")
+        void shouldReturnEmptyList_whenQueryIsShortOrBlank() {
+            // When / Then
             assertThat(clearanceTemplateService.searchResidents(null)).isEmpty();
             assertThat(clearanceTemplateService.searchResidents(" ")).isEmpty();
             assertThat(clearanceTemplateService.searchResidents("a")).isEmpty();
         }
 
+        /**
+         * Verifies resident clearance profile retrieval including past clearance issuance and case histories.
+         */
         @Test
-        @DisplayName("should return resident clearance profile with case & issuance history")
-        void shouldReturnResidentClearanceProfile() {
+        @DisplayName("shouldReturnResidentClearanceProfile_withCaseAndIssuanceHistory")
+        void shouldReturnResidentClearanceProfile_withCaseAndIssuanceHistory() {
+            // Given
             Person person = new Person();
             person.setId(10L);
             person.setFirstName("Juan");
@@ -149,7 +179,7 @@ class ClearanceTemplateServiceTest {
             resident.setPerson(person);
             resident.setDateOfResidency(LocalDate.of(2015, 1, 1));
 
-            when(residentRepository.searchActiveResidents("Juan")).thenReturn(List.of(resident));
+            given(residentRepository.searchActiveResidents("Juan")).willReturn(List.of(resident));
 
             IssuedCertificate cert = new IssuedCertificate();
             cert.setCertNumber("BC-2026-00001");
@@ -159,7 +189,7 @@ class ClearanceTemplateServiceTest {
             cert.setStatus(ClearanceStatus.ACTIVE);
             cert.setCreatedAt(LocalDateTime.now());
 
-            when(issuedCertificateRepository.findActiveCertificatesByPersonOrName(eq(10L), eq("Juan Dela Cruz"))).thenReturn(List.of(cert));
+            given(issuedCertificateRepository.findActiveCertificatesByPersonOrName(eq(10L), eq("Juan Dela Cruz"))).willReturn(List.of(cert));
 
             Case c = new Case();
             c.setId(101L);
@@ -175,10 +205,12 @@ class ClearanceTemplateServiceTest {
             detail.setNatureOfComplaint("Neighborhood Dispute");
             c.setIncidentDetail(detail);
 
-            when(caseRepository.findByPersonInCaseRoles(eq(10L), eq("Juan"), eq("Dela Cruz"))).thenReturn(List.of(c));
+            given(caseRepository.findByPersonInCaseRoles(eq(10L), eq("Juan"), eq("Dela Cruz"))).willReturn(List.of(c));
 
+            // When
             List<ClearanceResidentSearchResponse> results = clearanceTemplateService.searchResidents("Juan");
 
+            // Then
             assertThat(results).hasSize(1);
             ClearanceResidentSearchResponse profile = results.get(0);
             assertThat(profile.fullName()).isEqualTo("Juan Dela Cruz");
@@ -191,46 +223,55 @@ class ClearanceTemplateServiceTest {
     }
 
     @Nested
-    @DisplayName("issueClearance Tests")
+    @DisplayName("issueClearance Method Tests")
     class IssueClearanceTests {
 
+        /**
+         * Verifies error thrown when template ID is null.
+         */
         @Test
-        @DisplayName("should throw error if templateId is null")
-        void shouldThrowError_whenTemplateIdIsNull() {
+        @DisplayName("shouldThrowResponseStatusException_whenTemplateIdIsNull")
+        void shouldThrowResponseStatusException_whenTemplateIdIsNull() {
+            // Given
             IssueClearanceRequest req = new IssueClearanceRequest(
                     null, 1L, "Juan Dela Cruz", null, "1234567", "12345678", "Job application"
             );
 
+            // When / Then
             assertThatThrownBy(() -> clearanceTemplateService.issueClearance(req))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Template ID is required");
         }
 
+        /**
+         * Verifies successful issuance of a clearance certificate and generation of sequential number.
+         */
         @Test
-        @DisplayName("should successfully issue clearance and generate sequential certificate number")
-        void shouldSuccessfullyIssueClearance() {
+        @DisplayName("shouldSuccessfullyIssueClearance_andGenerateSequentialNumber")
+        void shouldSuccessfullyIssueClearance_andGenerateSequentialNumber() {
+            // Given
             CertificateTemplate tpl = new CertificateTemplate();
             tpl.setId(1L);
             tpl.setCertTitle("BUILDING CLEARANCE");
             tpl.setValidityMonths(6);
             tpl.setIsDeleted(false);
 
-            when(certificateTemplateRepository.findById(1L)).thenReturn(Optional.of(tpl));
+            given(certificateTemplateRepository.findById(1L)).willReturn(Optional.of(tpl));
 
             Person person = new Person();
             person.setId(5L);
             person.setFirstName("Maria");
             person.setLastName("Santos");
 
-            when(personRepository.findById(5L)).thenReturn(Optional.of(person));
-            when(issuedCertificateRepository.count()).thenReturn(0L);
-            when(issuedCertificateRepository.existsByCertNumber(any())).thenReturn(false);
+            given(personRepository.findById(5L)).willReturn(Optional.of(person));
+            given(issuedCertificateRepository.count()).willReturn(0L);
+            given(issuedCertificateRepository.existsByCertNumber(any())).willReturn(false);
 
             IssuedCertificate savedCert = new IssuedCertificate();
             savedCert.setId(100L);
             savedCert.setCertNumber("BC-2026-00001");
 
-            when(issuedCertificateRepository.save(any(IssuedCertificate.class))).thenReturn(savedCert);
+            given(issuedCertificateRepository.save(any(IssuedCertificate.class))).willReturn(savedCert);
 
             IssueClearanceRequest req = new IssueClearanceRequest(
                     1L,
@@ -242,14 +283,16 @@ class ClearanceTemplateServiceTest {
                     "Building Permit"
             );
 
+            // When
             IssueClearanceResponse response = clearanceTemplateService.issueClearance(req);
 
+            // Then
             assertThat(response).isNotNull();
             assertThat(response.success()).isTrue();
             assertThat(response.certificateNumber()).isEqualTo("BC-2026-00001");
             assertThat(response.issuedId()).isEqualTo(100L);
 
-            verify(issuedCertificateRepository, times(1)).save(any(IssuedCertificate.class));
+            then(issuedCertificateRepository).should(times(1)).save(any(IssuedCertificate.class));
         }
     }
 }

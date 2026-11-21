@@ -128,11 +128,6 @@ public class BlotterReportService {
 
     /**
      * Generates a settlement efficiency report comparing formal complaints against settled cases.
-     *
-     * @param startDate    the start date filter
-     * @param endDate      the end date filter
-     * @param departmentId the department filter (optional)
-     * @return {@link SettlementEfficiencyResponse} with aggregated counts and calculated percentage
      */
     @Transactional(readOnly = true)
     public SettlementEfficiencyResponse getSettlementEfficiency(
@@ -183,11 +178,6 @@ public class BlotterReportService {
 
     /**
      * Generates a complete status distribution breakdown for cases within the specified criteria.
-     *
-     * @param startDate    inclusive start date
-     * @param endDate      inclusive end date
-     * @param departmentId optional department ID filter
-     * @return {@link CaseStatusBreakdownResponse} containing total cases and per-status metrics
      */
     @Transactional(readOnly = true)
     public CaseStatusBreakdownResponse getStatusBreakdownReport(
@@ -278,11 +268,6 @@ public class BlotterReportService {
 
     /**
      * Computes the resolution breakdown and percentage rates for formal complaints.
-     *
-     * @param startDate    start date filter
-     * @param endDate      end date filter
-     * @param departmentId optional department ID filter (e.g., Blotter Department ID)
-     * @return {@link FormalComplaintReportResponse} containing calculated metrics
      */
     @Transactional(readOnly = true)
     public FormalComplaintReportResponse getResolutionReport(
@@ -350,11 +335,6 @@ public class BlotterReportService {
 
     /**
      * Calculates date-filtered KPI metrics for Blotter department reports.
-     *
-     * @param startDate    start date filter
-     * @param endDate      end date filter
-     * @param departmentId optional target department ID filter
-     * @return {@link BlotterReportKpiResponse} with calculated counts and settlement rate
      */
     @Transactional(readOnly = true)
     public BlotterReportKpiResponse getReportKpi(
@@ -406,7 +386,6 @@ public class BlotterReportService {
 
     /**
      * Unresolved active statuses across Blotter & Lupon.
-     * Excludes final statuses (Settled, Dismissed, CFA).
      */
     private static final List<CaseStatus> UNRESOLVED_STATUSES = List.of(
             CaseStatus.PENDING,
@@ -416,8 +395,6 @@ public class BlotterReportService {
 
     /**
      * Generates real-time Dashboard KPIs for Blotter.
-     *
-     * @return {@link BlotterDashboardKpiResponse}
      */
     @Transactional(readOnly = true)
     public BlotterDashboardKpiResponse getDashboardKpis() {
@@ -463,9 +440,6 @@ public class BlotterReportService {
 
     /**
      * Retrieves up to 5 of the most recently issued Blotter cases filed today.
-     * Deduplicates reopened cycles to show only distinct root cases with their endmost child case status.
-     *
-     * @return list of recent cases (empty if none, up to max 5)
      */
     @Transactional(readOnly = true)
     public List<RecentBlotterCaseResponse> getRecentCasesToday() {

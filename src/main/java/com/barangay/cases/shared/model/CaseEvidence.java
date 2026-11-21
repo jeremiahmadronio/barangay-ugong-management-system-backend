@@ -10,7 +10,10 @@ import org.hibernate.annotations.JdbcTypeCode;
 import java.sql.Types;
 
 @Entity
-@Table(name = "case_evidences")
+@Table(name = "case_evidences", indexes = {
+        @Index(name = "idx_case_evidence_case_id", columnList = "case_id"),
+        @Index(name = "idx_case_evidence_type_id", columnList = "evidence_type_id")
+})
 @Getter
 @Setter
 @NoArgsConstructor

@@ -27,6 +27,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
@@ -42,7 +43,17 @@ import com.barangay.zshared.entity.Archivable;
 import com.barangay.zshared.entity.BaseEntity;
 
 @Entity
-@Table(name = "cases")
+@Table(name = "cases", indexes = {
+        @Index(name = "idx_case_number", columnList = "case_number"),
+        @Index(name = "idx_case_status", columnList = "case_status"),
+        @Index(name = "idx_case_filing_type", columnList = "filing_type"),
+        @Index(name = "idx_case_archived", columnList = "is_archived"),
+        @Index(name = "idx_case_department", columnList = "department_id"),
+        @Index(name = "idx_case_complainant", columnList = "complainant_id"),
+        @Index(name = "idx_case_respondent", columnList = "respondent_id"),
+        @Index(name = "idx_case_officer", columnList = "case_assign_to"),
+        @Index(name = "idx_case_created_at", columnList = "created_at")
+})
 @Getter
 @Setter
 @AllArgsConstructor

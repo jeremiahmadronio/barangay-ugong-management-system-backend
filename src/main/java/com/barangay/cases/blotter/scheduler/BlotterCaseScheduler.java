@@ -17,9 +17,6 @@ import java.util.Optional;
 
 /**
  * Scheduled task service that automatically checks blotter cases for expiration.
- * In accordance with Katarungang Pambarangay rules:
- * The 15-day mediation deadline is calculated based on the ROOT CASE's initial filing timestamp,
- * regardless of how many times a case has been reopened.
  */
 @Component
 @RequiredArgsConstructor
@@ -31,8 +28,6 @@ public class BlotterCaseScheduler {
 
     /**
      * Scheduled job that runs every midnight at 12:00 AM to check active non-terminal cases for expiration.
-     * If the elapsed days from the ROOT filing date exceeds 15 days, the case status
-     * is automatically updated to EXPIRED_UNACTIONED and a timeline audit event is logged.
      */
     @Scheduled(cron = "0 0 0 * * ?")
     @Transactional

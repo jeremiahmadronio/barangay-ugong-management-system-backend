@@ -11,7 +11,10 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "case_notes")
+@Table(name = "case_notes", indexes = {
+        @Index(name = "idx_case_note_case_id", columnList = "case_id"),
+        @Index(name = "idx_case_note_created_at", columnList = "created_at")
+})
 @Getter @Setter @AllArgsConstructor @NoArgsConstructor
 public class CaseNote {
 

@@ -28,9 +28,6 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * REST Controller for Blotter Case Management.
- * Handles listing blotter entries with server-side pagination/filtering,
- * retrieving case details, calculating KPI stats, creating new blotter entries,
- * serving files, mediation sessions, case notes, and timeline events.
  */
 @RestController
 @RequestMapping("/api/v1/blotter")
@@ -48,10 +45,6 @@ public class BlotterController {
 
     /**
      * Retrieves paginated and filtered blotter cases.
-     * Uses server-side pagination without findAll().
-     *
-     * @param filter request containing search, status, filingType, natureOfComplaint, page, size
-     * @return {@link PageResponse} containing the paginated list of blotter cases
      */
     @GetMapping
     public ResponseEntity<PageResponse<BlotterTableRowResponse>> getBlotterCases(
@@ -62,8 +55,6 @@ public class BlotterController {
 
     /**
      * Retrieves KPI Statistics for Blotter cases with month-to-date vs full previous month trends.
-     *
-     * @return {@link BlotterStatsResponse} containing counts and trends
      */
     @GetMapping("/stats")
     public ResponseEntity<BlotterStatsResponse> getBlotterStats() {
@@ -73,9 +64,6 @@ public class BlotterController {
 
     /**
      * Retrieves a single blotter case detail by ID.
-     *
-     * @param id the case ID
-     * @return {@link BlotterCaseDetailResponse}
      */
     @GetMapping("/{id}")
     public ResponseEntity<BlotterCaseDetailResponse> getBlotterCaseById(@PathVariable Long id) {
@@ -85,9 +73,6 @@ public class BlotterController {
 
     /**
      * Creates a new Blotter Case entry (Formal Complaint or For the Record).
-     *
-     * @param request the case creation request payload containing all case details and sub-entities
-     * @return {@link ResponseEntity} containing the created case details with HTTP status 201 (Created)
      */
     @PostMapping
     @LogAudit(module = AuditModule.BLOTTER, action = "CREATE_BLOTTER_CASE", severity = Severity.INFO)
@@ -130,9 +115,6 @@ public class BlotterController {
 
     /**
      * Lists all scheduled mediation sessions for a given blotter case.
-     *
-     * @param caseId the blotter case ID
-     * @return list of {@link MediationSessionResponse}
      */
     @GetMapping("/{caseId}/mediation")
     public ResponseEntity<List<MediationSessionResponse>> getMediationSessions(
@@ -142,10 +124,6 @@ public class BlotterController {
 
     /**
      * Schedules a new mediation hearing for a given blotter case.
-     *
-     * @param caseId  the blotter case ID
-     * @param request the schedule request payload
-     * @return the created session with HTTP 201
      */
     @PostMapping("/{caseId}/mediation")
     @LogAudit(module = AuditModule.BLOTTER, action = "SCHEDULE_MEDIATION_HEARING", severity = Severity.INFO,
@@ -162,9 +140,6 @@ public class BlotterController {
 
     /**
      * Cancels a scheduled mediation session.
-     *
-     * @param sessionId the session ID to cancel
-     * @return the updated session
      */
     @PatchMapping("/mediation/{sessionId}/cancel")
     @LogAudit(module = AuditModule.BLOTTER, action = "CANCEL_MEDIATION_HEARING", severity = Severity.WARNING,
@@ -262,10 +237,6 @@ public class BlotterController {
 
     /**
      * Updates the status of a blotter case (e.g. DISMISSED, SETTLED) with optional status remarks.
-     *
-     * @param id the blotter case ID
-     * @param request the status update request payload containing status and remarks
-     * @return updated {@link BlotterCaseDetailResponse}
      */
     @PatchMapping("/{id}/status")
     @LogAudit(module = AuditModule.BLOTTER, action = "UPDATE_CASE_STATUS", severity = Severity.INFO)
@@ -292,10 +263,6 @@ public class BlotterController {
 
     /**
      * Reopens a closed, settled, or dismissed blotter case by creating a new case cycle.
-     *
-     * @param id      the ID of the closed or dismissed case
-     * @param request the reopen request payload containing remarks
-     * @return newly created reopened {@link BlotterCaseDetailResponse}
      */
     @PostMapping("/{id}/reopen")
     @LogAudit(module = AuditModule.BLOTTER, action = "REOPEN_CASE", severity = Severity.INFO)
@@ -355,12 +322,6 @@ public class BlotterController {
 
     /**
      * Retrieves the settlement efficiency rate and breakdown for a specified department and date range.
-     * Defaults to the current month to date if no date range is provided.
-     *
-     * @param startDate    optional start date (defaults to 1st day of current month)
-     * @param endDate      optional end date (defaults to today)
-     * @param departmentId optional department filter (e.g., Blotter Department ID)
-     * @return response entity containing {@link SettlementEfficiencyResponse}
      */
     @GetMapping("/settlement-efficiency")
     public ResponseEntity<SettlementEfficiencyResponse> getSettlementEfficiency(
@@ -402,12 +363,6 @@ public class BlotterController {
 
     /**
      * Endpoint retrieving the settlement and referral distribution for formal complaints.
-     * Defaults to the first day of the current month up to the current date if parameters are omitted.
-     *
-     * @param startDate    optional start date (format: YYYY-MM-DD)
-     * @param endDate      optional end date (format: YYYY-MM-DD)
-     * @param departmentId optional department ID filter (e.g., Blotter Department)
-     * @return {@link ResponseEntity} containing {@link FormalComplaintReportResponse}
      */
     @GetMapping("/formal-complaints/resolution-efficiency")
     public ResponseEntity<FormalComplaintReportResponse> getFormalComplaintResolutionReport(
@@ -429,11 +384,6 @@ public class BlotterController {
 
     /**
      * Endpoint retrieving date-filtered KPI statistics for Blotter Department reports.
-     *
-     * @param startDate    optional start date (defaults to 1st day of current month)
-     * @param endDate      optional end date (defaults to today)
-     * @param departmentId optional department filter
-     * @return {@link BlotterReportKpiResponse}
      */
     @GetMapping("/report-kpi")
     public ResponseEntity<BlotterReportKpiResponse> getReportKpi(
@@ -457,8 +407,6 @@ public class BlotterController {
 
     /**
      * Endpoint retrieving lifecycle and trash statistics exclusively for the Blotter Department.
-     *
-     * @return {@link BlotterLifecycleKpiResponse}
      */
     @GetMapping("/archive-kpi")
     public ResponseEntity<BlotterLifecycleKpiResponse> getBlotterLifecycleKpi() {
@@ -468,9 +416,6 @@ public class BlotterController {
 
     /**
      * Endpoint retrieving paginated archived blotter cases for the Archive Table.
-     *
-     * @param filter {@link BlotterArchiveFilterRequest} search and filingType criteria
-     * @return {@link PageResponse} of {@link BlotterArchiveItemResponse}
      */
     @GetMapping("/archive-table")
     public ResponseEntity<PageResponse<BlotterArchiveItemResponse>> getArchivedBlotterCases(
@@ -481,10 +426,6 @@ public class BlotterController {
 
     /**
      * Endpoint retrieving paginated soft-deleted blotter cases for the Recent Delete / Trash Table.
-     * Excludes permanently deleted records.
-     *
-     * @param filter {@link BlotterArchiveFilterRequest} search and filingType criteria
-     * @return {@link PageResponse} of {@link BlotterRecentDeleteItemResponse}
      */
     @GetMapping("/recent-delete")
     public ResponseEntity<PageResponse<BlotterRecentDeleteItemResponse>> getRecentDeletedBlotterCases(
@@ -496,10 +437,6 @@ public class BlotterController {
 
     /**
      * Archives a resolved or closed blotter case.
-     *
-     * @param caseId  target case ID
-     * @param request archive remarks payload
-     * @return success message
      */
     @PatchMapping("/archive-case/{caseId}")
     @LogAudit(module = AuditModule.BLOTTER, action = "ARCHIVE_BLOTTER_CASE", severity = Severity.INFO,
@@ -518,9 +455,6 @@ public class BlotterController {
 
     /**
      * Restores an archived case back to the active records table.
-     *
-     * @param caseId target case ID
-     * @return success message
      */
     @PatchMapping("/{caseId}/restore-archive")
     @LogAudit(module = AuditModule.BLOTTER, action = "RESTORE_BLOTTER_CASE", severity = Severity.INFO,
@@ -561,8 +495,6 @@ public class BlotterController {
 
     /**
      * Endpoint retrieving the 4 key operational dashboard metrics for Blotter.
-     *
-     * @return {@link BlotterDashboardKpiResponse}
      */
     @GetMapping("/dashboard-kpi")
     public ResponseEntity<BlotterDashboardKpiResponse> getDashboardKpis() {
@@ -573,8 +505,6 @@ public class BlotterController {
 
     /**
      * Endpoint retrieving the top 5 most recent blotter cases issued today for the dashboard.
-     *
-     * @return {@link ResponseEntity} containing a list of {@link RecentBlotterCaseResponse}
      */
     @GetMapping("/recent-today")
     public ResponseEntity<List<RecentBlotterCaseResponse>> getRecentCasesToday() {
@@ -585,8 +515,6 @@ public class BlotterController {
 
     /**
      * Endpoint para sa dashboard quick mediation widget (Top 5 scheduled hearings today).
-     *
-     * @return List ng {@link QuickMediationSummaryDto}
      */
     @GetMapping("/mediations-today-summary")
     public ResponseEntity<List<QuickMediationSummaryDto>> getQuickTodayMediations() {
@@ -611,10 +539,6 @@ public class BlotterController {
 
     /**
      * Extends the Blotter mediation period by 15 days (one-time allowable extension).
-     *
-     * @param caseId  the case ID
-     * @param request the extension request
-     * @return {@link ResponseEntity} of {@link BlotterCaseDetailResponse}
      */
     @PostMapping("/{caseId}/extend")
     @LogAudit(

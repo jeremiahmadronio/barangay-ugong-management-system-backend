@@ -50,9 +50,6 @@ public class MediationSessionService {
 
     /**
      * Lists all MEDIATION-type sessions for a given blotter case.
-     *
-     * @param caseId the blotter case ID
-     * @return ordered list of {@link MediationSessionResponse}
      */
     @Transactional(readOnly = true)
     public List<MediationSessionResponse> getMediationSessions(Long caseId) {
@@ -67,12 +64,6 @@ public class MediationSessionService {
 
     /**
      * Schedules a new Mediation session for a given blotter case.
-     * Automatically assigns the next sequential hearing number.
-     * Also updates the case status to UNDER_MEDIATION.
-     *
-     * @param caseId  the blotter case ID
-     * @param request the schedule request payload
-     * @return the created {@link MediationSessionResponse}
      */
     @Transactional
     public MediationSessionResponse scheduleMediation(Long caseId, MediationSessionRequest request) {
@@ -126,9 +117,6 @@ public class MediationSessionService {
 
     /**
      * Cancels a scheduled Mediation session.
-     *
-     * @param sessionId the session ID to cancel
-     * @return the updated {@link MediationSessionResponse}
      */
     @Transactional
     public MediationSessionResponse cancelMediation(Long sessionId) {
@@ -157,11 +145,6 @@ public class MediationSessionService {
 
     /**
      * Records or updates minutes for a mediation session.
-     * Also updates session status to COMPLETED and case status to SETTLED if outcome is SETTLED.
-     *
-     * @param sessionId the session ID
-     * @param req       the session minutes request payload
-     * @return updated {@link MediationSessionResponse}
      */
     @Transactional
     public MediationSessionResponse recordSessionMinutes(Long sessionId, SessionMinutesRequest req) {
@@ -224,9 +207,6 @@ public class MediationSessionService {
 
     /**
      * Gets recorded minutes for a mediation session.
-     *
-     * @param sessionId the session ID
-     * @return {@link SessionMinutesResponse}
      */
     @Transactional(readOnly = true)
     public SessionMinutesResponse getMediationMinutes(Long sessionId) {
@@ -238,10 +218,6 @@ public class MediationSessionService {
 
     /**
      * Adds a follow-up note to a completed mediation session.
-     *
-     * @param sessionId the session ID
-     * @param req       the session follow-up request payload
-     * @return {@link SessionFollowUpResponse}
      */
     @Transactional
     public SessionFollowUpResponse addSessionFollowUp(Long sessionId, SessionFollowUpRequest req) {
@@ -274,9 +250,6 @@ public class MediationSessionService {
 
     /**
      * Lists all follow-up notes for a mediation session.
-     *
-     * @param sessionId the session ID
-     * @return list of {@link SessionFollowUpResponse}
      */
     @Transactional(readOnly = true)
     public List<SessionFollowUpResponse> getSessionFollowUps(Long sessionId) {

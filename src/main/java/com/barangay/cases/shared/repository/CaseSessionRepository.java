@@ -16,23 +16,33 @@ import java.util.List;
 @Repository
 public interface CaseSessionRepository extends JpaRepository<CaseSession, Long> {
 
-    /**
-     * Retrieves all sessions of a given type for a specific case,
-     * ordered by hearing (summon) number ascending.
-     */
+    List<CaseSession> findByCasesIdOrderByScheduledStartAsc(Long caseId);
+
     List<CaseSession> findByCasesIdAndHearingTypeOrderBySummonNumberAsc(
             Long caseId, SessionType hearingType);
 
-    /**
-     * Retrieves all sessions for a specific case (Mediation + Conciliation),
-     * ordered by scheduled start date ascending.
-     */
-    List<CaseSession> findByCasesIdOrderByScheduledStartAsc(Long caseId);
+    @Query("""
+        SELECT s FROM CaseSession s
+        WHERE s.cases.id = :caseId
+          AND s.status = :status
+        ORDER BY s.scheduledStart ASC
+    """)
+    List<CaseSession> findSessionsByCaseIdAndStatus(
+            @Param("caseId") Long caseId,
+            @Param("status") SessionStatus status
+    );
 
-    /**
-     * Counts scheduled mediation sessions for Blotter cases within a date range (Monday-Sunday).
-     * Excludes sessions tied to archived or deleted cases.
-     */
+    @Query("""
+        SELECT s FROM CaseSession s
+        WHERE s.cases.id IN :caseIds
+          AND s.status = :status
+        ORDER BY s.scheduledStart ASC
+    """)
+    List<CaseSession> findSessionsByCaseIdInAndStatus(
+            @Param("caseIds") List<Long> caseIds,
+            @Param("status") SessionStatus status
+    );
+
     @Query("""
         SELECT COUNT(s.id)
         FROM CaseSession s
@@ -53,11 +63,6 @@ public interface CaseSessionRepository extends JpaRepository<CaseSession, Long> 
             @Param("sessionStatus") SessionStatus sessionStatus
     );
 
-    /**
-     * Counts scheduled conciliation / hearings for Lupon cases within a date range (Monday-Sunday).
-     * Excludes sessions tied to archived, soft-deleted, or permanently deleted cases.
-     * Prevents duplicate count across reopened/child cases by distinct session ID.
-     */
     @Query("""
         SELECT COUNT(DISTINCT s.id)
         FROM CaseSession s
@@ -146,35 +151,5 @@ public interface CaseSessionRepository extends JpaRepository<CaseSession, Long> 
             @Param("startOfDay") LocalDateTime startOfDay,
             @Param("endOfDay") LocalDateTime endOfDay,
             Pageable pageable
-    );
-
-    /**
-     * Explicit JPQL version of findAllByCasesIdAndStatus.
-     * Useful if you want guaranteed explicit JOIN and ordering by scheduled start time.
-     *
-     * @param caseId database identifier of the parent case
-     * @param status target session status
-     * @return list of matching {@link CaseSession} entities ordered by scheduledStart
-     */
-    @Query("""
-        SELECT s FROM CaseSession s
-        WHERE s.cases.id = :caseId
-          AND s.status = :status
-        ORDER BY s.scheduledStart ASC
-    """)
-    List<CaseSession> findSessionsByCaseIdAndStatus(
-            @Param("caseId") Long caseId,
-            @Param("status") SessionStatus status
-    );
-
-    @Query("""
-        SELECT s FROM CaseSession s
-        WHERE s.cases.id IN :caseIds
-          AND s.status = :status
-        ORDER BY s.scheduledStart ASC
-    """)
-    List<CaseSession> findSessionsByCaseIdInAndStatus(
-            @Param("caseIds") List<Long> caseIds,
-            @Param("status") SessionStatus status
     );
 }
