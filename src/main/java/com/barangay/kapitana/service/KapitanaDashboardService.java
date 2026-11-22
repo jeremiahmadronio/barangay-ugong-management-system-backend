@@ -1,29 +1,26 @@
 package com.barangay.kapitana.service;
 
+import com.barangay.cases.shared.model.Case;
+import com.barangay.clearance.repository.IssuedCertificateRepository;
+import com.barangay.ftjs.repository.FirstTimeJobSeekerRepository;
+import com.barangay.kapitana.dto.*;
+import com.barangay.kapitana.repository.KapitanaDashboardRepository;
+import com.barangay.people.person.model.Person;
+import com.barangay.people.resident.repository.ResidentRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.barangay.cases.shared.model.Case;
-import com.barangay.clearance.repository.IssuedCertificateRepository;
-import com.barangay.ftjs.repository.FirstTimeJobSeekerRepository;
-import com.barangay.kapitana.dto.KapitanaDashboardKpiResponse;
-import com.barangay.kapitana.dto.KapitanaDemographicsResponse;
-import com.barangay.kapitana.dto.KapitanaDepartmentMetrics;
-import com.barangay.kapitana.dto.KapitanaDepartmentOverviewResponse;
-import com.barangay.kapitana.dto.KapitanaRecentCaseItem;
-import com.barangay.kapitana.repository.KapitanaDashboardRepository;
-import com.barangay.people.person.model.Person;
-import com.barangay.people.resident.repository.ResidentRepository;
-
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
+/**
+ * Service aggregating cross-department case statistics, clearance issuance counts, and demographic KPIs for the Kapitana dashboard.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -35,8 +32,12 @@ public class KapitanaDashboardService {
     private final FirstTimeJobSeekerRepository firstTimeJobSeekerRepository;
     private final ResidentRepository residentRepository;
 
+    /**
+     * Computes holistic executive KPI statistics including cases per department, clearances, FTJS, and demographics.
+     *
+     * @return comprehensive executive KPI response
+     */
     public KapitanaDashboardKpiResponse getDashboardKpi() {
-        // 1. Department Breakdown (strictly excluding soft-deleted and permanently-deleted records)
         long blotterActive = kapitanaDashboardRepository.countActiveBlotterCases();
         long blotterSettled = kapitanaDashboardRepository.countSettledBlotterCases();
         long blotterTotal = kapitanaDashboardRepository.countTotalBlotterCases();
@@ -57,7 +58,7 @@ public class KapitanaDashboardService {
         long bcpcTotal = kapitanaDashboardRepository.countTotalBcpcCases();
         double bcpcRate = bcpcTotal > 0 ? (double) bcpcSettled / bcpcTotal * 100.0 : 0.0;
 
-        // 2. Services Issued (Clearance & FTJS)
+        // Services Issued (Clearance & FTJS)
         long clearanceIssued = 0;
         try {
             clearanceIssued = issuedCertificateRepository.countActiveCertificates();
@@ -72,7 +73,7 @@ public class KapitanaDashboardService {
             log.warn("Could not retrieve FTJS issued count: {}", e.getMessage());
         }
 
-        // 3. Totals
+        // Totals
         long totalActive = kapitanaDashboardRepository.countTotalActiveCases();
         long totalSettled = kapitanaDashboardRepository.countTotalSettledCases();
         long totalNonDeleted = kapitanaDashboardRepository.countTotalNonDeletedCases();
@@ -111,7 +112,7 @@ public class KapitanaDashboardService {
                 .ftjsTotalIssued(ftjsIssued)
                 .build();
 
-        // 4. Resident Demographics (Strictly active, non-deleted, non-permanently-deleted)
+        // Resident Demographics (Strictly active, non-deleted, non-permanently-deleted)
         long totalResidents = 0;
         long headsOfFamily = 0;
         long seniorCitizens = 0;
@@ -152,6 +153,12 @@ public class KapitanaDashboardService {
                 .build();
     }
 
+    /**
+     * Retrieves the latest cross-department cases with resolved complainant, respondent, and department names.
+     *
+     * @param limit maximum number of records to retrieve (capped at 50)
+     * @return list of mapped recent case items
+     */
     public List<KapitanaRecentCaseItem> getRecentCases(int limit) {
         int fetchLimit = limit > 0 && limit <= 50 ? limit : 10;
         List<Case> cases = kapitanaDashboardRepository.findRecentCasesAcrossDepartments(PageRequest.of(0, fetchLimit));

@@ -1,18 +1,19 @@
 package com.barangay.kapitana.repository;
 
-import java.util.List;
-
+import com.barangay.cases.shared.model.Case;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import com.barangay.cases.shared.model.Case;
+import java.util.List;
 
+/**
+ * Repository interface for executive analytics, department case counters, and unified feed queries for the Kapitana dashboard.
+ */
 @Repository
 public interface KapitanaDashboardRepository extends JpaRepository<Case, Long> {
 
-    // 1. BLOTTER COUNTS (Strictly non-deleted, non-permanently-deleted)
     @Query("""
         SELECT COUNT(c) FROM Case c
         WHERE (c.isDeleted IS FALSE OR c.isDeleted IS NULL)
@@ -52,7 +53,6 @@ public interface KapitanaDashboardRepository extends JpaRepository<Case, Long> {
     """)
     long countTotalBlotterCases();
 
-    // 2. LUPON COUNTS (Strictly non-deleted, non-permanently-deleted)
     @Query("""
         SELECT COUNT(c) FROM Case c
         WHERE (c.isDeleted IS FALSE OR c.isDeleted IS NULL)
@@ -89,7 +89,6 @@ public interface KapitanaDashboardRepository extends JpaRepository<Case, Long> {
     """)
     long countTotalLuponCases();
 
-    // 3. VAWC COUNTS (Strictly non-deleted, non-permanently-deleted)
     @Query("""
         SELECT COUNT(c) FROM Case c
         WHERE (c.isDeleted IS FALSE OR c.isDeleted IS NULL)
@@ -120,7 +119,6 @@ public interface KapitanaDashboardRepository extends JpaRepository<Case, Long> {
     """)
     long countTotalVawcCases();
 
-    // 4. BCPC COUNTS (Strictly non-deleted, non-permanently-deleted)
     @Query("""
         SELECT COUNT(c) FROM Case c
         WHERE (c.isDeleted IS FALSE OR c.isDeleted IS NULL)
@@ -151,7 +149,6 @@ public interface KapitanaDashboardRepository extends JpaRepository<Case, Long> {
     """)
     long countTotalBcpcCases();
 
-    // 5. OVERALL ACTIVE AND SETTLED
     @Query("""
         SELECT COUNT(c) FROM Case c
         WHERE (c.isDeleted IS FALSE OR c.isDeleted IS NULL)
@@ -176,7 +173,6 @@ public interface KapitanaDashboardRepository extends JpaRepository<Case, Long> {
     """)
     long countTotalNonDeletedCases();
 
-    // 6. RECENT CASES (Unified Cross-Department Feed)
     @Query("""
         SELECT c FROM Case c
         LEFT JOIN FETCH c.incidentDetail id
