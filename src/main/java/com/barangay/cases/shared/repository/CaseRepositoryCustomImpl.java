@@ -48,7 +48,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
     public Page<Case> findBlotterCasesFiltered(BlotterFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
 
-        // 1. Data Query
+        // Data Query
         CriteriaQuery<Case> cq = cb.createQuery(Case.class);
         Root<Case> root = cq.from(Case.class);
 
@@ -62,7 +62,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
 
         List<Case> resultList = query.getResultList();
 
-        // 2. Count Query
+        // Count Query
         CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
         Root<Case> countRoot = countCq.from(Case.class);
 
@@ -82,7 +82,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
     public Page<Case> findLuponCasesFiltered(LuponFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
 
-        // 1. Data Query
+        // Data Query
         CriteriaQuery<Case> cq = cb.createQuery(Case.class);
         Root<Case> root = cq.from(Case.class);
 
@@ -96,7 +96,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
 
         List<Case> resultList = query.getResultList();
 
-        // 2. Count Query
+        // Count Query
         CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
         Root<Case> countRoot = countCq.from(Case.class);
 
@@ -116,7 +116,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
     public Page<Case> findVawcCasesFiltered(VawcFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
 
-        // 1. Data Query
+        // Data Query
         CriteriaQuery<Case> cq = cb.createQuery(Case.class);
         Root<Case> root = cq.from(Case.class);
 
@@ -130,7 +130,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
 
         List<Case> resultList = query.getResultList();
 
-        // 2. Count Query
+        // Count Query
         CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
         Root<Case> countRoot = countCq.from(Case.class);
 
@@ -227,7 +227,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
     public Page<Case> findBcpcCasesFiltered(BcpcFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
 
-        // 1. Data Query
+        // Data Query
         CriteriaQuery<Case> cq = cb.createQuery(Case.class);
         Root<Case> root = cq.from(Case.class);
 
@@ -241,7 +241,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
 
         List<Case> resultList = query.getResultList();
 
-        // 2. Count Query
+        // Count Query
         CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
         Root<Case> countRoot = countCq.from(Case.class);
 
@@ -344,7 +344,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
     public Page<BlotterArchiveItemResponse> findArchivedBlotterCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
 
-        // 1. Data Query
+        // Data Query
         CriteriaQuery<Case> cq = cb.createQuery(Case.class);
         Root<Case> root = cq.from(Case.class);
 
@@ -395,7 +395,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
             );
         }).toList();
 
-        // 2. Count Query
+        // Count Query
         CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
         Root<Case> countRoot = countCq.from(Case.class);
         List<Predicate> countPredicates = buildArchivePredicates(filter, cb, countRoot);
@@ -414,7 +414,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
     public Page<BlotterRecentDeleteItemResponse> findRecentDeletedBlotterCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
 
-        // 1. Data Query
+        // Data Query
         CriteriaQuery<Case> cq = cb.createQuery(Case.class);
         Root<Case> root = cq.from(Case.class);
 
@@ -463,7 +463,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
             );
         }).toList();
 
-        // 2. Count Query
+        // Count Query
         CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
         Root<Case> countRoot = countCq.from(Case.class);
         List<Predicate> countPredicates = buildRecentDeletePredicates(filter, cb, countRoot);
@@ -745,18 +745,18 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         List<Predicate> predicates = new ArrayList<>();
 
         // Base criteria for Lupon:
-        // 1. Root cases only
+        // Root cases only
         predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
 
-        // 2. Non-deleted, non-permanently-deleted, non-archived
+        // Non-deleted, non-permanently-deleted, non-archived
         predicates.add(cb.or(cb.isNull(root.get("isDeleted")), cb.equal(root.get("isDeleted"), false)));
         predicates.add(cb.or(cb.isNull(root.get("isPermanentDeleted")), cb.equal(root.get("isPermanentDeleted"), false)));
         predicates.add(cb.or(cb.isNull(root.get("isArchived")), cb.equal(root.get("isArchived"), false)));
 
-        // 3. Exclude For The Record Only (Lupon handles formal complaints only)
+        // Exclude For The Record Only (Lupon handles formal complaints only)
         predicates.add(cb.or(cb.isNull(root.get("filingType")), cb.equal(root.get("filingType"), FilingType.FORMAL_COMPLAINT)));
 
-        // 4. MUST be escalated / referred to Lupon (root OR any reopened child in its lineage)
+        // MUST be escalated / referred to Lupon (root OR any reopened child in its lineage)
         Predicate hasLuponReferral = cb.isNotNull(root.get("luponReferral"));
         Predicate isUnderConciliation = cb.equal(root.get("caseStatus"), CaseStatus.UNDER_CONCILIATION);
         Predicate isLuponDept = cb.and(
@@ -901,7 +901,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
     public Page<BlotterArchiveItemResponse> findArchivedLuponCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
 
-        // 1. Data Query
+        // Data Query
         CriteriaQuery<Case> cq = cb.createQuery(Case.class);
         Root<Case> root = cq.from(Case.class);
 
@@ -952,7 +952,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
             );
         }).toList();
 
-        // 2. Count Query
+        // Count Query
         CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
         Root<Case> countRoot = countCq.from(Case.class);
         List<Predicate> countPredicates = buildLuponArchivePredicates(filter, cb, countCq, countRoot);
@@ -971,7 +971,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
     public Page<BlotterRecentDeleteItemResponse> findRecentDeletedLuponCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
 
-        // 1. Data Query
+        // Data Query
         CriteriaQuery<Case> cq = cb.createQuery(Case.class);
         Root<Case> root = cq.from(Case.class);
 
@@ -1020,7 +1020,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
             );
         }).toList();
 
-        // 2. Count Query
+        // Count Query
         CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
         Root<Case> countRoot = countCq.from(Case.class);
         List<Predicate> countPredicates = buildLuponRecentDeletePredicates(filter, cb, countCq, countRoot);
@@ -1172,7 +1172,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
     public Page<BlotterArchiveItemResponse> findArchivedVawcCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
 
-        // 1. Data Query
+        // Data Query
         CriteriaQuery<Case> cq = cb.createQuery(Case.class);
         Root<Case> root = cq.from(Case.class);
 
@@ -1223,7 +1223,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
             );
         }).toList();
 
-        // 2. Count Query
+        // Count Query
         CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
         Root<Case> countRoot = countCq.from(Case.class);
         List<Predicate> countPredicates = buildVawcArchivePredicates(filter, cb, countRoot);
@@ -1242,7 +1242,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
     public Page<BlotterRecentDeleteItemResponse> findRecentDeletedVawcCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
 
-        // 1. Data Query
+        // Data Query
         CriteriaQuery<Case> cq = cb.createQuery(Case.class);
         Root<Case> root = cq.from(Case.class);
 
@@ -1291,7 +1291,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
             );
         }).toList();
 
-        // 2. Count Query
+        // Count Query
         CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
         Root<Case> countRoot = countCq.from(Case.class);
         List<Predicate> countPredicates = buildVawcRecentDeletePredicates(filter, cb, countRoot);
@@ -1409,7 +1409,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
     public Page<BlotterArchiveItemResponse> findArchivedBcpcCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
 
-        // 1. Data Query
+        // Data Query
         CriteriaQuery<Case> cq = cb.createQuery(Case.class);
         Root<Case> root = cq.from(Case.class);
 
@@ -1480,7 +1480,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
             );
         }).toList();
 
-        // 2. Count Query
+        // Count Query
         CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
         Root<Case> countRoot = countCq.from(Case.class);
         List<Predicate> countPredicates = buildBcpcArchivePredicates(filter, cb, countRoot);
@@ -1499,7 +1499,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
     public Page<BlotterRecentDeleteItemResponse> findRecentDeletedBcpcCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
 
-        // 1. Data Query
+        // Data Query
         CriteriaQuery<Case> cq = cb.createQuery(Case.class);
         Root<Case> root = cq.from(Case.class);
 
@@ -1568,7 +1568,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
             );
         }).toList();
 
-        // 2. Count Query
+        // Count Query
         CriteriaQuery<Long> countCq = cb.createQuery(Long.class);
         Root<Case> countRoot = countCq.from(Case.class);
         List<Predicate> countPredicates = buildBcpcRecentDeletePredicates(filter, cb, countRoot);

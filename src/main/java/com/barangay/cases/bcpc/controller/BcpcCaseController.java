@@ -29,6 +29,9 @@ import java.util.List;
 import java.util.Map;
 import com.barangay.cases.bcpc.service.BcpcArchiveService;
 import com.barangay.cases.bcpc.service.BcpcCaseService;
+import com.barangay.cases.bcpc.service.BcpcCustodyService;
+import com.barangay.cases.bcpc.service.BcpcInterventionService;
+import com.barangay.cases.bcpc.service.BcpcReferralService;
 import com.barangay.cases.blotter.dto.*;
 import com.barangay.cases.blotter.service.CaseFileService;
 import com.barangay.cases.shared.service.CaseTimelineService;
@@ -72,6 +75,9 @@ public class BcpcCaseController {
 
     private final BcpcCaseService bcpcCaseService;
     private final BcpcArchiveService bcpcArchiveService;
+    private final BcpcCustodyService bcpcCustodyService;
+    private final BcpcReferralService bcpcReferralService;
+    private final BcpcInterventionService bcpcInterventionService;
     private final CaseFileService caseFileService;
     private final CaseTimelineService caseTimelineService;
 
@@ -198,9 +204,6 @@ public class BcpcCaseController {
         return ResponseEntity.ok(bcpcCaseService.getSettlementEfficiencyReport(effectiveStart, effectiveEnd));
     }
 
-    // ==========================================
-    // BCPC ARCHIVE & TRASH VAULT ENDPOINTS
-    // ==========================================
 
     /**
      * Endpoint retrieving lifecycle and archive/trash statistics exclusively for the BCPC Department.
@@ -438,7 +441,7 @@ public class BcpcCaseController {
      */
     @GetMapping("/{caseId}/custody-log")
     public ResponseEntity<BcpcCustodyLogDto> getCustodyLog(@PathVariable Long caseId) {
-        return ResponseEntity.ok(bcpcCaseService.getCustodyLog(caseId));
+        return ResponseEntity.ok(bcpcCustodyService.getCustodyLog(caseId));
     }
 
     /**
@@ -450,7 +453,7 @@ public class BcpcCaseController {
             @PathVariable Long caseId,
             @RequestBody BcpcCustodyLogDto request
     ) {
-        BcpcCustodyLogDto response = bcpcCaseService.updateCustodyLog(caseId, request);
+        BcpcCustodyLogDto response = bcpcCustodyService.updateCustodyLog(caseId, request);
         return ResponseEntity.ok(response);
     }
 
@@ -463,7 +466,7 @@ public class BcpcCaseController {
             @PathVariable Long caseId,
             @RequestBody UpdateCiclCustodyLogDto request
     ) {
-        BcpcCustodyLogDto response = bcpcCaseService.updateCiclCustodyLog(caseId, request);
+        BcpcCustodyLogDto response = bcpcCustodyService.updateCiclCustodyLog(caseId, request);
         return ResponseEntity.ok(response);
     }
 
@@ -472,7 +475,7 @@ public class BcpcCaseController {
      */
     @GetMapping("/{caseId}/referrals")
     public ResponseEntity<List<BcpcReferralResponse>> getReferrals(@PathVariable Long caseId) {
-        return ResponseEntity.ok(bcpcCaseService.getReferrals(caseId));
+        return ResponseEntity.ok(bcpcReferralService.getReferrals(caseId));
     }
 
     /**
@@ -484,7 +487,7 @@ public class BcpcCaseController {
             @PathVariable Long caseId,
             @Valid @RequestBody BcpcReferralCreateRequest request
     ) {
-        BcpcReferralResponse response = bcpcCaseService.issueReferral(caseId, request);
+        BcpcReferralResponse response = bcpcReferralService.issueReferral(caseId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -498,7 +501,7 @@ public class BcpcCaseController {
             @PathVariable Long referralId,
             @Valid @RequestBody BcpcReferralFeedbackRequest request
     ) {
-        BcpcReferralResponse response = bcpcCaseService.recordReferralFeedback(caseId, referralId, request);
+        BcpcReferralResponse response = bcpcReferralService.recordReferralFeedback(caseId, referralId, request);
         return ResponseEntity.ok(response);
     }
 
@@ -512,13 +515,10 @@ public class BcpcCaseController {
             @PathVariable Long referralId,
             @Valid @RequestBody BcpcReferralCancelRequest request
     ) {
-        BcpcReferralResponse response = bcpcCaseService.cancelReferral(caseId, referralId, request);
+        BcpcReferralResponse response = bcpcReferralService.cancelReferral(caseId, referralId, request);
         return ResponseEntity.ok(response);
     }
 
-    // =========================================================================
-    // Intervention & Monitoring Endpoints
-    // =========================================================================
 
     /**
      * Retrieves all intervention programs and monitoring records for a BCPC case.
@@ -527,7 +527,7 @@ public class BcpcCaseController {
     public ResponseEntity<List<BcpcInterventionDto>> getInterventions(
             @PathVariable Long caseId
     ) {
-        List<BcpcInterventionDto> list = bcpcCaseService.getInterventionsByCaseId(caseId);
+        List<BcpcInterventionDto> list = bcpcInterventionService.getInterventionsByCaseId(caseId);
         return ResponseEntity.ok(list);
     }
 
@@ -540,7 +540,7 @@ public class BcpcCaseController {
             @PathVariable Long caseId,
             @Valid @RequestBody BcpcInterventionCreateRequest request
     ) {
-        BcpcInterventionDto response = bcpcCaseService.createIntervention(caseId, request);
+        BcpcInterventionDto response = bcpcInterventionService.createIntervention(caseId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -554,7 +554,7 @@ public class BcpcCaseController {
             @PathVariable Long interventionId,
             @Valid @RequestBody BcpcInterventionUpdateRequest request
     ) {
-        BcpcInterventionDto response = bcpcCaseService.updateIntervention(caseId, interventionId, request);
+        BcpcInterventionDto response = bcpcInterventionService.updateIntervention(caseId, interventionId, request);
         return ResponseEntity.ok(response);
     }
 
@@ -568,7 +568,7 @@ public class BcpcCaseController {
             @PathVariable Long interventionId,
             @Valid @RequestBody BcpcInterventionProgressRequest request
     ) {
-        BcpcInterventionDto response = bcpcCaseService.recordInterventionProgress(caseId, interventionId, request);
+        BcpcInterventionDto response = bcpcInterventionService.recordInterventionProgress(caseId, interventionId, request);
         return ResponseEntity.ok(response);
     }
 }

@@ -276,7 +276,7 @@ public class BcpcCarCaseService {
             aCase.setCaseUpdatedBy(currentUser);
         }
 
-        // 0. Update Reporter Role and Relationship
+        // Update Reporter Role and Relationship
         if (request.reporterRelationshipToChild() != null && aCase.getComplainant() != null) {
             aCase.getComplainant().setRelationshipToChild(request.reporterRelationshipToChild());
         }
@@ -284,7 +284,7 @@ public class BcpcCarCaseService {
             details.setComplainantRole(request.reporterRole());
         }
 
-        // 1. Update Parent / Guardian & Education Status
+        // Update Parent / Guardian & Education Status
         if (request.isGuardianAvailable() != null) {
             details.setIsGuardianPresentAtIntake(request.isGuardianAvailable());
             if (Boolean.TRUE.equals(request.isGuardianAvailable())) {
@@ -316,7 +316,7 @@ public class BcpcCarCaseService {
         if (request.gradeLevel() != null) details.setGradeLevel(request.gradeLevel());
         if (request.schoolName() != null) details.setSchoolName(request.schoolName());
 
-        // 2. Update Incident Details
+        // Update Incident Details
         if (request.incident() != null) {
             if (aCase.getIncidentDetail() == null) {
                 aCase.setIncidentDetail(incidentDetailMapper.fromCreateDto(request.incident()));
@@ -344,7 +344,7 @@ public class BcpcCarCaseService {
             }
         }
 
-        // 3. Update CAR Assessment Specifics
+        // Update CAR Assessment Specifics
         if (request.carActCategory() != null) car.setCarActCategory(request.carActCategory());
         if (request.specificCarAct() != null) car.setSpecificCarAct(request.specificCarAct());
         if (request.specificCarActOther() != null) car.setSpecificCarActOther(request.specificCarActOther());
@@ -352,17 +352,17 @@ public class BcpcCarCaseService {
         if (request.hasAdditionalProtectionConcern() != null) car.setNeedsProtectiveCustody(request.hasAdditionalProtectionConcern());
         if (request.safetyNotes() != null) car.setSafetyAndWelfareNotes(request.safetyNotes());
 
-        // 4. Update Narrative Statement
+        // Update Narrative Statement
         if (request.narrative() != null) {
             bcpcCommonService.updateNarrative(aCase, request.narrative());
         }
 
-        // 5. Update Supporting Evidences
+        // Update Supporting Evidences
         if (request.evidences() != null) {
             bcpcCommonService.updateEvidences(aCase, request.evidences());
         }
 
-        // 6. Update Witnesses
+        // Update Witnesses
         if (request.witnesses() != null) {
             bcpcCommonService.updateWitnesses(aCase, request.witnesses());
         }

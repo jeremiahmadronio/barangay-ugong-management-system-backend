@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,28 +23,22 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "bcpc_case_details")
+@Table(
+    name = "bcpc_case_details",
+    indexes = {
+        @Index(name = "idx_bcpc_case_details_case_id", columnList = "case_id"),
+        @Index(name = "idx_bcpc_case_details_child_person_id", columnList = "child_person_id"),
+        @Index(name = "idx_bcpc_case_details_guardian_person_id", columnList = "guardian_person_id"),
+        @Index(name = "idx_bcpc_case_details_category", columnList = "bcpc_category")
+    }
+)
 public class BcpcCaseDetails extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "case_id", nullable = false, unique = true)
-    private Case cases;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "bcpc_category", nullable = false, length = 20)
-    private BcpcCategory category;
-
-    /**
-     * The child involved in the case (either the Child at Risk or Child in Conflict with the Law).
-     * All personal details (name, gender, birthDate, address, contact) are fetched from this Person record.
-     */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "child_person_id", nullable = false)
-    private Person child;
 
     @Column(name = "grade_level", length = 100)
     private String gradeLevel;
@@ -51,12 +46,7 @@ public class BcpcCaseDetails extends BaseEntity {
     @Column(name = "school_name", length = 255)
     private String schoolName;
 
-    /**
-     * Parent, legal guardian, or adult custodian responsible for the child during intake.
-     */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "guardian_person_id")
-    private Person guardian;
+
 
     @Column(name = "guardian_relationship", length = 100)
     private String guardianRelationship;
@@ -70,25 +60,7 @@ public class BcpcCaseDetails extends BaseEntity {
     @Column(name = "complainant_role", length = 100)
     private String complainantRole;
 
-    /**
-     * CAR-specific assessment details. Populated only when category == CAR.
-     */
-    @OneToOne(mappedBy = "bcpcCaseDetails", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
-    private BcpcCarAssessment carAssessment;
 
-    /**
-     * CICL-specific assessment details. Populated only when category == CICL.
-     */
-    @OneToOne(mappedBy = "bcpcCaseDetails", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
-    private BcpcCiclAssessment ciclAssessment;
-
-    /**
-     * Active and historical interventions assigned to the child.
-     */
-    @OneToMany(mappedBy = "bcpcCaseDetails", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
-    private List<BcpcIntervention> interventions = new ArrayList<>();
-
-    // --- Custody & Turnover Tracking ---
     @Column(name = "custody_status", length = 50)
     private String custodyStatus;
 
@@ -102,7 +74,7 @@ public class BcpcCaseDetails extends BaseEntity {
     private String contactNumber;
 
     @Column(name = "transfer_date")
-    private java.time.LocalDate transferDate;
+    private LocalDate transferDate;
 
     @Column(name = "transfer_time", length = 20)
     private String transferTime;
@@ -128,7 +100,6 @@ public class BcpcCaseDetails extends BaseEntity {
     @Column(name = "guidance_notes", columnDefinition = "TEXT")
     private String guidanceNotes;
 
-    // --- CICL Specific Custody Fields ---
     @Column(name = "was_apprehended")
     private Boolean wasApprehended;
 
@@ -152,4 +123,35 @@ public class BcpcCaseDetails extends BaseEntity {
 
     @Column(name = "custody_remarks", columnDefinition = "TEXT")
     private String custodyRemarks;
+
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "guardian_person_id")
+    private Person guardian;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "case_id", nullable = false, unique = true)
+    private Case cases;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "bcpc_category", nullable = false, length = 20)
+    private BcpcCategory category;
+
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "child_person_id", nullable = false)
+    private Person child;
+
+    @OneToOne(mappedBy = "bcpcCaseDetails", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    private BcpcCarAssessment carAssessment;
+
+
+    @OneToOne(mappedBy = "bcpcCaseDetails", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    private BcpcCiclAssessment ciclAssessment;
+
+
+    @OneToMany(mappedBy = "bcpcCaseDetails", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    private List<BcpcIntervention> interventions = new ArrayList<>();
+
+
 }

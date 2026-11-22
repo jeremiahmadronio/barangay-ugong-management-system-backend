@@ -20,7 +20,12 @@ import lombok.Setter;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "bcpc_car_assessments")
+@Table(
+    name = "bcpc_car_assessments",
+    indexes = {
+        @Index(name = "idx_bcpc_car_assessments_case_details_id", columnList = "bcpc_case_details_id")
+    }
+)
 public class BcpcCarAssessment extends BaseEntity {
 
     @Id

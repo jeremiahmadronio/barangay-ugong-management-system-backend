@@ -348,7 +348,7 @@ public class BcpcCiclCaseService {
             aCase.setCaseUpdatedBy(currentUser);
         }
 
-        // 1. Update Victim / Complainant Relationship to Child & Role
+        // Update Victim / Complainant Relationship to Child & Role
         if (aCase.getComplainant() != null && request.victimRelationshipToChild() != null) {
             aCase.getComplainant().setRelationshipToChild(request.victimRelationshipToChild());
         }
@@ -356,7 +356,7 @@ public class BcpcCiclCaseService {
             details.setComplainantRole(request.victimRole());
         }
 
-        // 2. Update Parent / Guardian & Education Status
+        // Update Parent / Guardian & Education Status
         if (request.isGuardianAvailable() != null) {
             details.setIsGuardianPresentAtIntake(request.isGuardianAvailable());
             if (Boolean.TRUE.equals(request.isGuardianAvailable())) {
@@ -388,7 +388,7 @@ public class BcpcCiclCaseService {
         if (request.gradeLevel() != null) details.setGradeLevel(request.gradeLevel());
         if (request.schoolName() != null) details.setSchoolName(request.schoolName());
 
-        // 3. Update Incident Details
+        // Update Incident Details
         if (request.incident() != null) {
             if (aCase.getIncidentDetail() == null) {
                 aCase.setIncidentDetail(incidentDetailMapper.fromCreateDto(request.incident()));
@@ -416,7 +416,7 @@ public class BcpcCiclCaseService {
             }
         }
 
-        // 4. Update CICL Legal Assessment & Screening
+        // Update CICL Legal Assessment & Screening
         if (request.allegedViolation() != null && !request.allegedViolation().isBlank()) {
             cicl.setAllegedViolation(request.allegedViolation().trim());
         }
@@ -469,17 +469,17 @@ public class BcpcCiclCaseService {
             }
         }
 
-        // 5. Update Narrative Statement
+        // Update Narrative Statement
         if (request.narrative() != null) {
             bcpcCommonService.updateNarrative(aCase, request.narrative());
         }
 
-        // 6. Update Supporting Evidences
+        // Update Supporting Evidences
         if (request.evidences() != null) {
             bcpcCommonService.updateEvidences(aCase, request.evidences());
         }
 
-        // 7. Update Witnesses
+        // Update Witnesses
         if (request.witnesses() != null) {
             bcpcCommonService.updateWitnesses(aCase, request.witnesses());
         }

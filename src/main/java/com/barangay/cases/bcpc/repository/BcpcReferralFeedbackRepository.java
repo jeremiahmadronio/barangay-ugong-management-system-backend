@@ -6,9 +6,11 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+/**
+ * Repository interface for managing BCPC inter-agency referral feedbacks.
+ */
 @Repository
 public interface BcpcReferralFeedbackRepository extends JpaRepository<BcpcReferralFeedback, Long> {
     List<BcpcReferralFeedback> findByReferralIdOrderByCreatedAtDesc(Long referralId);
-    List<BcpcReferralFeedback> findByCasesIdOrderByCreatedAtDesc(Long caseId);
 }
 

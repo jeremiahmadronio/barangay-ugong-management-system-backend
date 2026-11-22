@@ -9,13 +9,23 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Tracks inter-agency endorsements and referrals from BCPC to partner agencies
  * (e.g. LSWDO, PNP WCPD, Bahay Pag-asa, PAO, Hospital, or Family Court).
  */
 @Entity
-@Table(name = "bcpc_referrals")
+@Table(
+    name = "bcpc_referrals",
+    indexes = {
+        @Index(name = "idx_bcpc_referrals_case_id", columnList = "case_id"),
+        @Index(name = "idx_bcpc_referrals_referral_date", columnList = "referral_date"),
+        @Index(name = "idx_bcpc_referrals_status", columnList = "status"),
+        @Index(name = "idx_bcpc_referrals_control_no", columnList = "referral_control_number")
+    }
+)
 @Getter
 @Setter
 @AllArgsConstructor
@@ -60,7 +70,7 @@ public class BcpcReferral extends BaseEntity {
     // Feedback Tracking
     @OneToMany(mappedBy = "referral", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @OrderBy("createdAt DESC")
-    private java.util.List<BcpcReferralFeedback> feedbacks = new java.util.ArrayList<>();
+    private List<BcpcReferralFeedback> feedbacks = new ArrayList<>();
 
     @Column(name = "feedback_response", length = 50)
     private String feedbackResponse; // Accepted, Declined, Status Update

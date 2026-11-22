@@ -10,8 +10,17 @@ import lombok.Setter;
 
 import java.time.LocalDate;
 
+/**
+ * Represents official feedback received from receiving partner agencies regarding a BCPC referral.
+ */
 @Entity
-@Table(name = "bcpc_referral_feedbacks")
+@Table(
+    name = "bcpc_referral_feedbacks",
+    indexes = {
+        @Index(name = "idx_bcpc_referral_feedbacks_case_id", columnList = "case_id"),
+        @Index(name = "idx_bcpc_referral_feedbacks_referral_id", columnList = "referral_id")
+    }
+)
 @Getter
 @Setter
 @NoArgsConstructor

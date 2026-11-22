@@ -7,11 +7,13 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
+/**
+ * Repository interface for managing Child at Risk (CAR) assessment entities.
+ */
 @Repository
 public interface BcpcCarAssessmentRepository extends JpaRepository<BcpcCarAssessment, Long> {
 
     Optional<BcpcCarAssessment> findByBcpcCaseDetails(BcpcCaseDetails bcpcCaseDetails);
 
-    Optional<BcpcCarAssessment> findByBcpcCaseDetailsId(Long bcpcCaseDetailsId);
 }
 

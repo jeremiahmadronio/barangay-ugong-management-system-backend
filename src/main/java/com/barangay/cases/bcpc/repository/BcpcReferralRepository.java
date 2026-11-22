@@ -9,10 +9,12 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repository interface for managing BCPC partner agency referrals.
+ */
 @Repository
 public interface BcpcReferralRepository extends JpaRepository<BcpcReferral, Long> {
 
-    List<BcpcReferral> findByCases(Case aCase);
 
     List<BcpcReferral> findByCasesId(Long caseId);
 
@@ -40,7 +42,6 @@ public interface BcpcReferralRepository extends JpaRepository<BcpcReferral, Long
     """)
     List<BcpcReferral> findPendingReferralsForMonitoring();
 
-    Optional<BcpcReferral> findByReferralControlNumber(String referralControlNumber);
 
     boolean existsByReferralControlNumber(String referralControlNumber);
 }

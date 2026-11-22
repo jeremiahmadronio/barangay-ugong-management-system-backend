@@ -19,7 +19,13 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "bcpc_interventions")
+@Table(
+    name = "bcpc_interventions",
+    indexes = {
+        @Index(name = "idx_bcpc_interventions_case_details_id", columnList = "bcpc_case_details_id"),
+        @Index(name = "idx_bcpc_interventions_status", columnList = "status")
+    }
+)
 public class BcpcIntervention extends BaseEntity {
 
     @Id

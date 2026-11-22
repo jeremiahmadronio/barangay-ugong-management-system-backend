@@ -7,11 +7,13 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
+/**
+ * Repository interface for managing Child in Conflict with the Law (CICL) assessment entities.
+ */
 @Repository
 public interface BcpcCiclAssessmentRepository extends JpaRepository<BcpcCiclAssessment, Long> {
 
     Optional<BcpcCiclAssessment> findByBcpcCaseDetails(BcpcCaseDetails bcpcCaseDetails);
 
-    Optional<BcpcCiclAssessment> findByBcpcCaseDetailsId(Long bcpcCaseDetailsId);
 }
 

@@ -101,114 +101,18 @@ public class BcpcCaseService {
     private final CaseNoteRepository caseNoteRepository;
     private final CaseTimelineService caseTimelineService;
 
-    // Specialized Domain Services
+    // Specialized Domain Services for Category Specific Details
     private final BcpcCarCaseService bcpcCarCaseService;
     private final BcpcCiclCaseService bcpcCiclCaseService;
-    private final BcpcCustodyService bcpcCustodyService;
-    private final BcpcReferralService bcpcReferralService;
-    private final BcpcInterventionService bcpcInterventionService;
-    private final BcpcCommonService bcpcCommonService;
 
-    // =========================================================================
-    // CAR Case Delegation
-    // =========================================================================
 
-    public BcpcCarCaseDetailResponse createCarCase(BcpcCarCaseCreateRequest request) {
-        return bcpcCarCaseService.createCarCase(request);
-    }
 
-    public BcpcCarCaseDetailResponse getCarCaseById(Long caseId) {
-        return bcpcCarCaseService.getCarCaseById(caseId);
-    }
-
-    public BcpcCarCaseDetailResponse updateCarCase(Long caseId, BcpcCarCaseUpdateRequest request) {
-        return bcpcCarCaseService.updateCarCase(caseId, request);
-    }
-
-    // =========================================================================
-    // CICL Case Delegation
-    // =========================================================================
-
-    public BcpcCiclCaseDetailResponse createCiclCase(BcpcCiclCaseCreateRequest request) {
-        return bcpcCiclCaseService.createCiclCase(request);
-    }
-
-    public BcpcCiclCaseDetailResponse getCiclCaseById(Long caseId) {
-        return bcpcCiclCaseService.getCiclCaseById(caseId);
-    }
-
-    public BcpcCiclCaseDetailResponse updateCiclCase(Long caseId, BcpcCiclCaseUpdateRequest request) {
-        return bcpcCiclCaseService.updateCiclCase(caseId, request);
-    }
-
-    // =========================================================================
-    // Custody Delegation
-    // =========================================================================
-
-    public BcpcCustodyLogDto getCustodyLog(Long caseId) {
-        return bcpcCustodyService.getCustodyLog(caseId);
-    }
-
-    public BcpcCustodyLogDto updateCustodyLog(Long caseId, BcpcCustodyLogDto request) {
-        return bcpcCustodyService.updateCustodyLog(caseId, request);
-    }
-
-    public BcpcCustodyLogDto updateCiclCustodyLog(Long caseId, UpdateCiclCustodyLogDto request) {
-        return bcpcCustodyService.updateCiclCustodyLog(caseId, request);
-    }
-
-    // =========================================================================
-    // Referral Delegation
-    // =========================================================================
-
-    public List<BcpcReferralResponse> getReferrals(Long caseId) {
-        return bcpcReferralService.getReferrals(caseId);
-    }
-
-    public BcpcReferralResponse issueReferral(Long caseId, BcpcReferralCreateRequest request) {
-        return bcpcReferralService.issueReferral(caseId, request);
-    }
-
-    public BcpcReferralResponse recordReferralFeedback(Long caseId, Long referralId, BcpcReferralFeedbackRequest request) {
-        return bcpcReferralService.recordReferralFeedback(caseId, referralId, request);
-    }
-
-    public BcpcReferralResponse cancelReferral(Long caseId, Long referralId, BcpcReferralCancelRequest request) {
-        return bcpcReferralService.cancelReferral(caseId, referralId, request);
-    }
-
-    // =========================================================================
-    // Intervention Delegation
-    // =========================================================================
-
-    public List<BcpcInterventionDto> getInterventionsByCaseId(Long caseId) {
-        return bcpcInterventionService.getInterventionsByCaseId(caseId);
-    }
-
-    public BcpcInterventionDto createIntervention(Long caseId, BcpcInterventionCreateRequest request) {
-        return bcpcInterventionService.createIntervention(caseId, request);
-    }
-
-    public BcpcInterventionDto updateIntervention(Long caseId, Long interventionId, BcpcInterventionUpdateRequest request) {
-        return bcpcInterventionService.updateIntervention(caseId, interventionId, request);
-    }
-
-    public BcpcInterventionDto recordInterventionProgress(Long caseId, Long interventionId, BcpcInterventionProgressRequest request) {
-        return bcpcInterventionService.recordInterventionProgress(caseId, interventionId, request);
-    }
-
-    // =========================================================================
-    // Common Person Utility Delegation
-    // =========================================================================
-
-    public Person resolveOrCreatePerson(BcpcPersonInputDto dto) {
-        return bcpcCommonService.resolveOrCreatePerson(dto);
-    }
-
-    // =========================================================================
-    // Universal Details & Case Notes
-    // =========================================================================
-
+    /**
+     * Retrieves universal case detail including CAR or CICL specific data.
+     *
+     * @param caseId case identifier
+     * @return universal case details
+     */
     @Transactional(readOnly = true)
     public BcpcCaseUniversalDetailResponse getCaseDetailsById(Long caseId) {
         Case aCase = caseRepository.findById(caseId)
@@ -240,6 +144,13 @@ public class BcpcCaseService {
         );
     }
 
+    /**
+     * Adds an internal case note to a BCPC case.
+     *
+     * @param caseId  case identifier
+     * @param request case note request payload
+     * @return created case note response
+     */
     @Transactional
     public CaseNoteResponse addCaseNote(Long caseId, CaseNoteRequest request) {
         log.info("Adding BCPC case note to Case ID: {}", caseId);
@@ -270,6 +181,12 @@ public class BcpcCaseService {
         return toCaseNoteResponse(saved);
     }
 
+    /**
+     * Retrieves all internal case notes for a specific BCPC case in descending order.
+     *
+     * @param caseId case identifier
+     * @return list of case notes
+     */
     @Transactional(readOnly = true)
     public List<CaseNoteResponse> getCaseNotes(Long caseId) {
         log.info("Retrieving BCPC case notes for Case ID: {}", caseId);
@@ -300,10 +217,12 @@ public class BcpcCaseService {
                 .build();
     }
 
-    // =========================================================================
-    // Statistics & Case Records Table
-    // =========================================================================
 
+    /**
+     * Computes high-level statistics for BCPC cases including total cases, monthly trend, and active counts.
+     *
+     * @return BCPC stats response
+     */
     @Transactional(readOnly = true)
     public BcpcStatsResponse getBcpcStats() {
         LocalDateTime currentMonthStart = YearMonth.now().atDay(1).atStartOfDay();
@@ -358,20 +277,20 @@ public class BcpcCaseService {
         LocalDateTime prevStartOfWeek = mondayDate.minusWeeks(1).atStartOfDay();
         LocalDateTime prevEndOfWeek = sundayDate.minusWeeks(1).atTime(LocalTime.MAX);
 
-        // 1. Total New Cases This Week & Trend vs Previous Week
+        // Total New Cases This Week & Trend vs Previous Week
         long totalNewCasesThisWeek = caseRepository.countRootBcpcCasesByCreatedAtBetween(startOfWeek, endOfWeek);
         long prevTotalCases = caseRepository.countRootBcpcCasesByCreatedAtBetween(prevStartOfWeek, prevEndOfWeek);
         String newCasesTrend = calculateWeeklyTrend(totalNewCasesThisWeek, prevTotalCases);
 
-        // 2. Needs Assessment / Action: Active cases with status PENDING
+        // Needs Assessment / Action: Active cases with status PENDING
         long totalNeedsAssessment = caseRepository.countLatestBcpcCasesByCaseStatusIn(List.of(CaseStatus.PENDING));
 
-        // 3. Active Intervention Monitoring: Cases under active diversion / intervention (ONGOING, REOPENED)
+        // Active Intervention Monitoring: Cases under active diversion / intervention (ONGOING, REOPENED)
         long totalActiveInterventions = caseRepository.countLatestBcpcCasesByCaseStatusIn(
                 List.of(CaseStatus.ONGOING, CaseStatus.REOPENED)
         );
 
-        // 4. Pending Agency Feedback: Referrals awaiting official feedback
+        // Pending Agency Feedback: Referrals awaiting official feedback
         long totalPendingAgencyFeedback = bcpcReferralRepository.countPendingAgencyFeedback();
 
         return new BcpcDashboardKpiResponse(
@@ -394,6 +313,12 @@ public class BcpcCaseService {
         return String.format("%+.1f%% vs last week", percentChange);
     }
 
+    /**
+     * Retrieves the most recent BCPC cases up to the specified limit.
+     *
+     * @param limit maximum number of rows to retrieve
+     * @return list of recent table row responses
+     */
     @Transactional(readOnly = true)
     public List<BcpcTableRowResponse> getRecentCases(int limit) {
         int safeLimit = limit > 0 ? limit : 5;
@@ -402,6 +327,12 @@ public class BcpcCaseService {
         return casePage.map(this::toBcpcTableRowResponse).getContent();
     }
 
+    /**
+     * Retrieves active monitoring items including pending referrals and ongoing interventions.
+     *
+     * @param limit maximum number of items to return
+     * @return monitoring feed items
+     */
     @Transactional(readOnly = true)
     public List<BcpcDashboardMonitoringItem> getMonitoringFeed(int limit) {
         int safeLimit = limit > 0 ? limit : 6;
@@ -824,6 +755,12 @@ public class BcpcCaseService {
         );
     }
 
+    /**
+     * Retrieves paginated and filtered BCPC cases for the cases management table.
+     *
+     * @param filter filtering and pagination criteria
+     * @return paginated table response
+     */
     @Transactional(readOnly = true)
     public PageResponse<BcpcTableRowResponse> getBcpcCasesTable(BcpcFilterRequest filter) {
         int page = filter != null ? filter.getPageNumber() : 0;
@@ -836,6 +773,13 @@ public class BcpcCaseService {
         return PageResponse.of(dtoPage);
     }
 
+    /**
+     * Resolves the effective business display status for a BCPC case based on child profile and status.
+     *
+     * @param c       the case entity
+     * @param details associated BCPC details
+     * @return effective status string
+     */
     public String resolveEffectiveStatus(Case c, BcpcCaseDetails details) {
         if (c == null) return "PENDING";
         CaseStatus raw = c.getCaseStatus();
@@ -879,6 +823,12 @@ public class BcpcCaseService {
         return "PENDING";
     }
 
+    /**
+     * Maps a Case entity into a table row response for BCPC views.
+     *
+     * @param c the case entity
+     * @return table row response
+     */
     public BcpcTableRowResponse toBcpcTableRowResponse(Case c) {
         if (c == null) return null;
 

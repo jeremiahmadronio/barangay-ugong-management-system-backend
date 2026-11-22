@@ -7,6 +7,9 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
+/**
+ * Repository interface for managing BCPC case intake details and child profile information.
+ */
 @Repository
 public interface BcpcCaseDetailsRepository extends JpaRepository<BcpcCaseDetails, Long> {
 
@@ -14,5 +17,4 @@ public interface BcpcCaseDetailsRepository extends JpaRepository<BcpcCaseDetails
 
     Optional<BcpcCaseDetails> findByCasesId(Long caseId);
 
-    boolean existsByCasesId(Long caseId);
 }

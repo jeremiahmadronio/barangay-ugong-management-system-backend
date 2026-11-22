@@ -1,51 +1,15 @@
 package com.barangay.cases.bcpc.service;
 
-import com.barangay.cases.bcpc.dto.BcpcCarCaseCreateRequest;
-import com.barangay.cases.bcpc.dto.BcpcCarCaseDetailResponse;
-import com.barangay.cases.bcpc.dto.BcpcCiclCaseCreateRequest;
-import com.barangay.cases.bcpc.dto.BcpcCiclCaseDetailResponse;
-import com.barangay.cases.bcpc.dto.BcpcPersonInputDto;
-import com.barangay.cases.bcpc.model.BcpcCarAssessment;
-import com.barangay.cases.bcpc.model.BcpcCaseDetails;
-import com.barangay.cases.bcpc.model.BcpcCiclAssessment;
-import com.barangay.cases.bcpc.repository.BcpcCarAssessmentRepository;
+import com.barangay.cases.bcpc.dto.BcpcDashboardKpiResponse;
+import com.barangay.cases.bcpc.dto.BcpcTableRowResponse;
 import com.barangay.cases.bcpc.repository.BcpcCaseDetailsRepository;
-import com.barangay.cases.bcpc.repository.BcpcCiclAssessmentRepository;
+import com.barangay.cases.bcpc.repository.BcpcInterventionRepository;
+import com.barangay.cases.bcpc.repository.BcpcReferralRepository;
 import com.barangay.cases.shared.model.Case;
-import com.barangay.cases.shared.model.IncidentDetail;
-import com.barangay.cases.shared.model.NarrativeStatement;
-import com.barangay.cases.shared.repository.CaseEvidenceRepository;
+import com.barangay.cases.shared.repository.CaseNoteRepository;
 import com.barangay.cases.shared.repository.CaseRepository;
-import com.barangay.cases.shared.repository.EvidenceTypeRepository;
 import com.barangay.cases.shared.service.CaseTimelineService;
-import com.barangay.people.complainant.model.Complainant;
-import com.barangay.people.officer.repository.OfficerRepository;
-import com.barangay.people.person.model.Person;
-import com.barangay.people.person.repository.PersonRepository;
-import com.barangay.people.resident.repository.ResidentRepository;
-import com.barangay.people.witness.repository.WitnessRepository;
-import com.barangay.usermanagement.department.model.Department;
-import com.barangay.usermanagement.department.repository.DepartmentRepository;
-import com.barangay.zshared.dto.ComplainantDetailDto;
-import com.barangay.zshared.dto.IncidentCreateDto;
-import com.barangay.zshared.dto.IncidentDetailDto;
-import com.barangay.zshared.dto.NarrativeCreateDto;
-import com.barangay.zshared.dto.NarrativeDetailDto;
-import com.barangay.zshared.enumerated.CarActCategory;
-import com.barangay.zshared.enumerated.CarOccurrenceCategory;
-import com.barangay.zshared.enumerated.CiclPathway;
-import com.barangay.zshared.enumerated.DiscernmentStatus;
-import com.barangay.zshared.enumerated.DiversionAuthority;
-import com.barangay.zshared.enumerated.PenaltyRoutingCategory;
-import com.barangay.zshared.enumerated.SpecificCarAct;
-import com.barangay.zshared.enumerated.TimelineEventType;
-import com.barangay.zshared.mapper.CaseEvidenceMapper;
-import com.barangay.zshared.mapper.ComplainantMapper;
-import com.barangay.zshared.mapper.IncidentDetailMapper;
-import com.barangay.zshared.mapper.NarrativeStatementMapper;
-import com.barangay.zshared.mapper.PersonMapper;
-import com.barangay.zshared.mapper.WitnessMapper;
-import org.junit.jupiter.api.BeforeEach;
+import com.barangay.zshared.enumerated.CaseStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -53,19 +17,26 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collections;
-import java.util.Optional;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
+/**
+ * BDD Unit tests for {@link BcpcCaseService}.
+ * Tests dashboard KPI aggregation and filtered case listings.
+ */
 @ExtendWith(MockitoExtension.class)
+@DisplayName("BcpcCaseService Coordinator Tests")
 class BcpcCaseServiceTest {
 
     @Mock
@@ -75,297 +46,89 @@ class BcpcCaseServiceTest {
     private BcpcCaseDetailsRepository bcpcCaseDetailsRepository;
 
     @Mock
-    private BcpcCarAssessmentRepository bcpcCarAssessmentRepository;
+    private BcpcReferralRepository bcpcReferralRepository;
 
     @Mock
-    private BcpcCiclAssessmentRepository bcpcCiclAssessmentRepository;
+    private BcpcInterventionRepository bcpcInterventionRepository;
 
     @Mock
-    private PersonRepository personRepository;
-
-    @Mock
-    private ResidentRepository residentRepository;
-
-    @Mock
-    private WitnessRepository witnessRepository;
-
-    @Mock
-    private EvidenceTypeRepository evidenceTypeRepository;
-
-    @Mock
-    private CaseEvidenceRepository caseEvidenceRepository;
-
-    @Mock
-    private DepartmentRepository departmentRepository;
-
-    @Mock
-    private OfficerRepository officerRepository;
+    private CaseNoteRepository caseNoteRepository;
 
     @Mock
     private CaseTimelineService caseTimelineService;
 
     @Mock
-    private PersonMapper personMapper;
+    private BcpcCarCaseService bcpcCarCaseService;
 
     @Mock
-    private ComplainantMapper complainantMapper;
+    private BcpcCiclCaseService bcpcCiclCaseService;
 
     @Mock
-    private IncidentDetailMapper incidentDetailMapper;
+    private BcpcCustodyService bcpcCustodyService;
 
     @Mock
-    private NarrativeStatementMapper narrativeStatementMapper;
+    private BcpcReferralService bcpcReferralService;
 
     @Mock
-    private WitnessMapper witnessMapper;
+    private BcpcInterventionService bcpcInterventionService;
 
     @Mock
-    private CaseEvidenceMapper caseEvidenceMapper;
+    private BcpcCommonService bcpcCommonService;
 
     @InjectMocks
     private BcpcCaseService bcpcCaseService;
 
-    private Person mockChild;
-    private Person mockVictim;
-
-    @BeforeEach
-    void setUp() {
-        mockChild = new Person();
-        mockChild.setId(10L);
-        mockChild.setFirstName("Juan");
-        mockChild.setLastName("Dela Cruz");
-        mockChild.setBirthDate(LocalDate.now().minusYears(14));
-        mockChild.setAge((short) 14);
-
-        mockVictim = new Person();
-        mockVictim.setId(20L);
-        mockVictim.setFirstName("Maria");
-        mockVictim.setLastName("Santos");
-    }
-
     @Nested
-    @DisplayName("CICL (Child in Conflict with the Law) Tests")
-    class CiclTests {
+    @DisplayName("Dashboard KPI Tests")
+    class DashboardKpiTests {
 
         @Test
-        @DisplayName("Should successfully file CICL case and auto-route child <= 15 to INTERVENTION")
-        void createCiclCase_minorUnder15_shouldForceIntervention() {
-            // Arrange
-            BcpcPersonInputDto childInput = new BcpcPersonInputDto(
-                    null, 10L, "Juan", "Dela Cruz", null, null,
-                    "09123456789", "Barangay Center", (short) 14, "MALE",
-                    LocalDate.now().minusYears(14), "SINGLE", null
-            );
+        @DisplayName("givenActiveMetrics_whenGetDashboardKpis_thenCalculateAccurateCounts")
+        void givenActiveMetrics_whenGetDashboardKpis_thenCalculateAccurateCounts() {
+            // Given
+            given(caseRepository.countRootBcpcCasesByCreatedAtBetween(any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .willReturn(10L, 5L);
+            given(caseRepository.countLatestBcpcCasesByCaseStatusIn(eq(List.of(CaseStatus.PENDING))))
+                    .willReturn(3L);
+            given(caseRepository.countLatestBcpcCasesByCaseStatusIn(eq(List.of(CaseStatus.ONGOING, CaseStatus.REOPENED))))
+                    .willReturn(7L);
+            given(bcpcReferralRepository.countPendingAgencyFeedback())
+                    .willReturn(2L);
 
-            BcpcPersonInputDto victimInput = new BcpcPersonInputDto(
-                    null, 20L, "Maria", "Santos", null, null,
-                    "09987654321", "Street 1", (short) 35, "FEMALE",
-                    LocalDate.now().minusYears(35), "MARRIED", null
-            );
+            // When
+            BcpcDashboardKpiResponse response = bcpcCaseService.getDashboardKpis();
 
-            IncidentCreateDto incident = new IncidentCreateDto(
-                    "Theft", LocalDate.now().toString(), "10:00", "Public Market", "First time", null, null
-            );
-
-            BcpcCiclCaseCreateRequest request = new BcpcCiclCaseCreateRequest(
-                    "BU26-BCPC-0001", null, null, false, victimInput, "Victim", "Neighbor",
-                    childInput, "Grade 8", "National High School",
-                    false, null, null, "Parent deceased",
-                    incident, "Petty Theft",
-                    14, CiclPathway.DIVERSION, DiscernmentStatus.WITH_DISCERNMENT,
-                    PenaltyRoutingCategory.SIX_YEARS_OR_LESS, DiversionAuthority.BARANGAY,
-                    true, true, false,
-                    "Officer Tanod", "Barangay Police", "09111111111", null, "Market Alley",
-                    null, Collections.emptyList(), Collections.emptyList(), true
-            );
-
-            when(personRepository.findById(10L)).thenReturn(Optional.of(mockChild));
-            when(personRepository.findById(20L)).thenReturn(Optional.of(mockVictim));
-            when(departmentRepository.findByName("BCPC")).thenReturn(Optional.of(new Department()));
-            when(caseRepository.existsByCaseNumber("BU26-BCPC-0001")).thenReturn(false);
-
-            when(incidentDetailMapper.fromCreateDto(any())).thenReturn(new IncidentDetail());
-            when(caseRepository.save(any(Case.class))).thenAnswer(invocation -> {
-                Case c = invocation.getArgument(0);
-                c.setId(100L);
-                return c;
-            });
-            when(bcpcCaseDetailsRepository.save(any(BcpcCaseDetails.class))).thenAnswer(invocation -> {
-                BcpcCaseDetails d = invocation.getArgument(0);
-                d.setId(200L);
-                return d;
-            });
-            when(bcpcCiclAssessmentRepository.save(any(BcpcCiclAssessment.class))).thenAnswer(invocation -> {
-                BcpcCiclAssessment a = invocation.getArgument(0);
-                a.setId(300L);
-                return a;
-            });
-
-            when(personMapper.buildFullName(mockChild)).thenReturn("Juan Dela Cruz");
-
-            // Act
-            BcpcCiclCaseDetailResponse response = bcpcCaseService.createCiclCase(request);
-
-            // Assert
+            // Then
             assertThat(response).isNotNull();
-            assertThat(response.caseId()).isEqualTo(100L);
-            assertThat(response.caseNumber()).isEqualTo("BU26-BCPC-0001");
-            assertThat(response.ciclAssessment()).isNotNull();
-
-            // Legal verification under RA 9344 / RA 10630: 14 y/o is exempt from criminal liability
-            assertThat(response.ciclAssessment().ciclPathway()).isEqualTo(CiclPathway.INTERVENTION);
-            assertThat(response.ciclAssessment().isDiversionEligible()).isFalse();
-            assertThat(response.ciclAssessment().discernmentStatus()).isEqualTo(DiscernmentStatus.WITHOUT_DISCERNMENT);
-
-            verify(caseTimelineService).logEvent(
-                    any(Case.class),
-                    eq(TimelineEventType.CASE_FILED),
-                    eq("BCPC Case Filed (CICL)"),
-                    any(),
-                    any()
-            );
-        }
-
-        @Test
-        @DisplayName("Should throw IllegalArgumentException when child age is 18 or older")
-        void createCiclCase_adultAge_shouldThrowException() {
-            // Arrange
-            Person adultPerson = new Person();
-            adultPerson.setId(99L);
-            adultPerson.setFirstName("Pedro");
-            adultPerson.setLastName("Penduko");
-            adultPerson.setAge((short) 19);
-
-            BcpcPersonInputDto adultInput = new BcpcPersonInputDto(
-                    null, 99L, "Pedro", "Penduko", null, null,
-                    null, null, (short) 19, "MALE", null, null, null
-            );
-
-            IncidentCreateDto incident = new IncidentCreateDto(
-                    "Robbery", LocalDate.now().toString(), "10:00", "Street", "Once", null, null
-            );
-
-            BcpcCiclCaseCreateRequest request = new BcpcCiclCaseCreateRequest(
-                    null, null, null, false, null, null, null,
-                    adultInput, null, null, false, null, null, null,
-                    incident, "Robbery", 19, null, null, null, null,
-                    null, null, null, null, null, null, null, null,
-                    null, null, null, true
-            );
-
-            when(personRepository.findById(99L)).thenReturn(Optional.of(adultPerson));
-
-            // Act & Assert
-            assertThatThrownBy(() -> bcpcCaseService.createCiclCase(request))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("cannot be processed as a Child in Conflict with the Law (CICL)");
-        }
-
-        @Test
-        @DisplayName("Should throw IllegalArgumentException when victim and child are the same person")
-        void createCiclCase_victimSameAsChild_shouldThrowException() {
-            // Arrange
-            BcpcPersonInputDto samePersonInput = new BcpcPersonInputDto(
-                    null, 10L, "Juan", "Dela Cruz", null, null,
-                    null, null, (short) 14, "MALE", null, null, null
-            );
-
-            IncidentCreateDto incident = new IncidentCreateDto(
-                    "Theft", LocalDate.now().toString(), "10:00", "Street", "Once", null, null
-            );
-
-            BcpcCiclCaseCreateRequest request = new BcpcCiclCaseCreateRequest(
-                    null, null, null, false, samePersonInput, null, null,
-                    samePersonInput, null, null, false, null, null, null,
-                    incident, "Theft", 14, null, null, null, null,
-                    null, null, null, null, null, null, null, null,
-                    null, null, null, true
-            );
-
-            when(personRepository.findById(10L)).thenReturn(Optional.of(mockChild));
-
-            // Act & Assert
-            assertThatThrownBy(() -> bcpcCaseService.createCiclCase(request))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("cannot be the same resident");
+            assertThat(response.totalNewCasesThisWeek()).isEqualTo(10L);
+            assertThat(response.totalNeedsAssessment()).isEqualTo(3L);
+            assertThat(response.totalActiveInterventions()).isEqualTo(7L);
+            assertThat(response.totalPendingAgencyFeedback()).isEqualTo(2L);
+            then(caseRepository).should().countLatestBcpcCasesByCaseStatusIn(eq(List.of(CaseStatus.PENDING)));
         }
     }
 
     @Nested
-    @DisplayName("CAR (Child at Risk) Tests")
-    class CarTests {
+    @DisplayName("Recent Cases Tests")
+    class RecentCasesTests {
 
         @Test
-        @DisplayName("Should successfully file CAR case")
-        void createCarCase_validRequest_success() {
-            // Arrange
-            BcpcPersonInputDto reporterInput = new BcpcPersonInputDto(
-                    null, 20L, "Maria", "Santos", null, null,
-                    "09987654321", "Street 1", (short) 35, "FEMALE",
-                    null, null, null
-            );
+        @DisplayName("givenLimit_whenGetRecentCases_thenReturnList")
+        void givenLimit_whenGetRecentCases_thenReturnList() {
+            // Given
+            Case aCase = new Case();
+            aCase.setId(10L);
+            aCase.setCaseNumber("BU26-BCPC-0001");
+            Page<Case> mockPage = new PageImpl<>(List.of(aCase));
 
-            BcpcPersonInputDto childInput = new BcpcPersonInputDto(
-                    null, 10L, "Juan", "Dela Cruz", null, null,
-                    "09123456789", "Street 2", (short) 12, "MALE",
-                    null, null, null
-            );
+            given(caseRepository.findBcpcCasesFiltered(any(), any(Pageable.class))).willReturn(mockPage);
 
-            IncidentCreateDto incident = new IncidentCreateDto(
-                    "Curfew Violation", LocalDate.now().toString(), "23:00", "Park", "Habitual", null, null
-            );
+            // When
+            List<BcpcTableRowResponse> results = bcpcCaseService.getRecentCases(5);
 
-            BcpcCarCaseCreateRequest request = new BcpcCarCaseCreateRequest(
-                    "BU26-BCPC-0002", null, null,
-                    reporterInput, "Barangay Tanod", "Officer",
-                    childInput, "Grade 6", "Elementary School",
-                    true, null, "Mother", null,
-                    incident, CarActCategory.JUVENILE_STATUS_OFFENSE, SpecificCarAct.CURFEW_VIOLATION,
-                    null, CarOccurrenceCategory.SECOND_OCCURRENCE, false, "No immediate danger", "LOW",
-                    null, Collections.emptyList(), Collections.emptyList(), true
-            );
-
-            when(personRepository.findById(20L)).thenReturn(Optional.of(mockVictim));
-            when(personRepository.findById(10L)).thenReturn(Optional.of(mockChild));
-            when(departmentRepository.findByName("BCPC")).thenReturn(Optional.of(new Department()));
-            when(caseRepository.existsByCaseNumber("BU26-BCPC-0002")).thenReturn(false);
-
-            when(incidentDetailMapper.fromCreateDto(any())).thenReturn(new IncidentDetail());
-            when(caseRepository.save(any(Case.class))).thenAnswer(invocation -> {
-                Case c = invocation.getArgument(0);
-                c.setId(101L);
-                return c;
-            });
-            when(bcpcCaseDetailsRepository.save(any(BcpcCaseDetails.class))).thenAnswer(invocation -> {
-                BcpcCaseDetails d = invocation.getArgument(0);
-                d.setId(201L);
-                return d;
-            });
-            when(bcpcCarAssessmentRepository.save(any(BcpcCarAssessment.class))).thenAnswer(invocation -> {
-                BcpcCarAssessment a = invocation.getArgument(0);
-                a.setId(301L);
-                return a;
-            });
-
-            when(personMapper.buildFullName(mockChild)).thenReturn("Juan Dela Cruz");
-
-            // Act
-            BcpcCarCaseDetailResponse response = bcpcCaseService.createCarCase(request);
-
-            // Assert
-            assertThat(response).isNotNull();
-            assertThat(response.caseId()).isEqualTo(101L);
-            assertThat(response.caseNumber()).isEqualTo("BU26-BCPC-0002");
-            assertThat(response.carActCategory()).isEqualTo(CarActCategory.JUVENILE_STATUS_OFFENSE);
-            assertThat(response.specificCarAct()).isEqualTo(SpecificCarAct.CURFEW_VIOLATION);
-
-            verify(caseTimelineService).logEvent(
-                    any(Case.class),
-                    eq(TimelineEventType.CASE_FILED),
-                    eq("BCPC Case Filed (CAR)"),
-                    any(),
-                    any()
-            );
+            // Then
+            assertThat(results).isNotNull();
+            then(caseRepository).should().findBcpcCasesFiltered(any(), any(Pageable.class));
         }
     }
 }

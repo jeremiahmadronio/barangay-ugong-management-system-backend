@@ -22,7 +22,12 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "bcpc_cicl_assessments")
+@Table(
+    name = "bcpc_cicl_assessments",
+    indexes = {
+        @Index(name = "idx_bcpc_cicl_assessments_case_details_id", columnList = "bcpc_case_details_id")
+    }
+)
 public class BcpcCiclAssessment extends BaseEntity {
 
     @Id
