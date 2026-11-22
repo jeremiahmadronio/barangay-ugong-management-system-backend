@@ -6,9 +6,9 @@ import com.barangay.zshared.audit.dto.AuditLogResponse;
 import com.barangay.zshared.audit.dto.AuditLogStatsResponse;
 import com.barangay.zshared.audit.model.AuditLogs;
 import com.barangay.zshared.audit.repository.AuditLogsRepository;
-import com.barangay.zshared.mapper.PageResponse;
 import com.barangay.zshared.enumerated.AuditModule;
 import com.barangay.zshared.enumerated.Severity;
+import com.barangay.zshared.mapper.PageResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -35,8 +35,7 @@ import static com.barangay.zshared.audit.repository.AuditLogSpecifications.hasSe
 import static com.barangay.zshared.audit.repository.AuditLogSpecifications.search;
 
 /**
- * Handles saving audit log records to the database.
- * Runs asynchronously so it does not slow down the main request.
+ * Service for recording and retrieving system audit logs and aggregated statistics.
  */
 @Slf4j
 @Service
@@ -48,25 +47,23 @@ public class AuditLogService {
     private final HttpServletRequest httpRequest;
 
     /**
-     * Saves an audit log entry.
-     * Runs in a separate transaction so even if the main transaction fails,
-     * the audit log is still saved.
+     * Persists an audit log entry asynchronously to avoid blocking the caller thread.
      */
     @Async
     public void log(
-        User user,
-        AuditModule module,
-        String actionTaken,
-        Severity severity,
-        String reason,
-        String ipAddress,
-        Object oldValue,
-        Object newValue
-        ){
-        try{
+            User user,
+            AuditModule module,
+            String actionTaken,
+            Severity severity,
+            String reason,
+            String ipAddress,
+            Object oldValue,
+            Object newValue
+    ) {
+        try {
             String resolvedIpAddress = (ipAddress != null && !ipAddress.isBlank())
-                ? ipAddress
-                : getClientIp();
+                    ? ipAddress
+                    : getClientIp();
 
             AuditLogs auditLog = AuditLogs.builder()
                     .user(user)
@@ -74,17 +71,20 @@ public class AuditLogService {
                     .actionTaken(actionTaken)
                     .severity(severity)
                     .reason(reason)
-                .ipAddress(resolvedIpAddress)
+                    .ipAddress(resolvedIpAddress)
                     .oldValue(toJson(oldValue))
                     .newValue(toJson(newValue))
                     .build();
-            auditLogsRepository.save(auditLog);
-        }catch (Exception ex){
-            log.error("Failed to save audit log: {}", ex.getMessage(), ex);
 
+            auditLogsRepository.save(auditLog);
+        } catch (Exception ex) {
+            log.error("Failed to save audit log: {}", ex.getMessage(), ex);
         }
     }
 
+    /**
+     * Retrieves a paginated list of audit logs based on search criteria, severity, and date ranges.
+     */
     @Transactional(readOnly = true)
     public PageResponse<AuditLogResponse> getAuditLogs(
             String searchTerm,
@@ -111,6 +111,9 @@ public class AuditLogService {
         return PageResponse.of(pageResult);
     }
 
+    /**
+     * Calculates summary metrics for the audit log dashboard.
+     */
     @Transactional(readOnly = true)
     public AuditLogStatsResponse getAuditLogStats() {
         LocalDate today = LocalDate.now();
@@ -127,20 +130,24 @@ public class AuditLogService {
         return new AuditLogStatsResponse(totalEntries, todayEntries, warningCount, criticalCount);
     }
 
-    // Converts any object to a JSON string for storage
+    /**
+     * Serializes an object to JSON representation for audit state storage.
+     */
     private String toJson(Object obj) {
-        if (obj == null) return null;
+        if (obj == null) {
+            return null;
+        }
         try {
             return objectMapper.writeValueAsString(obj);
         } catch (Exception e) {
-            // Never let audit logging break the main flow
             log.warn("Could not serialize object to JSON: {}", e.getMessage());
             return obj.toString();
         }
     }
 
-
-    // Gets the real IP address of the client — handles proxies
+    /**
+     * Resolves the originating client IP address, handling proxy forwarded headers.
+     */
     private String getClientIp() {
         try {
             String[] headers = {
@@ -160,6 +167,9 @@ public class AuditLogService {
         }
     }
 
+    /**
+     * Maps an {@link AuditLogs} entity to its response DTO.
+     */
     private AuditLogResponse mapToResponse(AuditLogs auditLog) {
         return new AuditLogResponse(
                 auditLog.getId(),
@@ -177,6 +187,9 @@ public class AuditLogService {
         );
     }
 
+    /**
+     * Resolves the human-readable full name or username of the actor.
+     */
     private String resolveUserName(User user) {
         if (user == null) {
             return "System";
@@ -189,15 +202,21 @@ public class AuditLogService {
                 fullName.append(person.getFirstName().trim());
             }
             if (person.getMiddleName() != null && !person.getMiddleName().isBlank()) {
-                if (fullName.length() > 0) fullName.append(' ');
+                if (fullName.length() > 0) {
+                    fullName.append(' ');
+                }
                 fullName.append(person.getMiddleName().trim());
             }
             if (person.getLastName() != null && !person.getLastName().isBlank()) {
-                if (fullName.length() > 0) fullName.append(' ');
+                if (fullName.length() > 0) {
+                    fullName.append(' ');
+                }
                 fullName.append(person.getLastName().trim());
             }
             if (person.getSuffix() != null && !person.getSuffix().isBlank()) {
-                if (fullName.length() > 0) fullName.append(' ');
+                if (fullName.length() > 0) {
+                    fullName.append(' ');
+                }
                 fullName.append(person.getSuffix().trim());
             }
             if (fullName.length() > 0) {
@@ -208,6 +227,9 @@ public class AuditLogService {
         return user.getUsername() != null && !user.getUsername().isBlank() ? user.getUsername() : "Unknown User";
     }
 
+    /**
+     * Resolves the display role name of the actor.
+     */
     private String resolveUserRole(User user) {
         if (user == null || user.getRole() == null || user.getRole().getRoleName() == null) {
             return "System";
@@ -215,6 +237,9 @@ public class AuditLogService {
         return user.getRole().getRoleName();
     }
 
+    /**
+     * Normalizes severity levels for unified frontend rendering.
+     */
     private Severity normalizeSeverity(Severity severity) {
         if (severity == null) {
             return Severity.INFO;
@@ -227,6 +252,9 @@ public class AuditLogService {
         };
     }
 
+    /**
+     * Constructs a formatted JSON payload containing reason, oldValue, and newValue.
+     */
     private String buildDetailsPayload(AuditLogs auditLog) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("reason", auditLog.getReason());
@@ -240,6 +268,9 @@ public class AuditLogService {
         }
     }
 
+    /**
+     * Parses a raw JSON string into a structured JSON node or fallback value.
+     */
     private Object tryParseJson(String rawValue) {
         if (rawValue == null || rawValue.isBlank()) {
             return null;
@@ -251,5 +282,4 @@ public class AuditLogService {
             return rawValue;
         }
     }
-
 }

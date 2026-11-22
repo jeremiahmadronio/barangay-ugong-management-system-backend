@@ -5,19 +5,25 @@ import com.barangay.usermanagement.role.model.Role;
 import com.barangay.usermanagement.user.model.User;
 import com.barangay.zshared.audit.model.AuditLogs;
 import com.barangay.zshared.enumerated.Severity;
-import org.springframework.data.jpa.domain.Specification;
-import org.springframework.util.StringUtils;
-
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.util.StringUtils;
+
 import java.time.LocalDateTime;
 
+/**
+ * JPA Specifications for dynamic filtering and searching of {@link AuditLogs}.
+ */
 public final class AuditLogSpecifications {
 
     private AuditLogSpecifications() {
     }
 
+    /**
+     * Filters audit logs matching the given search query across user, role, and module fields.
+     */
     public static Specification<AuditLogs> search(String rawSearch) {
         return (root, query, cb) -> {
             if (!StringUtils.hasText(rawSearch)) {
@@ -54,25 +60,32 @@ public final class AuditLogSpecifications {
         };
     }
 
+    /**
+     * Filters audit logs by severity level.
+     */
     public static Specification<AuditLogs> hasSeverity(Severity severity) {
         return (root, query, cb) ->
                 severity == null ? cb.conjunction() : cb.equal(root.get("severity"), severity);
     }
 
+    /**
+     * Filters audit logs created on or after the specified timestamp.
+     */
     public static Specification<AuditLogs> createdOnOrAfter(LocalDateTime fromDateTime) {
         return (root, query, cb) ->
                 fromDateTime == null ? cb.conjunction() : cb.greaterThanOrEqualTo(root.get("createdAt"), fromDateTime);
     }
 
+    /**
+     * Filters audit logs created on or before the specified timestamp.
+     */
     public static Specification<AuditLogs> createdOnOrBefore(LocalDateTime toDateTime) {
         return (root, query, cb) ->
                 toDateTime == null ? cb.conjunction() : cb.lessThanOrEqualTo(root.get("createdAt"), toDateTime);
     }
 
     /**
-     * Permanently excludes read-only / view-only audit actions from all queries.
-     * These actions are: VIEW_*, LIST_*, GET_* prefixes.
-     * This covers old records already in the DB and prevents future noise.
+     * Excludes view-only audit actions (VIEW_*, LIST_*, GET_*).
      */
     public static Specification<AuditLogs> excludeViewActions() {
         return (root, query, cb) -> {

@@ -10,6 +10,7 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -17,9 +18,7 @@ import org.springframework.stereotype.Component;
 import java.lang.reflect.Method;
 
 /**
- * Intercepts any method annotated with @LogAudit and saves an audit log.
- * Uses Spring AOP to automatically capture action details without
- * polluting the business logic in Service classes.
+ * Aspect that intercepts methods annotated with {@link LogAudit} and persists audit entries.
  */
 @Aspect
 @Slf4j
@@ -30,17 +29,14 @@ public class AuditAspect {
     private final AuditLogService auditService;
 
     /**
-     * The main interceptor logic.
-     * @Around ensures we can capture data BEFORE and AFTER the method runs.
+     * Intercepts execution of methods annotated with {@link LogAudit} to capture audit metadata.
      */
     @Around("@annotation(com.barangay.zshared.audit.annotations.LogAudit)")
     public Object intercept(ProceedingJoinPoint joinPoint) throws Throwable {
-        // Get the annotation details
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
         LogAudit annotation = method.getAnnotation(LogAudit.class);
 
-        // Capture old value — use oldValueArgIndex to pick the relevant argument
         Object oldValue = null;
         if (annotation.captureOldValue()) {
             Object[] args = joinPoint.getArgs();
@@ -50,27 +46,20 @@ public class AuditAspect {
             }
         }
 
-        // Run the actual method
         Object result = joinPoint.proceed();
 
-        // Capture new value — return value of the method (if enabled)
-        // Skip capturing org.springframework.http.ResponseEntity<Void> (no meaningful payload)
         Object newValue = null;
         if (annotation.captureNewValue() && result != null) {
-            boolean isVoidResponse = result instanceof org.springframework.http.ResponseEntity<?> re
+            boolean isVoidResponse = result instanceof ResponseEntity<?> re
                     && (re.getBody() == null);
             if (!isVoidResponse) {
                 newValue = result;
             }
         }
 
-        // Get the currently logged-in user
         User currentUser = getCurrentUser();
-
-        // Get the current ipAddress of the user
         String clientIp = NetworkUtil.getClientIp();
 
-        // Save the audit log asynchronously
         auditService.log(
                 currentUser,
                 annotation.module(),
@@ -85,14 +74,15 @@ public class AuditAspect {
         return result;
     }
 
-
     /**
-     * Extracts the User entity from the Spring Security context.
+     * Extracts the authenticated {@link User} entity from the security context.
      */
     private User getCurrentUser() {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth == null || !auth.isAuthenticated()) return null;
+            if (auth == null || !auth.isAuthenticated()) {
+                return null;
+            }
             CustomUserDetails details = (CustomUserDetails) auth.getPrincipal();
             return details.user();
         } catch (Exception e) {
