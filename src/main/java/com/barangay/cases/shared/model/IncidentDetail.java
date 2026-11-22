@@ -1,5 +1,6 @@
 package com.barangay.cases.shared.model;
 
+import com.barangay.zshared.enumerated.RelatedBarangayService;
 import com.barangay.zshared.entity.BaseEntity;
 import com.barangay.zshared.security.EncryptedFieldConverter;
 import jakarta.persistence.*;
@@ -46,5 +47,5 @@ public class IncidentDetail extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "related_barangay_service", length = 50)
-    private com.barangay.zshared.enumerated.RelatedBarangayService relatedBarangayService;
+    private RelatedBarangayService relatedBarangayService;
 }

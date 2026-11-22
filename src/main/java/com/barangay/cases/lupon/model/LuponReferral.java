@@ -12,7 +12,12 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "lupon_referrals")
+@Table(name = "lupon_referrals", indexes = {
+        @Index(name = "idx_lupon_referral_case_id", columnList = "case_id"),
+        @Index(name = "idx_lupon_referral_referred_at", columnList = "referred_at"),
+        @Index(name = "idx_lupon_referral_initial_deadline", columnList = "initial_deadline"),
+        @Index(name = "idx_lupon_referral_extended_deadline", columnList = "extended_deadline")
+})
 @Getter
 @Setter
 @NoArgsConstructor

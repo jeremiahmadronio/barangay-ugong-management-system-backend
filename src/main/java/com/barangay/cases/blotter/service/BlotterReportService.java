@@ -23,6 +23,9 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Service managing blotter report generation, KPIs, and case analytics.
+ */
 @Service
 @RequiredArgsConstructor
 public class BlotterReportService {
@@ -31,7 +34,9 @@ public class BlotterReportService {
     private final CaseSessionRepository caseSessionRepository;
     private static final DateTimeFormatter DAY_LABEL_FORMATTER = DateTimeFormatter.ofPattern("MMM d");
 
-
+    /**
+     * Generates a monthly case trend report within the specified date range.
+     */
     @Transactional
     public List<MonthlyCaseTrendResponse> getMonthlyTrendReport(
             LocalDate startDate,
@@ -76,7 +81,9 @@ public class BlotterReportService {
         return responseList;
     }
 
-
+    /**
+     * Generates a daily case trend report within the specified date range.
+     */
     @Transactional(readOnly = true)
     public List<DailyCaseTrendResponse> getDailyTrendReport(
             LocalDate startDate,
@@ -528,6 +535,9 @@ public class BlotterReportService {
         return lineage;
     }
 
+    /**
+     * Retrieves up to five quick mediation summaries scheduled for today.
+     */
     @Transactional(readOnly = true)
     public List<QuickMediationSummaryDto> getQuickTodayMediations() {
         LocalDate today = LocalDate.now();

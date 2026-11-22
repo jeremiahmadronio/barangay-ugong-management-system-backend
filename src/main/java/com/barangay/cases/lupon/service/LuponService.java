@@ -1,9 +1,9 @@
 package com.barangay.cases.lupon.service;
 
-import com.barangay.cases.lupon.dto.LuponPanelMemberResponse;
-import com.barangay.cases.lupon.dto.LuponReferRalRequest;
-import com.barangay.cases.lupon.dto.LuponReferralResponse;
-import com.barangay.cases.lupon.dto.PangkatMember;
+import com.barangay.cases.blotter.dto.BlotterCaseDetailResponse;
+import com.barangay.cases.blotter.dto.ExtendCaseRequest;
+import com.barangay.cases.blotter.service.BlotterCaseService;
+import com.barangay.cases.lupon.dto.*;
 import com.barangay.cases.lupon.model.LuponPanelMember;
 import com.barangay.cases.lupon.model.LuponReferral;
 import com.barangay.cases.lupon.repository.LuponPanelMemberRepository;
@@ -26,12 +26,18 @@ import com.barangay.usermanagement.user.model.User;
 import com.barangay.zshared.enumerated.CaseStatus;
 import com.barangay.zshared.enumerated.SessionStatus;
 import com.barangay.zshared.enumerated.TimelineEventType;
+import com.barangay.zshared.mapper.PageResponse;
 import com.barangay.zshared.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.*;
 
 @Service
@@ -47,7 +53,7 @@ public class LuponService {
     private final CaseSessionRepository caseSessionRepository;
     private final OfficerRepository officerRepository;
     private final CaseTimelineRepository caseTimelineRepository;
-    private final com.barangay.cases.blotter.service.BlotterCaseService blotterCaseService;
+    private final BlotterCaseService blotterCaseService;
 
 
     private Case findRootCase(Case targetCase) {
@@ -206,11 +212,11 @@ public class LuponService {
      * @return {@link LuponStatsResponse}
      */
     @Transactional(readOnly = true)
-    public com.barangay.cases.lupon.dto.LuponStatsResponse getLuponStats() {
-        java.time.LocalDateTime currentMonthStart = java.time.YearMonth.now().atDay(1).atStartOfDay();
-        java.time.LocalDateTime currentMonthEnd = java.time.LocalDateTime.now();
-        java.time.LocalDateTime prevMonthStart = java.time.YearMonth.now().minusMonths(1).atDay(1).atStartOfDay();
-        java.time.LocalDateTime prevMonthEnd = currentMonthStart.minusNanos(1);
+    public LuponStatsResponse getLuponStats() {
+        LocalDateTime currentMonthStart = YearMonth.now().atDay(1).atStartOfDay();
+        LocalDateTime currentMonthEnd = LocalDateTime.now();
+        LocalDateTime prevMonthStart = YearMonth.now().minusMonths(1).atDay(1).atStartOfDay();
+        LocalDateTime prevMonthEnd = currentMonthStart.minusNanos(1);
 
         // 1. Total Referred (all-time & trend)
         long totalReferred = caseRepository.countTotalLuponReferredCases();
@@ -234,7 +240,7 @@ public class LuponService {
             settlementRate = Math.round(rate * 100.0) / 100.0;
         }
 
-        return new com.barangay.cases.lupon.dto.LuponStatsResponse(
+        return new LuponStatsResponse(
                 totalReferred,
                 totalReferredTrend,
                 activeConciliation,
@@ -251,10 +257,10 @@ public class LuponService {
      * @return list of assigned {@link LuponPanelMemberResponse}
      */
     @Transactional(readOnly = true)
-    public List<com.barangay.cases.lupon.dto.LuponPanelMemberResponse> getPanelMembers(Long caseId) {
+    public List<LuponPanelMemberResponse> getPanelMembers(Long caseId) {
         List<LuponPanelMember> members = luponPanelMemberRepository.findByCasesId(caseId);
         return members.stream()
-                .map(m -> new com.barangay.cases.lupon.dto.LuponPanelMemberResponse(
+                .map(m -> new LuponPanelMemberResponse(
                         m.getId(),
                         m.getOfficer() != null ? m.getOfficer().getId() : null,
                         formatOfficerFullName(m.getOfficer()),
@@ -269,29 +275,29 @@ public class LuponService {
      * Only displays cases that were referred/escalated to Lupon (excluding For-The-Record).
      *
      * @param filter the filtering criteria and pagination parameters
-     * @return {@link com.barangay.zshared.mapper.PageResponse} of {@link com.barangay.cases.lupon.dto.LuponTableRowResponse}
+     * @return {@link PageResponse} of {@link LuponTableRowResponse}
      */
     @Transactional(readOnly = true)
-    public com.barangay.zshared.mapper.PageResponse<com.barangay.cases.lupon.dto.LuponTableRowResponse> getLuponCases(
-            com.barangay.cases.lupon.dto.LuponFilterRequest filter
+    public PageResponse<LuponTableRowResponse> getLuponCases(
+            LuponFilterRequest filter
     ) {
         int page = filter != null ? filter.getPageNumber() : 0;
         int size = filter != null ? filter.getPageSize() : 10;
 
-        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
+        Pageable pageable = PageRequest.of(
                 page,
                 size,
-                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")
+                Sort.by(Sort.Direction.DESC, "createdAt")
         );
-        org.springframework.data.domain.Page<Case> casePage = caseRepository.findLuponCasesFiltered(filter, pageable);
+        Page<Case> casePage = caseRepository.findLuponCasesFiltered(filter, pageable);
 
-        org.springframework.data.domain.Page<com.barangay.cases.lupon.dto.LuponTableRowResponse> dtoPage =
+        Page<LuponTableRowResponse> dtoPage =
                 casePage.map(this::toLuponTableRowResponse);
 
-        return com.barangay.zshared.mapper.PageResponse.of(dtoPage);
+        return PageResponse.of(dtoPage);
     }
 
-    private com.barangay.cases.lupon.dto.LuponTableRowResponse toLuponTableRowResponse(Case rootCase) {
+    private LuponTableRowResponse toLuponTableRowResponse(Case rootCase) {
         if (rootCase == null) return null;
 
         Case trueRoot = findRootCase(rootCase);
@@ -330,7 +336,7 @@ public class LuponService {
             dateReferred = latestCase.getUpdatedAt() != null ? latestCase.getUpdatedAt() : dateFiled;
         }
 
-        return new com.barangay.cases.lupon.dto.LuponTableRowResponse(
+        return new LuponTableRowResponse(
                 trueRoot.getId(),
                 trueRoot.getCaseNumber(),
                 latestCase.getId(),
@@ -376,12 +382,12 @@ public class LuponService {
      *
      * @param caseId  the case ID
      * @param request the extension request containing reason
-     * @return updated {@link com.barangay.cases.blotter.dto.BlotterCaseDetailResponse}
+     * @return updated {@link BlotterCaseDetailResponse}
      */
     @Transactional
-    public com.barangay.cases.blotter.dto.BlotterCaseDetailResponse extendLuponCase(
+    public BlotterCaseDetailResponse extendLuponCase(
             Long caseId,
-            com.barangay.cases.blotter.dto.ExtendCaseRequest request
+            ExtendCaseRequest request
     ) {
         Case targetCase = caseRepository.findById(caseId)
                 .orElseThrow(() -> new NoSuchElementException("Lupon case not found: " + caseId));

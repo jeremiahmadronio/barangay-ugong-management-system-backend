@@ -80,6 +80,17 @@ public class ConciliationService {
 
         List<LuponPanelMember> panelMembers = luponPanelMemberRepository.findByCasesId(caseId);
 
+        List<Long> sessionIds = allSessions.stream().map(CaseSession::getId).toList();
+        List<PanelAttendance> allAttendances = sessionIds.isEmpty() ? Collections.emptyList() : panelAttendanceRepository.findBySessionIdIn(sessionIds);
+        Map<Long, Map<Long, PanelAttendance>> sessionAttendanceMap = new HashMap<>();
+        for (PanelAttendance pa : allAttendances) {
+            if (pa.getSession() != null && pa.getPanelMember() != null) {
+                sessionAttendanceMap
+                        .computeIfAbsent(pa.getSession().getId(), k -> new HashMap<>())
+                        .put(pa.getPanelMember().getId(), pa);
+            }
+        }
+
         List<ConciliationSessionResponse> responseList = new ArrayList<>();
         short mediationCounter = 0;
         short conciliationCounter = 0;
@@ -108,12 +119,7 @@ public class ConciliationService {
             // Panel Attendances (only for conciliation sessions)
             List<PanelAttendanceResponse> attendances = new ArrayList<>();
             if (isConciliation && !panelMembers.isEmpty()) {
-                Map<Long, PanelAttendance> attendanceMap = new HashMap<>();
-                panelAttendanceRepository.findBySessionId(s.getId()).forEach(a -> {
-                    if (a.getPanelMember() != null) {
-                        attendanceMap.put(a.getPanelMember().getId(), a);
-                    }
-                });
+                Map<Long, PanelAttendance> attendanceMap = sessionAttendanceMap.getOrDefault(s.getId(), Collections.emptyMap());
 
                 for (LuponPanelMember m : panelMembers) {
                     PanelAttendance pa = attendanceMap.get(m.getId());

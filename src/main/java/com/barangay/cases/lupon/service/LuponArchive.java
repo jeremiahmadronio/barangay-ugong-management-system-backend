@@ -16,8 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -100,7 +102,7 @@ public class LuponArchive {
     private Case findRootCase(Case targetCase) {
         Case root = targetCase;
         while (root.getPreviousCaseNumber() != null && !root.getPreviousCaseNumber().trim().isEmpty()) {
-            java.util.Optional<Case> prevOpt = caseRepository.findByCaseNumber(root.getPreviousCaseNumber().trim());
+            Optional<Case> prevOpt = caseRepository.findByCaseNumber(root.getPreviousCaseNumber().trim());
             if (prevOpt.isPresent()) {
                 root = prevOpt.get();
             } else {
@@ -111,11 +113,11 @@ public class LuponArchive {
     }
 
     private List<Case> getCaseLineage(Case rootCase) {
-        List<Case> lineage = new java.util.ArrayList<>();
+        List<Case> lineage = new ArrayList<>();
         Case curr = rootCase;
         lineage.add(curr);
         while (curr.getReOpenedCaseNumber() != null && !curr.getReOpenedCaseNumber().trim().isEmpty()) {
-            java.util.Optional<Case> nextOpt = caseRepository.findByCaseNumber(curr.getReOpenedCaseNumber().trim());
+            Optional<Case> nextOpt = caseRepository.findByCaseNumber(curr.getReOpenedCaseNumber().trim());
             if (nextOpt.isPresent()) {
                 curr = nextOpt.get();
                 lineage.add(curr);

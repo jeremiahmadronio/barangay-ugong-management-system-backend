@@ -1,18 +1,21 @@
 package com.barangay.cases.lupon.service;
 
-import com.barangay.cases.blotter.dto.DailyCaseTrendResponse;
-import com.barangay.cases.blotter.dto.MonthlyCaseTrendResponse;
+import com.barangay.cases.blotter.dto.*;
 import com.barangay.cases.lupon.dto.LuponDashboardKpiResponse;
 import com.barangay.cases.lupon.dto.LuponReportKpiResponse;
 import com.barangay.cases.lupon.projection.LuponDashboardKpiProjection;
+import com.barangay.cases.shared.model.Case;
 import com.barangay.cases.shared.projection.CaseCountByDayProjection;
 import com.barangay.cases.shared.projection.CaseCountByMonthProjection;
+import com.barangay.cases.shared.projection.CaseStatusCountProjection;
 import com.barangay.cases.shared.projection.LuponReportKpiProjection;
 import com.barangay.cases.shared.repository.CaseRepository;
 import com.barangay.cases.shared.repository.CaseSessionRepository;
+import com.barangay.zshared.enumerated.CaseStatus;
 import com.barangay.zshared.enumerated.SessionStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -192,10 +195,10 @@ public class LuponReports {
      *
      * @param startDate inclusive start date
      * @param endDate   inclusive end date
-     * @return {@link com.barangay.cases.blotter.dto.CaseStatusBreakdownResponse}
+     * @return {@link CaseStatusBreakdownResponse}
      */
     @Transactional(readOnly = true)
-    public com.barangay.cases.blotter.dto.CaseStatusBreakdownResponse getStatusBreakdownReport(LocalDate startDate, LocalDate endDate) {
+    public CaseStatusBreakdownResponse getStatusBreakdownReport(LocalDate startDate, LocalDate endDate) {
         if (startDate.isAfter(endDate)) {
             throw new IllegalArgumentException("Start date cannot be after end date.");
         }
@@ -203,22 +206,22 @@ public class LuponReports {
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
 
-        List<com.barangay.cases.shared.projection.CaseStatusCountProjection> dbResults = caseRepository.getLuponCaseStatusCounts(
+        List<CaseStatusCountProjection> dbResults = caseRepository.getLuponCaseStatusCounts(
                 startDateTime,
                 endDateTime
         );
 
-        Map<com.barangay.zshared.enumerated.CaseStatus, Long> countMap = new HashMap<>();
+        Map<CaseStatus, Long> countMap = new HashMap<>();
         if (dbResults != null) {
-            for (com.barangay.cases.shared.projection.CaseStatusCountProjection p : dbResults) {
+            for (CaseStatusCountProjection p : dbResults) {
                 if (p != null && p.getStatus() != null) {
                     Object statusObj = p.getStatus();
-                    com.barangay.zshared.enumerated.CaseStatus status = null;
-                    if (statusObj instanceof com.barangay.zshared.enumerated.CaseStatus cs) {
+                    CaseStatus status = null;
+                    if (statusObj instanceof CaseStatus cs) {
                         status = cs;
                     } else if (statusObj instanceof String str) {
                         try {
-                            status = com.barangay.zshared.enumerated.CaseStatus.valueOf(str.trim().toUpperCase());
+                            status = CaseStatus.valueOf(str.trim().toUpperCase());
                         } catch (IllegalArgumentException ignored) {}
                     }
                     if (status != null) {
@@ -230,9 +233,9 @@ public class LuponReports {
 
         long totalCases = countMap.values().stream().mapToLong(Long::longValue).sum();
 
-        List<com.barangay.cases.blotter.dto.CaseStatusItemDto> breakdownList = new ArrayList<>();
+        List<CaseStatusItemDto> breakdownList = new ArrayList<>();
 
-        for (com.barangay.zshared.enumerated.CaseStatus status : com.barangay.zshared.enumerated.CaseStatus.values()) {
+        for (CaseStatus status : CaseStatus.values()) {
             long count = countMap.getOrDefault(status, 0L);
             if (count > 0) {
                 double rawPercentage = totalCases > 0 ? ((double) count / totalCases) * 100.0 : 0.0;
@@ -242,7 +245,7 @@ public class LuponReports {
 
                 String humanReadableLabel = formatEnumLabel(status.name());
 
-                breakdownList.add(new com.barangay.cases.blotter.dto.CaseStatusItemDto(
+                breakdownList.add(new CaseStatusItemDto(
                         status,
                         humanReadableLabel,
                         count,
@@ -253,7 +256,7 @@ public class LuponReports {
 
         breakdownList.sort((a, b) -> Long.compare(b.count(), a.count()));
 
-        return new com.barangay.cases.blotter.dto.CaseStatusBreakdownResponse(
+        return new CaseStatusBreakdownResponse(
                 startDate,
                 endDate,
                 null,
@@ -318,26 +321,26 @@ public class LuponReports {
      * @return list of recent cases (empty if none, up to max 5)
      */
     @Transactional(readOnly = true)
-    public List<com.barangay.cases.blotter.dto.RecentBlotterCaseResponse> getRecentCasesToday() {
+    public List<RecentBlotterCaseResponse> getRecentCasesToday() {
         LocalDate today = LocalDate.now();
         LocalDateTime startOfDay = today.atStartOfDay();
         LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
 
-        List<com.barangay.cases.shared.model.Case> casesToday = caseRepository.findRecentLuponCasesToday(
+        List<Case> casesToday = caseRepository.findRecentLuponCasesToday(
                 startOfDay,
                 endOfDay
         );
 
-        Map<Long, com.barangay.cases.blotter.dto.RecentBlotterCaseResponse> distinctRootCasesMap = new LinkedHashMap<>();
+        Map<Long, RecentBlotterCaseResponse> distinctRootCasesMap = new LinkedHashMap<>();
 
-        for (com.barangay.cases.shared.model.Case c : casesToday) {
-            com.barangay.cases.shared.model.Case rootCase = findRootCase(c);
+        for (Case c : casesToday) {
+            Case rootCase = findRootCase(c);
             if (distinctRootCasesMap.containsKey(rootCase.getId())) {
                 continue;
             }
 
-            List<com.barangay.cases.shared.model.Case> lineage = getCaseLineage(rootCase);
-            com.barangay.cases.shared.model.Case endmostCase = lineage.get(lineage.size() - 1);
+            List<Case> lineage = getCaseLineage(rootCase);
+            Case endmostCase = lineage.get(lineage.size() - 1);
 
             String complainantName = "—";
             if (rootCase.getComplainant() != null && rootCase.getComplainant().getPerson() != null) {
@@ -355,7 +358,7 @@ public class LuponReports {
                 if (respondentName.isEmpty()) respondentName = "—";
             }
 
-            com.barangay.cases.blotter.dto.RecentBlotterCaseResponse resp = new com.barangay.cases.blotter.dto.RecentBlotterCaseResponse(
+            RecentBlotterCaseResponse resp = new RecentBlotterCaseResponse(
                     rootCase.getId(),
                     rootCase.getCaseNumber(),
                     complainantName,
@@ -378,22 +381,22 @@ public class LuponReports {
     /**
      * Retrieves up to 5 of today's scheduled conciliation hearings for Lupon cases.
      *
-     * @return list of {@link com.barangay.cases.blotter.dto.QuickMediationSummaryDto}
+     * @return list of {@link QuickMediationSummaryDto}
      */
     @Transactional(readOnly = true)
-    public List<com.barangay.cases.blotter.dto.QuickMediationSummaryDto> getQuickTodayConciliations() {
+    public List<QuickMediationSummaryDto> getQuickTodayConciliations() {
         LocalDate today = LocalDate.now();
         return caseSessionRepository.findQuickTodayLuponConciliations(
                 today.atStartOfDay(),
                 today.atTime(LocalTime.MAX),
-                org.springframework.data.domain.PageRequest.of(0, 5)
+                PageRequest.of(0, 5)
         );
     }
 
-    private com.barangay.cases.shared.model.Case findRootCase(com.barangay.cases.shared.model.Case targetCase) {
-        com.barangay.cases.shared.model.Case root = targetCase;
+    private Case findRootCase(Case targetCase) {
+        Case root = targetCase;
         while (root.getPreviousCaseNumber() != null && !root.getPreviousCaseNumber().trim().isEmpty()) {
-            Optional<com.barangay.cases.shared.model.Case> prevOpt = caseRepository.findByCaseNumber(root.getPreviousCaseNumber().trim());
+            Optional<Case> prevOpt = caseRepository.findByCaseNumber(root.getPreviousCaseNumber().trim());
             if (prevOpt.isPresent()) {
                 root = prevOpt.get();
             } else {
@@ -403,12 +406,12 @@ public class LuponReports {
         return root;
     }
 
-    private List<com.barangay.cases.shared.model.Case> getCaseLineage(com.barangay.cases.shared.model.Case rootCase) {
-        List<com.barangay.cases.shared.model.Case> lineage = new ArrayList<>();
-        com.barangay.cases.shared.model.Case curr = rootCase;
+    private List<Case> getCaseLineage(Case rootCase) {
+        List<Case> lineage = new ArrayList<>();
+        Case curr = rootCase;
         lineage.add(curr);
         while (curr.getReOpenedCaseNumber() != null && !curr.getReOpenedCaseNumber().trim().isEmpty()) {
-            Optional<com.barangay.cases.shared.model.Case> nextOpt = caseRepository.findByCaseNumber(curr.getReOpenedCaseNumber().trim());
+            Optional<Case> nextOpt = caseRepository.findByCaseNumber(curr.getReOpenedCaseNumber().trim());
             if (nextOpt.isPresent()) {
                 curr = nextOpt.get();
                 lineage.add(curr);

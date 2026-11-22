@@ -4,18 +4,23 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.barangay.cases.bcpc.model.BcpcCaseDetails;
 import com.barangay.cases.lupon.model.LuponReferral;
 import com.barangay.cases.vawc.model.BarangayProtectionOrder;
 import com.barangay.cases.vawc.model.ChildInvolved;
+import com.barangay.ftjs.model.FirstTimeJobSeeker;
 import com.barangay.people.complainant.model.Complainant;
 import com.barangay.people.officer.model.Officer;
 import com.barangay.people.respondent.model.Respondent;
 import com.barangay.people.witness.model.Witness;
 import com.barangay.usermanagement.department.model.Department;
 import com.barangay.usermanagement.user.model.User;
+import com.barangay.zshared.entity.Archivable;
 import com.barangay.zshared.entity.BaseEntity;
 import com.barangay.zshared.enumerated.CaseStatus;
+import com.barangay.zshared.enumerated.DocumentReissuanceStatus;
 import com.barangay.zshared.enumerated.FilingType;
+import com.barangay.zshared.enumerated.RelatedBarangayService;
 
 import jakarta.persistence.Basic;
 import jakarta.persistence.CascadeType;
@@ -38,9 +43,6 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import com.barangay.zshared.entity.Archivable;
-import com.barangay.zshared.entity.BaseEntity;
 
 @Entity
 @Table(name = "cases", indexes = {
@@ -161,7 +163,7 @@ public class Case extends BaseEntity implements Archivable {
     private BarangayProtectionOrder barangayProtectionOrder;
 
     @OneToOne(mappedBy = "cases", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private com.barangay.cases.bcpc.model.BcpcCaseDetails bcpcCaseDetails;
+    private BcpcCaseDetails bcpcCaseDetails;
 
     @OneToMany(mappedBy = "cases", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private List<ChildInvolved> children = new ArrayList<>();
@@ -196,15 +198,15 @@ public class Case extends BaseEntity implements Archivable {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "related_barangay_service", length = 50)
-    private com.barangay.zshared.enumerated.RelatedBarangayService relatedBarangayService;
+    private RelatedBarangayService relatedBarangayService;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ftjs_application_id")
-    private com.barangay.ftjs.model.FirstTimeJobSeeker ftjsApplication;
+    private FirstTimeJobSeeker ftjsApplication;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "document_reissuance_status", length = 35)
-    private com.barangay.zshared.enumerated.DocumentReissuanceStatus documentReissuanceStatus;
+    private DocumentReissuanceStatus documentReissuanceStatus;
 
     @Column(name = "document_reissuance_remarks", columnDefinition = "TEXT")
     private String documentReissuanceRemarks;
