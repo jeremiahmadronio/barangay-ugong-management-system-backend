@@ -7,8 +7,18 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * Entity representing barangay and SK officials published in the leadership directory.
+ */
 @Entity
-@Table(name = "officials")
+@Table(
+    name = "officials",
+    indexes = {
+        @Index(name = "idx_officials_created_at", columnList = "createdAt"),
+        @Index(name = "idx_officials_is_archived", columnList = "is_archived"),
+        @Index(name = "idx_officials_type", columnList = "type")
+    }
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

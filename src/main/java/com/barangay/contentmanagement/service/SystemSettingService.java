@@ -10,6 +10,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Service managing global application and portal system configuration parameters.
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -17,6 +20,11 @@ public class SystemSettingService {
 
     private final SystemSettingRepository systemSettingRepository;
 
+    /**
+     * Retrieves all portal configuration settings in key-value format.
+     *
+     * @return map of setting keys and values
+     */
     @Transactional(readOnly = true)
     public Map<String, String> getAllSettings() {
         List<SystemSetting> settingsList = systemSettingRepository.findAll();
@@ -28,6 +36,12 @@ public class SystemSettingService {
         return settingsMap;
     }
 
+    /**
+     * Updates and saves system configuration key-value pairs.
+     *
+     * @param newSettings map of updated settings
+     * @return updated settings map
+     */
     public Map<String, String> updateSettings(Map<String, String> newSettings) {
         for (Map.Entry<String, String> entry : newSettings.entrySet()) {
             SystemSetting setting = systemSettingRepository.findById(entry.getKey())
@@ -37,6 +51,4 @@ public class SystemSettingService {
         }
         return newSettings;
     }
-
-
 }

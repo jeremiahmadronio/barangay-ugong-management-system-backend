@@ -9,8 +9,19 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Entity representing public or administrative announcements published on the barangay portal.
+ */
 @Entity
-@Table(name = "cms_announcements")
+@Table(
+    name = "cms_announcements",
+    indexes = {
+        @Index(name = "idx_cms_announcements_created_at", columnList = "created_at"),
+        @Index(name = "idx_cms_announcements_is_published", columnList = "is_published"),
+        @Index(name = "idx_cms_announcements_is_archived", columnList = "is_archived"),
+        @Index(name = "idx_cms_announcements_category", columnList = "category")
+    }
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

@@ -10,6 +10,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * REST Controller for managing barangay and SK official directory listings.
+ */
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
@@ -17,41 +20,72 @@ public class OfficialController {
 
     private final OfficialService officialService;
 
-    // Public endpoint for the landing page
+    /**
+     * Retrieves active official directory entries for public viewing.
+     *
+     * @return list of active officials
+     */
     @GetMapping("/public/officials")
     public ResponseEntity<List<Official>> getPublicOfficials() {
         return ResponseEntity.ok(officialService.getPublicOfficials());
     }
 
-    // Admin endpoints
+    /**
+     * Retrieves all active officials for administration.
+     *
+     * @return list of all active officials
+     */
     @GetMapping("/officials")
     public ResponseEntity<List<Official>> getAllOfficials() {
         return ResponseEntity.ok(officialService.getAllOfficials());
     }
 
-    // Create official
+    /**
+     * Registers a new official profile with photo attachment.
+     *
+     * @param officialDto official details and image
+     * @return created official
+     */
     @PostMapping(value = "/officials", consumes = "multipart/form-data")
     public ResponseEntity<Official> createOfficial(@ModelAttribute OfficialDto officialDto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(officialService.createOfficial(officialDto));
     }
 
-    // Update official
+    /**
+     * Updates an existing official profile.
+     *
+     * @param id          official identifier
+     * @param officialDto updated details
+     * @param removeImage flag indicating photo removal
+     * @return updated official
+     */
     @PutMapping(value = "/officials/{id}", consumes = "multipart/form-data")
     public ResponseEntity<Official> updateOfficial(
             @PathVariable Long id,
             @ModelAttribute OfficialDto officialDto,
-            @RequestParam(required = false, defaultValue = "false") boolean removeImage) {
+            @RequestParam(required = false, defaultValue = "false") boolean removeImage
+    ) {
         return ResponseEntity.ok(officialService.updateOfficial(id, officialDto, removeImage));
     }
 
-    // Delete official
+    /**
+     * Permanently deletes an official record.
+     *
+     * @param id official identifier
+     * @return empty response
+     */
     @DeleteMapping("/officials/{id}")
     public ResponseEntity<Void> deleteOfficial(@PathVariable Long id) {
         officialService.deleteOfficial(id);
         return ResponseEntity.noContent().build();
     }
 
-    // Archive official
+    /**
+     * Archives an official profile.
+     *
+     * @param id official identifier
+     * @return empty response
+     */
     @PatchMapping("/officials/{id}/archive")
     public ResponseEntity<Void> archiveOfficial(@PathVariable Long id) {
         officialService.archiveOfficial(id);

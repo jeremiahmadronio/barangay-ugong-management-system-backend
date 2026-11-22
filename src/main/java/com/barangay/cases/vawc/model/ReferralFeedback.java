@@ -40,7 +40,7 @@ public class ReferralFeedback extends BaseEntity {
     @Column(name = "resolution_type")
     private String resolutionType;
 
-    @Column(name = "proof_file_data", columnDefinition = "LONGTEXT")
+    @Column(name = "proof_file_data", columnDefinition = "TEXT")
     private String proofFileData;
 
     @Column(name = "proof_file_name")

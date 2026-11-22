@@ -7,8 +7,19 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * Entity representing barangay community services and clearance guidelines displayed on the portal.
+ */
 @Entity
-@Table(name = "cms_services")
+@Table(
+    name = "cms_services",
+    indexes = {
+        @Index(name = "idx_cms_services_created_at", columnList = "created_at"),
+        @Index(name = "idx_cms_services_is_published", columnList = "is_published"),
+        @Index(name = "idx_cms_services_is_archived", columnList = "is_archived"),
+        @Index(name = "idx_cms_services_type", columnList = "type")
+    }
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

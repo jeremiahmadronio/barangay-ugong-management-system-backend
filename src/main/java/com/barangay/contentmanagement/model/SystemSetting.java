@@ -9,6 +9,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Entity representing key-value configuration and system settings for the barangay portal.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

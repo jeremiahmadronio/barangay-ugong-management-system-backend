@@ -7,6 +7,9 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+/**
+ * Repository interface for managing barangay service offerings and procedures.
+ */
 @Repository
 public interface ServiceRepository extends JpaRepository<BarangayService, Long> {
 
