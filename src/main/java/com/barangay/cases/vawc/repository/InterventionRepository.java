@@ -6,8 +6,10 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+/**
+ * Repository interface for managing VAWC case intervention activities.
+ */
 @Repository
 public interface InterventionRepository extends JpaRepository<Intervention, Long> {
     List<Intervention> findByCasesId(Long caseId);
-    List<Intervention> findByBarangayProtectionOrderId(Long bpoId);
 }

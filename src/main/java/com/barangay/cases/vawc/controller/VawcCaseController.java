@@ -59,10 +59,10 @@ public class VawcCaseController {
      * @return {@link PageResponse} of {@link VawcTableRowResponse}
      */
     @GetMapping("/table")
-    public ResponseEntity<com.barangay.zshared.mapper.PageResponse<com.barangay.cases.vawc.dto.VawcTableRowResponse>> getVawcTable(
-            @ModelAttribute com.barangay.cases.vawc.dto.VawcFilterRequest filter
+    public ResponseEntity<PageResponse<VawcTableRowResponse>> getVawcTable(
+            @ModelAttribute VawcFilterRequest filter
     ) {
-        com.barangay.zshared.mapper.PageResponse<com.barangay.cases.vawc.dto.VawcTableRowResponse> response = vawcCaseService.getVawcCases(filter);
+        PageResponse<VawcTableRowResponse> response = vawcCaseService.getVawcCases(filter);
         return ResponseEntity.ok(response);
     }
 
@@ -81,17 +81,14 @@ public class VawcCaseController {
      * Retrieves the 4 core Operational Dashboard KPI metrics for VAWC Desk:
      * (Total Cases This Week, Total Active BPOs This Week, Total Referred Cases This Week, Total Withdrawn Cases This Week).
      *
-     * @return {@link ResponseEntity} of {@link com.barangay.cases.vawc.dto.VawcDashboardKpiResponse}
+     * @return {@link ResponseEntity} of {@link VawcDashboardKpiResponse}
      */
     @GetMapping("/dashboard-kpi")
-    public ResponseEntity<com.barangay.cases.vawc.dto.VawcDashboardKpiResponse> getDashboardKpis() {
-        com.barangay.cases.vawc.dto.VawcDashboardKpiResponse response = vawcReportService.getDashboardKpis();
+    public ResponseEntity<VawcDashboardKpiResponse> getDashboardKpis() {
+        VawcDashboardKpiResponse response = vawcReportService.getDashboardKpis();
         return ResponseEntity.ok(response);
     }
 
-    // ==========================================
-    // VAWC REPORTS & ANALYTICS ENDPOINTS
-    // ==========================================
 
     /**
      * Retrieves date-filtered KPI Statistics for VAWC Reports.
@@ -293,7 +290,7 @@ public class VawcCaseController {
      * Retrieves timeline events for a VAWC case.
      */
     @GetMapping("/{caseId}/timeline")
-    public ResponseEntity<List<com.barangay.cases.blotter.dto.TimelineEventResponse>> getCaseTimeline(
+    public ResponseEntity<List<TimelineEventResponse>> getCaseTimeline(
             @PathVariable Long caseId) {
         return ResponseEntity.ok(vawcCaseService.getCaseTimeline(caseId));
     }
@@ -317,7 +314,7 @@ public class VawcCaseController {
     @LogAudit(module = AuditModule.VAWC, action = "SERVE_BPO", severity = Severity.INFO)
     public ResponseEntity<VawcCaseDetailResponse> serveBpo(
             @PathVariable Long caseId,
-            @Valid @RequestBody com.barangay.cases.vawc.dto.BpoServeRequest request) {
+            @Valid @RequestBody BpoServeRequest request) {
         if (!SecurityUtils.hasPermission("Issue Barangay Protection Order (BPO)")) {
             throw new AccessDeniedException("Access Denied: You do not have permission to manage protection orders.");
         }
@@ -329,9 +326,9 @@ public class VawcCaseController {
      */
     @PostMapping("/{caseId}/referrals")
     @LogAudit(module = AuditModule.VAWC, action = "ISSUE_VAWC_REFERRAL", severity = Severity.INFO)
-    public ResponseEntity<com.barangay.cases.vawc.dto.VawcReferralResponse> createReferral(
+    public ResponseEntity<VawcReferralResponse> createReferral(
             @PathVariable Long caseId,
-            @Valid @RequestBody com.barangay.cases.vawc.dto.VawcReferralCreateRequest request) {
+            @Valid @RequestBody VawcReferralCreateRequest request) {
         if (!SecurityUtils.hasPermission("Manage Referral")) {
             throw new AccessDeniedException("Access Denied: You do not have permission to manage referrals.");
         }
@@ -343,7 +340,7 @@ public class VawcCaseController {
      * Lists all referrals and agency feedback for a VAWC case.
      */
     @GetMapping("/{caseId}/referrals")
-    public ResponseEntity<List<com.barangay.cases.vawc.dto.VawcReferralResponse>> getReferrals(
+    public ResponseEntity<List<VawcReferralResponse>> getReferrals(
             @PathVariable Long caseId) {
         return ResponseEntity.ok(vawcCaseService.getReferralsByCaseId(caseId));
     }
@@ -353,19 +350,16 @@ public class VawcCaseController {
      */
     @PostMapping("/{caseId}/referrals/{referralId}/feedback")
     @LogAudit(module = AuditModule.VAWC, action = "RECORD_REFERRAL_FEEDBACK", severity = Severity.INFO)
-    public ResponseEntity<com.barangay.cases.vawc.dto.VawcReferralResponse> addReferralFeedback(
+    public ResponseEntity<VawcReferralResponse> addReferralFeedback(
             @PathVariable Long caseId,
             @PathVariable Long referralId,
-            @Valid @RequestBody com.barangay.cases.vawc.dto.ReferralFeedbackRequest request) {
+            @Valid @RequestBody ReferralFeedbackRequest request) {
         if (!SecurityUtils.hasPermission("Manage Referral")) {
             throw new AccessDeniedException("Access Denied: You do not have permission to manage referrals.");
         }
         return ResponseEntity.ok(vawcCaseService.addReferralFeedback(caseId, referralId, request));
     }
 
-    // ==========================================
-    // VAWC ARCHIVE & TRASH VAULT ENDPOINTS
-    // ==========================================
 
     /**
      * Endpoint retrieving lifecycle and trash statistics exclusively for the VAWC Department.

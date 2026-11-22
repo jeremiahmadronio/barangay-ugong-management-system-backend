@@ -3,19 +3,22 @@ package com.barangay.cases.vawc.repository;
 import com.barangay.cases.vawc.model.BarangayProtectionOrder;
 import com.barangay.zshared.enumerated.BpoStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-
-import java.util.Collection;
-import java.util.Optional;
-
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * Repository interface for managing Barangay Protection Order (BPO) entity operations.
+ */
 @Repository
 public interface BarangayProtectionOrderRepository extends JpaRepository<BarangayProtectionOrder, Long> {
     Optional<BarangayProtectionOrder> findByCasesId(Long caseId);
-    Optional<BarangayProtectionOrder> findByBpoControlNumber(String bpoControlNumber);
-    boolean existsByBpoControlNumber(String bpoControlNumber);
+
 
     @Query("""
         SELECT COUNT(b) FROM BarangayProtectionOrder b
@@ -38,7 +41,7 @@ public interface BarangayProtectionOrderRepository extends JpaRepository<Baranga
           AND (b.isDeleted IS NULL OR b.isDeleted = false)
           AND (b.isPermanentDeleted IS NULL OR b.isPermanentDeleted = false)
     """)
-    java.util.List<BarangayProtectionOrder> findActiveBposForExpirationCheck(@Param("statuses") Collection<BpoStatus> statuses);
+    List<BarangayProtectionOrder> findActiveBposForExpirationCheck(@Param("statuses") Collection<BpoStatus> statuses);
 
     @Query("""
         SELECT COUNT(b) FROM BarangayProtectionOrder b
@@ -58,7 +61,7 @@ public interface BarangayProtectionOrderRepository extends JpaRepository<Baranga
     """)
     long countActiveBpoBetween(
             @Param("statuses") Collection<BpoStatus> statuses,
-            @Param("start") java.time.LocalDateTime start,
-            @Param("end") java.time.LocalDateTime end
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
     );
 }

@@ -10,12 +10,14 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repository interface for managing external agency referrals for VAWC victims and cases.
+ */
 @Repository
 public interface VawcReferralRepository extends JpaRepository<VawcReferral, Long> {
     List<VawcReferral> findByCasesId(Long caseId);
     List<VawcReferral> findByCasesIdOrderByIdDesc(Long caseId);
-    Optional<VawcReferral> findByReferralControlNumber(String referralControlNumber);
-    boolean existsByReferralControlNumber(String referralControlNumber);
+
 
     @Query("""
         SELECT r FROM VawcReferral r

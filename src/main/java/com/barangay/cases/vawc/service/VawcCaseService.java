@@ -50,8 +50,12 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+
+import com.barangay.cases.blotter.dto.TimelineEventResponse;
 
 @Service
 @RequiredArgsConstructor
@@ -87,7 +91,7 @@ public class VawcCaseService {
     public VawcCaseDetailResponse createVawcCase(VawcCaseCreateRequest request) {
         Case aCase = new Case();
 
-        // 1. Filing Type & Case Number
+        // Filing Type & Case Number
         FilingType filingType = request.filingType() != null ? request.filingType() : FilingType.FORMAL_COMPLAINT;
         if (request.filingMethod() != null && request.filingMethod().equalsIgnoreCase("ORAL_REPORT_ONLY")) {
             filingType = FilingType.FOR_RECORD_ONLY;
@@ -103,14 +107,14 @@ public class VawcCaseService {
         aCase.setIsArchived(false);
         aCase.setAttestedAt(LocalDateTime.now());
 
-        // 2. Department & Logged-in User
+        // Department & Logged-in User
         departmentRepository.findByName("VAWC").ifPresent(aCase::setDepartment);
         User currentUser = SecurityUtils.getCurrentUser();
         if (currentUser != null) {
             aCase.setCaseFilledBy(currentUser);
         }
 
-        // 3. Complainant
+        // Complainant
         if (request.complainant() != null) {
             Person compPerson = complainantMapper.toNewPerson(request.complainant());
             if (compPerson != null) {
@@ -120,7 +124,7 @@ public class VawcCaseService {
             }
         }
 
-        // 4. Respondent
+        // Respondent
         if (request.respondent() != null) {
             Person respPerson = respondentMapper.toNewPerson(request.respondent());
             if (respPerson != null) {
@@ -130,19 +134,19 @@ public class VawcCaseService {
             }
         }
 
-        // 5. Incident Details
+        // Incident Details
         if (request.incident() != null) {
             IncidentDetail incidentDetail = incidentDetailMapper.fromCreateDto(request.incident());
             aCase.setIncidentDetail(incidentDetail);
         }
 
-        // 6. Narrative Statement (Sworn Statement document)
+        // Narrative Statement (Sworn Statement document)
         if (request.narrative() != null) {
             NarrativeStatement narrativeStatement = narrativeStatementMapper.fromCreateDto(request.narrative());
             aCase.setNarrativeStatement(narrativeStatement);
         }
 
-        // 7. Assigned Officer
+        // Assigned Officer
         if (request.assignedOfficerId() != null) {
             officerRepository.findById(request.assignedOfficerId()).ifPresent(aCase::setOfficer);
         } else if (request.assignedOfficer() != null && !request.assignedOfficer().isBlank()) {
@@ -156,7 +160,7 @@ public class VawcCaseService {
                     .ifPresent(aCase::setOfficer);
         }
 
-        // 8. Danger Assessment & Risk Level & Immediate Requests
+        // Danger Assessment & Risk Level & Immediate Requests
         if (request.dangerAssessments() != null && !request.dangerAssessments().isEmpty()) {
             String joined = String.join("; ", request.dangerAssessments());
             if (request.otherDangerAssessment() != null && !request.otherDangerAssessment().isBlank()) {
@@ -174,10 +178,10 @@ public class VawcCaseService {
             aCase.setImmediateRequests(String.join(", ", request.immediateRequests()));
         }
 
-        // 9. Initial Save Case Entity
+        // Initial Save Case Entity
         Case savedCase = caseRepository.save(aCase);
 
-        // 10. Children Involved
+        // Children Involved
         if (Boolean.TRUE.equals(request.hasChildrenInvolved()) && request.children() != null && !request.children().isEmpty()) {
             List<ChildInvolved> childrenList = new ArrayList<>();
             for (ChildInvolvedCreateDto cDto : request.children()) {
@@ -192,7 +196,7 @@ public class VawcCaseService {
             savedCase = caseRepository.save(savedCase);
         }
 
-        // 11. Witnesses
+        // Witnesses
         if (request.witnesses() != null && !request.witnesses().isEmpty()) {
             List<Witness> witnessEntities = new ArrayList<>();
             for (WitnessCreateDto wDto : request.witnesses()) {
@@ -211,7 +215,7 @@ public class VawcCaseService {
             savedCase = caseRepository.save(savedCase);
         }
 
-        // 12. Evidences
+        // Evidences
         if (request.evidences() != null && !request.evidences().isEmpty()) {
             for (EvidenceCreateDto eDto : request.evidences()) {
                 CaseEvidence evidence = caseEvidenceMapper.fromCreateDto(eDto, savedCase);
@@ -226,7 +230,7 @@ public class VawcCaseService {
             }
         }
 
-        // 13. Case Timeline Event Logging - Case Filed is logged first
+        // Case Timeline Event Logging - Case Filed is logged first
         caseTimelineService.logEvent(
                 savedCase,
                 TimelineEventType.CASE_FILED,
@@ -235,7 +239,7 @@ public class VawcCaseService {
                 currentUser
         );
 
-        // 14. Violence Type & Barangay Protection Order (BPO) Linkage
+        // Violence Type & Barangay Protection Order (BPO) Linkage
         boolean bpoRequested = request.immediateRequests() != null && request.immediateRequests().stream()
                 .anyMatch(r -> r.toLowerCase().contains("protection order") || r.toLowerCase().contains("bpo"));
 
@@ -390,7 +394,7 @@ public class VawcCaseService {
             aCase.setCaseUpdatedBy(currentUser);
         }
 
-        // 1. Update Respondent relationship & living status
+        // Update Respondent relationship & living status
         if (aCase.getRespondent() != null) {
             if (request.relationshipToComplainant() != null) {
                 aCase.getRespondent().setRelationshipToComplainant(request.relationshipToComplainant());
@@ -400,13 +404,13 @@ public class VawcCaseService {
             }
         }
 
-        // 2. Update Incident Details
+        // Update Incident Details
         if (request.incident() != null) {
             IncidentDetail inc = incidentDetailMapper.fromCreateDto(request.incident());
             aCase.setIncidentDetail(inc);
         }
 
-        // 3. Update Narrative Statement
+        // Update Narrative Statement
         if (request.narrative() != null) {
             if (aCase.getNarrativeStatement() == null) {
                 aCase.setNarrativeStatement(narrativeStatementMapper.fromCreateDto(request.narrative()));
@@ -424,11 +428,11 @@ public class VawcCaseService {
             }
         }
 
-        // 4. Update Evidences (Selective update without losing existing evidence files)
+        // Update Evidences (Selective update without losing existing evidence files)
         if (request.evidences() != null) {
             List<CaseEvidence> existingEvidences = caseEvidenceRepository.findByCasesId(aCase.getId());
-            java.util.Map<String, CaseEvidence> existingEvMapByName = new java.util.HashMap<>();
-            java.util.Map<Long, CaseEvidence> existingEvMapById = new java.util.HashMap<>();
+            Map<String, CaseEvidence> existingEvMapByName = new HashMap<>();
+            Map<Long, CaseEvidence> existingEvMapById = new HashMap<>();
             for (CaseEvidence ce : existingEvidences) {
                 if (ce.getId() != null) {
                     existingEvMapById.put(ce.getId(), ce);
@@ -476,14 +480,14 @@ public class VawcCaseService {
             }
         }
 
-        // 5. Update Witnesses (Selective in-place update without losing testimony files)
+        // Update Witnesses (Selective in-place update without losing testimony files)
         if (request.witnesses() != null) {
             List<Witness> currentWitnessList = (aCase.getWitnesses() != null && !aCase.getWitnesses().isEmpty())
                     ? new ArrayList<>(aCase.getWitnesses())
                     : witnessRepository.findByCaseId(aCase.getId());
 
-            java.util.Map<Long, Witness> existingWitnessById = new java.util.HashMap<>();
-            java.util.Map<Integer, Witness> existingWitnessByIndex = new java.util.HashMap<>();
+            Map<Long, Witness> existingWitnessById = new HashMap<>();
+            Map<Integer, Witness> existingWitnessByIndex = new HashMap<>();
             int idx = 0;
             for (Witness w : currentWitnessList) {
                 if (w.getId() != null) {
@@ -545,7 +549,7 @@ public class VawcCaseService {
             }
         }
 
-        // 6. Danger assessments / violenceType
+        // Danger assessments / violenceType
         if (request.dangerAssessments() != null && !request.dangerAssessments().isEmpty()) {
             String joined = String.join("; ", request.dangerAssessments());
             if (request.otherDangerAssessment() != null && !request.otherDangerAssessment().isBlank()) {
@@ -615,10 +619,10 @@ public class VawcCaseService {
         User currentUser = SecurityUtils.getCurrentUser();
         aCase.setCaseUpdatedBy(currentUser);
 
-        // 1. Persist Case Entity
+        // Persist Case Entity
         Case updated = caseRepository.save(aCase);
 
-        // 2. Log Timeline Event
+        // Log Timeline Event
         try {
             String remarksText = request.getRemarks() != null ? request.getRemarks().trim() : "";
             TimelineEventType eventType = TimelineEventType.STATUS_CHANGED;
@@ -673,20 +677,20 @@ public class VawcCaseService {
         LocalDateTime prevMonthStart = YearMonth.now().minusMonths(1).atDay(1).atStartOfDay();
         LocalDateTime prevMonthEnd = currentMonthStart.minusNanos(1);
 
-        // 1. Total VAWC Cases & Monthly Trend
+        // Total VAWC Cases & Monthly Trend
         long totalCases = caseRepository.countRootVawcCases();
         long currentTotal = caseRepository.countRootVawcCasesByCreatedAtGreaterThanEqual(currentMonthStart);
         long prevTotal = caseRepository.countRootVawcCasesByCreatedAtBetween(prevMonthStart, prevMonthEnd);
         String totalCasesTrend = calculateMonthlyTrend(currentTotal, prevTotal);
 
-        // 2. Total Referred Cases
+        // Total Referred Cases
         long totalReferredCases = caseRepository.countVawcCasesByCaseStatusIn(List.of(CaseStatus.ISSUED_REFERRAL));
 
-        // 3. Total Active BPO (Issued, Served) - Excludes PENDING applications
+        // Total Active BPO (Issued, Served) - Excludes PENDING applications
         List<BpoStatus> activeBpoStatuses = List.of(BpoStatus.ISSUED, BpoStatus.SERVED);
         long totalActiveBpo = barangayProtectionOrderRepository.countByStatusIn(activeBpoStatuses);
 
-        // 4. Total Withdrawn Cases
+        // Total Withdrawn Cases
         long totalWithdrawnCases = caseRepository.countVawcCasesByCaseStatusIn(List.of(CaseStatus.WITHDRAWN));
 
         return new VawcStatsResponse(
@@ -1134,10 +1138,10 @@ public class VawcCaseService {
      * Retrieves all timeline events for a VAWC case.
      *
      * @param caseId the VAWC case ID
-     * @return list of {@link com.barangay.cases.blotter.dto.TimelineEventResponse}
+     * @return list of {@link TimelineEventResponse}
      */
     @Transactional(readOnly = true)
-    public List<com.barangay.cases.blotter.dto.TimelineEventResponse> getCaseTimeline(Long caseId) {
+    public List<TimelineEventResponse> getCaseTimeline(Long caseId) {
         return caseTimelineService.getTimelineForCase(caseId);
     }
 

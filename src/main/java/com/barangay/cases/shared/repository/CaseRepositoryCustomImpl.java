@@ -1,15 +1,20 @@
 package com.barangay.cases.shared.repository;
 
+import com.barangay.cases.bcpc.dto.BcpcFilterRequest;
+import com.barangay.cases.bcpc.model.BcpcCaseDetails;
 import com.barangay.cases.blotter.dto.BlotterArchiveFilterRequest;
 import com.barangay.cases.blotter.dto.BlotterArchiveItemResponse;
 import com.barangay.cases.blotter.dto.BlotterFilterRequest;
-import com.barangay.cases.bcpc.dto.BcpcFilterRequest;
 import com.barangay.cases.blotter.dto.BlotterRecentDeleteItemResponse;
+import com.barangay.cases.lupon.dto.LuponFilterRequest;
 import com.barangay.cases.shared.model.Case;
 import com.barangay.cases.shared.model.IncidentDetail;
+import com.barangay.cases.vawc.dto.VawcFilterRequest;
 import com.barangay.people.complainant.model.Complainant;
 import com.barangay.people.person.model.Person;
 import com.barangay.people.respondent.model.Respondent;
+import com.barangay.usermanagement.department.model.Department;
+import com.barangay.zshared.enumerated.BcpcCategory;
 import com.barangay.zshared.enumerated.CaseStatus;
 import com.barangay.zshared.enumerated.FilingType;
 import jakarta.persistence.EntityManager;
@@ -26,12 +31,19 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Custom repository implementation providing dynamic JPA Criteria filtering and pagination
+ * for Blotter, Lupon, VAWC, and BCPC case records, archive, and trash tables.
+ */
 @Repository
 public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
 
     @PersistenceContext
     private EntityManager entityManager;
 
+    /**
+     * Executes dynamic JPA Criteria query to retrieve filtered and paginated Blotter cases.
+     */
     @Override
     public Page<Case> findBlotterCasesFiltered(BlotterFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
@@ -63,8 +75,11 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         return new PageImpl<>(resultList, pageable, totalCount);
     }
 
+    /**
+     * Executes dynamic JPA Criteria query to retrieve filtered and paginated Lupon cases under conciliation.
+     */
     @Override
-    public Page<Case> findLuponCasesFiltered(com.barangay.cases.lupon.dto.LuponFilterRequest filter, Pageable pageable) {
+    public Page<Case> findLuponCasesFiltered(LuponFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
 
         // 1. Data Query
@@ -94,8 +109,11 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         return new PageImpl<>(resultList, pageable, totalCount);
     }
 
+    /**
+     * Executes dynamic JPA Criteria query to retrieve filtered and paginated VAWC cases.
+     */
     @Override
-    public Page<Case> findVawcCasesFiltered(com.barangay.cases.vawc.dto.VawcFilterRequest filter, Pageable pageable) {
+    public Page<Case> findVawcCasesFiltered(VawcFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
 
         // 1. Data Query
@@ -125,7 +143,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         return new PageImpl<>(resultList, pageable, totalCount);
     }
 
-    private List<Predicate> buildVawcPredicates(com.barangay.cases.vawc.dto.VawcFilterRequest filter, CriteriaBuilder cb, Root<Case> root) {
+    private List<Predicate> buildVawcPredicates(VawcFilterRequest filter, CriteriaBuilder cb, Root<Case> root) {
         List<Predicate> predicates = new ArrayList<>();
 
         // Base criteria: non-deleted, non-permanently-deleted, non-archived & main VAWC root cases
@@ -135,7 +153,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
 
         // Department filter: VAWC
-        Join<Case, com.barangay.usermanagement.department.model.Department> deptJoin = root.join("department", JoinType.LEFT);
+        Join<Case, Department> deptJoin = root.join("department", JoinType.LEFT);
         Predicate vawcDept = cb.equal(cb.upper(deptJoin.get("name")), "VAWC");
         Predicate vawcCaseNumber = cb.like(cb.upper(root.get("caseNumber")), "%VAWC%");
         predicates.add(cb.or(vawcDept, cb.and(cb.isNull(root.get("department")), vawcCaseNumber)));
@@ -202,6 +220,9 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         return predicates;
     }
 
+    /**
+     * Executes dynamic JPA Criteria query to retrieve filtered and paginated BCPC cases.
+     */
     @Override
     public Page<Case> findBcpcCasesFiltered(BcpcFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
@@ -243,8 +264,8 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
 
         // Department/BCPC condition
-        Join<Case, com.barangay.usermanagement.department.model.Department> deptJoin = root.join("department", JoinType.LEFT);
-        Join<Case, com.barangay.cases.bcpc.model.BcpcCaseDetails> bcpcDetailsJoin = root.join("bcpcCaseDetails", JoinType.LEFT);
+        Join<Case, Department> deptJoin = root.join("department", JoinType.LEFT);
+        Join<Case, BcpcCaseDetails> bcpcDetailsJoin = root.join("bcpcCaseDetails", JoinType.LEFT);
 
         Predicate bcpcDept = cb.equal(cb.upper(deptJoin.get("name")), "BCPC");
         Predicate bcpcDetailsNotNull = cb.isNotNull(bcpcDetailsJoin.get("id"));
@@ -260,7 +281,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         if (filter.search() != null && !filter.search().isBlank()) {
             String searchPattern = "%" + filter.search().trim().toLowerCase() + "%";
 
-            Join<com.barangay.cases.bcpc.model.BcpcCaseDetails, Person> childPersonJoin = bcpcDetailsJoin.join("child", JoinType.LEFT);
+            Join<BcpcCaseDetails, Person> childPersonJoin = bcpcDetailsJoin.join("child", JoinType.LEFT);
             Join<Case, Complainant> compJoin = root.join("complainant", JoinType.LEFT);
             Join<Complainant, Person> compPersonJoin = compJoin.join("person", JoinType.LEFT);
             Join<Case, IncidentDetail> incJoin = root.join("incidentDetail", JoinType.LEFT);
@@ -307,7 +328,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         // Category Filter (CAR vs CICL)
         if (filter.category() != null && !filter.category().isBlank() && !"all".equalsIgnoreCase(filter.category())) {
             try {
-                com.barangay.zshared.enumerated.BcpcCategory cat = com.barangay.zshared.enumerated.BcpcCategory.valueOf(filter.category().trim().toUpperCase());
+                BcpcCategory cat = BcpcCategory.valueOf(filter.category().trim().toUpperCase());
                 predicates.add(cb.equal(bcpcDetailsJoin.get("category"), cat));
             } catch (IllegalArgumentException ignored) {
             }
@@ -316,6 +337,9 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         return predicates;
     }
 
+    /**
+     * Retrieves paginated archived Blotter cases with latest child case lineage mapping.
+     */
     @Override
     public Page<BlotterArchiveItemResponse> findArchivedBlotterCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
@@ -383,6 +407,9 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         return new PageImpl<>(content, pageable, totalCount);
     }
 
+    /**
+     * Retrieves paginated soft-deleted Blotter cases for the trash table.
+     */
     @Override
     public Page<BlotterRecentDeleteItemResponse> findRecentDeletedBlotterCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
@@ -479,7 +506,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
 
         // Exclude VAWC department cases from Blotter table
-        Join<Case, com.barangay.usermanagement.department.model.Department> deptJoin = root.join("department", JoinType.LEFT);
+        Join<Case, Department> deptJoin = root.join("department", JoinType.LEFT);
         Predicate notVawcDept = cb.or(cb.isNull(deptJoin.get("name")), cb.notEqual(cb.upper(deptJoin.get("name")), "VAWC"));
         Predicate notVawcCaseNumber = cb.notLike(cb.upper(root.get("caseNumber")), "%VAWC%");
         predicates.add(cb.and(notVawcDept, notVawcCaseNumber));
@@ -620,7 +647,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
 
         // Exclude VAWC department cases from Blotter archive table
-        Join<Case, com.barangay.usermanagement.department.model.Department> deptJoin = root.join("department", JoinType.LEFT);
+        Join<Case, Department> deptJoin = root.join("department", JoinType.LEFT);
         Predicate notVawcDept = cb.or(cb.isNull(deptJoin.get("name")), cb.notEqual(cb.upper(deptJoin.get("name")), "VAWC"));
         Predicate notVawcCaseNumber = cb.notLike(cb.upper(root.get("caseNumber")), "%VAWC%");
         predicates.add(cb.and(notVawcDept, notVawcCaseNumber));
@@ -669,7 +696,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
 
         // Exclude VAWC department cases from Blotter recent delete table
-        Join<Case, com.barangay.usermanagement.department.model.Department> deptJoin = root.join("department", JoinType.LEFT);
+        Join<Case, Department> deptJoin = root.join("department", JoinType.LEFT);
         Predicate notVawcDept = cb.or(cb.isNull(deptJoin.get("name")), cb.notEqual(cb.upper(deptJoin.get("name")), "VAWC"));
         Predicate notVawcCaseNumber = cb.notLike(cb.upper(root.get("caseNumber")), "%VAWC%");
         predicates.add(cb.and(notVawcDept, notVawcCaseNumber));
@@ -710,7 +737,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
     }
 
     private List<Predicate> buildLuponPredicates(
-            com.barangay.cases.lupon.dto.LuponFilterRequest filter,
+            LuponFilterRequest filter,
             CriteriaBuilder cb,
             CommonAbstractCriteria query,
             Root<Case> root
@@ -867,6 +894,9 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         return predicates;
     }
 
+    /**
+     * Retrieves paginated archived Lupon conciliation cases for the archive table.
+     */
     @Override
     public Page<BlotterArchiveItemResponse> findArchivedLuponCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
@@ -934,6 +964,9 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         return new PageImpl<>(content, pageable, totalCount);
     }
 
+    /**
+     * Retrieves paginated soft-deleted Lupon cases for the trash table.
+     */
     @Override
     public Page<BlotterRecentDeleteItemResponse> findRecentDeletedLuponCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
@@ -1132,6 +1165,9 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         return predicates;
     }
 
+    /**
+     * Retrieves paginated archived VAWC cases for the archive table.
+     */
     @Override
     public Page<BlotterArchiveItemResponse> findArchivedVawcCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
@@ -1199,6 +1235,9 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         return new PageImpl<>(content, pageable, totalCount);
     }
 
+    /**
+     * Retrieves paginated soft-deleted VAWC cases for the trash table.
+     */
     @Override
     public Page<BlotterRecentDeleteItemResponse> findRecentDeletedVawcCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
@@ -1274,7 +1313,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
 
         // Scope to VAWC Department
-        Join<Case, com.barangay.usermanagement.department.model.Department> deptJoin = root.join("department", JoinType.LEFT);
+        Join<Case, Department> deptJoin = root.join("department", JoinType.LEFT);
         Predicate isVawcDept = cb.equal(cb.upper(deptJoin.get("name")), "VAWC");
         Predicate isVawcCaseNumber = cb.like(cb.upper(root.get("caseNumber")), "%VAWC%");
         predicates.add(cb.or(isVawcDept, cb.and(cb.isNull(root.get("department")), isVawcCaseNumber)));
@@ -1323,7 +1362,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
 
         // Scope to VAWC Department
-        Join<Case, com.barangay.usermanagement.department.model.Department> deptJoin = root.join("department", JoinType.LEFT);
+        Join<Case, Department> deptJoin = root.join("department", JoinType.LEFT);
         Predicate isVawcDept = cb.equal(cb.upper(deptJoin.get("name")), "VAWC");
         Predicate isVawcCaseNumber = cb.like(cb.upper(root.get("caseNumber")), "%VAWC%");
         predicates.add(cb.or(isVawcDept, cb.and(cb.isNull(root.get("department")), isVawcCaseNumber)));
@@ -1363,6 +1402,9 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         return predicates;
     }
 
+    /**
+     * Retrieves paginated archived BCPC cases for the archive table.
+     */
     @Override
     public Page<BlotterArchiveItemResponse> findArchivedBcpcCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
@@ -1403,7 +1445,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
                 respName = (l + (l.isBlank() || f.isBlank() ? "" : ", ") + f + (m.isBlank() ? "" : " " + m.charAt(0) + ".")).trim();
             }
 
-            com.barangay.cases.bcpc.model.BcpcCaseDetails details = latestCase.getBcpcCaseDetails() != null ? latestCase.getBcpcCaseDetails() : rootCase.getBcpcCaseDetails();
+            BcpcCaseDetails details = latestCase.getBcpcCaseDetails() != null ? latestCase.getBcpcCaseDetails() : rootCase.getBcpcCaseDetails();
             String classification = "CAR";
             if (details != null && details.getCategory() != null) {
                 classification = details.getCategory().name();
@@ -1450,6 +1492,9 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         return new PageImpl<>(content, pageable, totalCount);
     }
 
+    /**
+     * Retrieves paginated soft-deleted BCPC cases for the trash table.
+     */
     @Override
     public Page<BlotterRecentDeleteItemResponse> findRecentDeletedBcpcCases(BlotterArchiveFilterRequest filter, Pageable pageable) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
@@ -1490,7 +1535,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
                 respName = (l + (l.isBlank() || f.isBlank() ? "" : ", ") + f + (m.isBlank() ? "" : " " + m.charAt(0) + ".")).trim();
             }
 
-            com.barangay.cases.bcpc.model.BcpcCaseDetails details = latestCase.getBcpcCaseDetails() != null ? latestCase.getBcpcCaseDetails() : rootCase.getBcpcCaseDetails();
+            BcpcCaseDetails details = latestCase.getBcpcCaseDetails() != null ? latestCase.getBcpcCaseDetails() : rootCase.getBcpcCaseDetails();
             String classification = "CAR";
             if (details != null && details.getCategory() != null) {
                 classification = details.getCategory().name();
@@ -1545,7 +1590,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
 
         // Scope to BCPC Department
-        Join<Case, com.barangay.usermanagement.department.model.Department> deptJoin = root.join("department", JoinType.LEFT);
+        Join<Case, Department> deptJoin = root.join("department", JoinType.LEFT);
         Predicate isBcpcDept = cb.equal(cb.upper(deptJoin.get("name")), "BCPC");
         Predicate isBcpcCaseNumber = cb.like(cb.upper(root.get("caseNumber")), "%BCPC%");
         predicates.add(cb.or(isBcpcDept, cb.and(cb.isNull(root.get("department")), isBcpcCaseNumber)));
@@ -1594,7 +1639,7 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         predicates.add(cb.or(cb.isNull(root.get("previousCaseNumber")), cb.equal(root.get("previousCaseNumber"), "")));
 
         // Scope to BCPC Department
-        Join<Case, com.barangay.usermanagement.department.model.Department> deptJoin = root.join("department", JoinType.LEFT);
+        Join<Case, Department> deptJoin = root.join("department", JoinType.LEFT);
         Predicate isBcpcDept = cb.equal(cb.upper(deptJoin.get("name")), "BCPC");
         Predicate isBcpcCaseNumber = cb.like(cb.upper(root.get("caseNumber")), "%BCPC%");
         predicates.add(cb.or(isBcpcDept, cb.and(cb.isNull(root.get("department")), isBcpcCaseNumber)));

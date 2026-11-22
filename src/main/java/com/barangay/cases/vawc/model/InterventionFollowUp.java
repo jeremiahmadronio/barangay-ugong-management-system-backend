@@ -9,7 +9,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "vawc_intervention_follow_ups")
+@Table(name = "vawc_intervention_follow_ups", indexes = {
+        @Index(name = "idx_vawc_followup_intervention_id", columnList = "intervention_id")
+})
 @Getter
 @Setter
 @AllArgsConstructor

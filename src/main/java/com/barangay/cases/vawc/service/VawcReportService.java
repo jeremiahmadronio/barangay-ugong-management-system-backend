@@ -82,21 +82,21 @@ public class VawcReportService {
         LocalDateTime prevStartOfWeek = mondayDate.minusWeeks(1).atStartOfDay();
         LocalDateTime prevEndOfWeek = sundayDate.minusWeeks(1).atTime(LocalTime.MAX);
 
-        // 1. Total Cases This Week & Trend vs Previous Week
+        // Total Cases This Week & Trend vs Previous Week
         long totalCasesThisWeek = caseRepository.countRootVawcCasesByCreatedAtBetween(startOfWeek, endOfWeek);
         long prevTotalCases = caseRepository.countRootVawcCasesByCreatedAtBetween(prevStartOfWeek, prevEndOfWeek);
         String casesTrend = calculateTrend(totalCasesThisWeek, prevTotalCases);
 
-        // 2. Total Active BPO This Week (ISSUED, SERVED)
+        // Total Active BPO This Week (ISSUED, SERVED)
         List<BpoStatus> activeBpoStatuses = List.of(BpoStatus.ISSUED, BpoStatus.SERVED);
         long totalActiveBpoThisWeek = barangayProtectionOrderRepository.countActiveBpoBetween(
                 activeBpoStatuses, startOfWeek, endOfWeek
         );
 
-        // 3. Total Referred Cases This Week
+        // Total Referred Cases This Week
         long totalReferredCasesThisWeek = vawcReferralRepository.countReferralsBetween(startOfWeek, endOfWeek);
 
-        // 4. Total Withdrawn Cases This Week
+        // Total Withdrawn Cases This Week
         long totalWithdrawnCasesThisWeek = caseRepository.countVawcCasesByCaseStatusInBetween(
                 List.of(CaseStatus.WITHDRAWN), startOfWeek, endOfWeek
         );
@@ -140,24 +140,24 @@ public class VawcReportService {
         LocalDateTime prevStartDateTime = startDate.minusDays(daysInPeriod).atStartOfDay();
         LocalDateTime prevEndDateTime = startDate.minusDays(1).atTime(LocalTime.MAX);
 
-        // 1. Total Cases
+        // Total Cases
         long currentTotalCases = caseRepository.countRootVawcCasesByCreatedAtBetween(startDateTime, endDateTime);
         long prevTotalCases = caseRepository.countRootVawcCasesByCreatedAtBetween(prevStartDateTime, prevEndDateTime);
         String casesTrend = calculateTrend(currentTotalCases, prevTotalCases);
 
-        // 2. Total Referred Cases
+        // Total Referred Cases
         long currentReferred = vawcReferralRepository.countReferralsBetween(startDateTime, endDateTime);
         long prevReferred = vawcReferralRepository.countReferralsBetween(prevStartDateTime, prevEndDateTime);
         String referredTrend = calculateTrend(currentReferred, prevReferred);
 
-        // 3. Total Dismissed Cases
+        // Total Dismissed Cases
         long currentDismissed = caseRepository.countVawcCasesByCaseStatusInBetween(
                 List.of(CaseStatus.DISMISSED), startDateTime, endDateTime);
         long prevDismissed = caseRepository.countVawcCasesByCaseStatusInBetween(
                 List.of(CaseStatus.DISMISSED), prevStartDateTime, prevEndDateTime);
         String dismissedTrend = calculateTrend(currentDismissed, prevDismissed);
 
-        // 4. Most Agency Success Referred
+        // Most Agency Success Referred
         List<VawcReferral> referrals = vawcReferralRepository.findReferralsBetween(startDateTime, endDateTime);
         String topAgencyName = "None Yet";
         long topAgencySuccessCount = 0;

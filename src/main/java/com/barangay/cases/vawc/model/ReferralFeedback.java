@@ -11,7 +11,10 @@ import lombok.Setter;
 @Entity
 @Getter
 @Setter
-@Table(name = "vawc_referral_feedback")
+@Table(name = "vawc_referral_feedback", indexes = {
+        @Index(name = "idx_vawc_feedback_case_id", columnList = "case_id"),
+        @Index(name = "idx_vawc_feedback_referral_id", columnList = "vawc_referral_id")
+})
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReferralFeedback extends BaseEntity {

@@ -1,17 +1,30 @@
 package com.barangay.cases.vawc.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-
+import com.barangay.cases.shared.model.Case;
+import com.barangay.cases.shared.model.IncidentDetail;
+import com.barangay.cases.shared.repository.CaseEvidenceRepository;
+import com.barangay.cases.shared.repository.CaseRepository;
+import com.barangay.cases.shared.service.CaseTimelineService;
+import com.barangay.cases.vawc.dto.VawcCaseDetailResponse;
+import com.barangay.cases.vawc.dto.VawcFilterRequest;
+import com.barangay.cases.vawc.dto.VawcStatsResponse;
+import com.barangay.cases.vawc.dto.VawcTableRowResponse;
+import com.barangay.cases.vawc.repository.BarangayProtectionOrderRepository;
+import com.barangay.cases.vawc.repository.ChildInvolvedRepository;
+import com.barangay.cases.vawc.repository.ReferralFeedbackRepository;
+import com.barangay.cases.vawc.repository.VawcReferralRepository;
+import com.barangay.cases.vawc.repository.ViolenceTypeRepository;
+import com.barangay.people.complainant.model.Complainant;
+import com.barangay.people.officer.repository.OfficerRepository;
+import com.barangay.people.person.model.Person;
+import com.barangay.people.person.repository.PersonRepository;
+import com.barangay.people.respondent.model.Respondent;
+import com.barangay.people.witness.repository.WitnessRepository;
+import com.barangay.usermanagement.department.repository.DepartmentRepository;
+import com.barangay.zshared.enumerated.BpoStatus;
+import com.barangay.zshared.enumerated.CaseStatus;
+import com.barangay.zshared.exception.ResourceNotFoundException;
+import com.barangay.zshared.mapper.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -19,30 +32,26 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
-import com.barangay.cases.shared.model.Case;
-import com.barangay.cases.shared.repository.CaseEvidenceRepository;
-import com.barangay.cases.shared.repository.CaseRepository;
-import com.barangay.cases.shared.service.CaseTimelineService;
-import com.barangay.cases.vawc.dto.VawcCaseDetailResponse;
-import com.barangay.cases.vawc.dto.VawcStatsResponse;
-import com.barangay.cases.vawc.repository.BarangayProtectionOrderRepository;
-import com.barangay.cases.vawc.repository.ChildInvolvedRepository;
-import com.barangay.cases.vawc.repository.ViolenceTypeRepository;
-import com.barangay.people.officer.repository.OfficerRepository;
-import com.barangay.people.person.repository.PersonRepository;
-import com.barangay.people.witness.repository.WitnessRepository;
-import com.barangay.usermanagement.department.repository.DepartmentRepository;
-import com.barangay.zshared.enumerated.BpoStatus;
-import com.barangay.zshared.enumerated.CaseStatus;
-import com.barangay.zshared.exception.ResourceNotFoundException;
-import com.barangay.zshared.mapper.CaseEvidenceMapper;
-import com.barangay.zshared.mapper.ComplainantMapper;
-import com.barangay.zshared.mapper.IncidentDetailMapper;
-import com.barangay.zshared.mapper.NarrativeStatementMapper;
-import com.barangay.zshared.mapper.RespondentMapper;
-import com.barangay.zshared.mapper.WitnessMapper;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+
+/**
+ * BDD-style unit tests for {@link VawcCaseService}.
+ */
 @ExtendWith(MockitoExtension.class)
 class VawcCaseServiceTest {
 
@@ -77,6 +86,12 @@ class VawcCaseServiceTest {
     private CaseTimelineService caseTimelineService;
 
     @Mock
+    private VawcReferralRepository vawcReferralRepository;
+
+    @Mock
+    private ReferralFeedbackRepository referralFeedbackRepository;
+
+    @Mock
     private ComplainantMapper complainantMapper;
 
     @Mock
@@ -101,22 +116,19 @@ class VawcCaseServiceTest {
     @DisplayName("getVawcStats Tests")
     class GetVawcStatsTests {
 
+        /**
+         * Verifies KPI stats and monthly trend calculation when data is present.
+         */
         @Test
-        @DisplayName("Should accurately calculate total cases, trends vs last month, referred, active BPO, and withdrawn cases")
-        void shouldReturnAccurateStatsWithTrend_whenDataExists() {
-            // Given: 15 total cases, 10 this month, 5 last month (+100.0% increase)
-            when(caseRepository.countRootVawcCases()).thenReturn(15L);
-            when(caseRepository.countRootVawcCasesByCreatedAtGreaterThanEqual(any(LocalDateTime.class))).thenReturn(10L);
-            when(caseRepository.countRootVawcCasesByCreatedAtBetween(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(5L);
-
-            // Referred cases: 4
-            when(caseRepository.countVawcCasesByCaseStatusIn(eq(List.of(CaseStatus.ISSUED_REFERRAL)))).thenReturn(4L);
-
-            // Active BPOs (ISSUED, SERVED): 8
-            when(barangayProtectionOrderRepository.countByStatusIn(eq(List.of(BpoStatus.ISSUED, BpoStatus.SERVED)))).thenReturn(8L);
-
-            // Withdrawn cases: 2
-            when(caseRepository.countVawcCasesByCaseStatusIn(eq(List.of(CaseStatus.WITHDRAWN)))).thenReturn(2L);
+        @DisplayName("given case metrics when getVawcStats then return calculated stats with trends")
+        void givenCaseMetrics_whenGetVawcStats_thenReturnCalculatedStats() {
+            // Given
+            given(caseRepository.countRootVawcCases()).willReturn(15L);
+            given(caseRepository.countRootVawcCasesByCreatedAtGreaterThanEqual(any(LocalDateTime.class))).willReturn(10L);
+            given(caseRepository.countRootVawcCasesByCreatedAtBetween(any(LocalDateTime.class), any(LocalDateTime.class))).willReturn(5L);
+            given(caseRepository.countVawcCasesByCaseStatusIn(eq(List.of(CaseStatus.ISSUED_REFERRAL)))).willReturn(4L);
+            given(barangayProtectionOrderRepository.countByStatusIn(eq(List.of(BpoStatus.ISSUED, BpoStatus.SERVED)))).willReturn(8L);
+            given(caseRepository.countVawcCasesByCaseStatusIn(eq(List.of(CaseStatus.WITHDRAWN)))).willReturn(2L);
 
             // When
             VawcStatsResponse response = vawcCaseService.getVawcStats();
@@ -129,39 +141,51 @@ class VawcCaseServiceTest {
             assertThat(response.totalActiveBpo()).isEqualTo(8L);
             assertThat(response.totalWithdrawnCases()).isEqualTo(2L);
 
-            verify(caseRepository).countRootVawcCases();
-            verify(barangayProtectionOrderRepository).countByStatusIn(anyList());
+            then(caseRepository).should().countRootVawcCases();
+            then(barangayProtectionOrderRepository).should().countByStatusIn(anyList());
         }
 
+        /**
+         * Verifies trend percentage when previous month has zero cases.
+         */
         @Test
-        @DisplayName("Should handle 0 previous month count gracefully with +100.0% when current > 0")
-        void shouldHandleZeroPreviousMonth_whenCurrentHasCases() {
-            when(caseRepository.countRootVawcCases()).thenReturn(3L);
-            when(caseRepository.countRootVawcCasesByCreatedAtGreaterThanEqual(any(LocalDateTime.class))).thenReturn(3L);
-            when(caseRepository.countRootVawcCasesByCreatedAtBetween(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(0L);
-            when(caseRepository.countVawcCasesByCaseStatusIn(eq(List.of(CaseStatus.ISSUED_REFERRAL)))).thenReturn(0L);
-            when(barangayProtectionOrderRepository.countByStatusIn(anyList())).thenReturn(1L);
-            when(caseRepository.countVawcCasesByCaseStatusIn(eq(List.of(CaseStatus.WITHDRAWN)))).thenReturn(0L);
+        @DisplayName("given zero cases in previous month when getVawcStats then return plus 100 percent trend")
+        void givenZeroPreviousMonthCases_whenGetVawcStats_thenReturnPlusOneHundredPercent() {
+            // Given
+            given(caseRepository.countRootVawcCases()).willReturn(3L);
+            given(caseRepository.countRootVawcCasesByCreatedAtGreaterThanEqual(any(LocalDateTime.class))).willReturn(3L);
+            given(caseRepository.countRootVawcCasesByCreatedAtBetween(any(LocalDateTime.class), any(LocalDateTime.class))).willReturn(0L);
+            given(caseRepository.countVawcCasesByCaseStatusIn(eq(List.of(CaseStatus.ISSUED_REFERRAL)))).willReturn(0L);
+            given(barangayProtectionOrderRepository.countByStatusIn(anyList())).willReturn(1L);
+            given(caseRepository.countVawcCasesByCaseStatusIn(eq(List.of(CaseStatus.WITHDRAWN)))).willReturn(0L);
 
+            // When
             VawcStatsResponse response = vawcCaseService.getVawcStats();
 
+            // Then
             assertThat(response.totalCases()).isEqualTo(3L);
             assertThat(response.totalCasesTrend()).isEqualTo("+100.0% vs last month");
             assertThat(response.totalActiveBpo()).isEqualTo(1L);
         }
 
+        /**
+         * Verifies negative trend percentage when case volume decreases.
+         */
         @Test
-        @DisplayName("Should handle negative monthly trend percentage accurately")
-        void shouldHandleNegativeMonthlyTrend_whenCasesDecreased() {
-            when(caseRepository.countRootVawcCases()).thenReturn(10L);
-            when(caseRepository.countRootVawcCasesByCreatedAtGreaterThanEqual(any(LocalDateTime.class))).thenReturn(3L);
-            when(caseRepository.countRootVawcCasesByCreatedAtBetween(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(6L);
-            when(caseRepository.countVawcCasesByCaseStatusIn(eq(List.of(CaseStatus.ISSUED_REFERRAL)))).thenReturn(1L);
-            when(barangayProtectionOrderRepository.countByStatusIn(anyList())).thenReturn(2L);
-            when(caseRepository.countVawcCasesByCaseStatusIn(eq(List.of(CaseStatus.WITHDRAWN)))).thenReturn(1L);
+        @DisplayName("given fewer cases than previous month when getVawcStats then return negative trend")
+        void givenFewerCasesThanPreviousMonth_whenGetVawcStats_thenReturnNegativeTrend() {
+            // Given
+            given(caseRepository.countRootVawcCases()).willReturn(10L);
+            given(caseRepository.countRootVawcCasesByCreatedAtGreaterThanEqual(any(LocalDateTime.class))).willReturn(3L);
+            given(caseRepository.countRootVawcCasesByCreatedAtBetween(any(LocalDateTime.class), any(LocalDateTime.class))).willReturn(6L);
+            given(caseRepository.countVawcCasesByCaseStatusIn(eq(List.of(CaseStatus.ISSUED_REFERRAL)))).willReturn(1L);
+            given(barangayProtectionOrderRepository.countByStatusIn(anyList())).willReturn(2L);
+            given(caseRepository.countVawcCasesByCaseStatusIn(eq(List.of(CaseStatus.WITHDRAWN)))).willReturn(1L);
 
+            // When
             VawcStatsResponse response = vawcCaseService.getVawcStats();
 
+            // Then
             assertThat(response.totalCases()).isEqualTo(10L);
             assertThat(response.totalCasesTrend()).isEqualTo("-50.0% vs last month");
         }
@@ -171,30 +195,41 @@ class VawcCaseServiceTest {
     @DisplayName("getVawcCaseById Tests")
     class GetVawcCaseByIdTests {
 
+        /**
+         * Verifies case details retrieval when the case exists.
+         */
         @Test
-        @DisplayName("Should retrieve case details by ID when case exists")
-        void shouldReturnCaseDetail_whenCaseExists() {
+        @DisplayName("given existing case ID when getVawcCaseById then return mapped detail response")
+        void givenExistingCaseId_whenGetVawcCaseById_thenReturnCaseDetail() {
+            // Given
             Long caseId = 101L;
             Case existingCase = new Case();
             existingCase.setId(caseId);
             existingCase.setCaseNumber("2026-VAWC-001");
             existingCase.setCreatedAt(LocalDateTime.now());
 
-            when(caseRepository.findById(caseId)).thenReturn(Optional.of(existingCase));
+            given(caseRepository.findById(caseId)).willReturn(Optional.of(existingCase));
 
+            // When
             VawcCaseDetailResponse response = vawcCaseService.getVawcCaseById(caseId);
 
+            // Then
             assertThat(response).isNotNull();
             assertThat(response.id()).isEqualTo(caseId);
             assertThat(response.caseNumber()).isEqualTo("2026-VAWC-001");
         }
 
+        /**
+         * Verifies ResourceNotFoundException is thrown when case ID does not exist.
+         */
         @Test
-        @DisplayName("Should throw ResourceNotFoundException when case ID does not exist")
-        void shouldThrowResourceNotFoundException_whenCaseNotFound() {
+        @DisplayName("given non-existent case ID when getVawcCaseById then throw ResourceNotFoundException")
+        void givenNonExistentCaseId_whenGetVawcCaseById_thenThrowException() {
+            // Given
             Long caseId = 999L;
-            when(caseRepository.findById(caseId)).thenReturn(Optional.empty());
+            given(caseRepository.findById(caseId)).willReturn(Optional.empty());
 
+            // When & Then
             assertThatThrownBy(() -> vawcCaseService.getVawcCaseById(caseId))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("VAWC Case not found with ID: 999");
@@ -205,11 +240,14 @@ class VawcCaseServiceTest {
     @DisplayName("getVawcCases Table & Filtering Tests")
     class GetVawcCasesTableTests {
 
+        /**
+         * Verifies paginated and mapped VAWC case rows.
+         */
         @Test
-        @DisplayName("Should retrieve paginated and mapped VAWC cases with 5 items per page")
-        void shouldReturnPaginatedVawcCases_whenFilterApplied() {
+        @DisplayName("given filter criteria when getVawcCases then return mapped page response")
+        void givenFilterCriteria_whenGetVawcCases_thenReturnPageResponse() {
             // Given
-            com.barangay.cases.vawc.dto.VawcFilterRequest filter = new com.barangay.cases.vawc.dto.VawcFilterRequest(
+            VawcFilterRequest filter = new VawcFilterRequest(
                     "Madronio",
                     "PENDING",
                     "HIGH-IMMINENT",
@@ -224,37 +262,32 @@ class VawcCaseServiceTest {
             c1.setRiskLevel("HIGH-IMMINENT");
             c1.setCreatedAt(LocalDateTime.of(2026, 9, 5, 10, 30));
 
-            com.barangay.people.person.model.Person compP = new com.barangay.people.person.model.Person();
+            Person compP = new Person();
             compP.setFirstName("Jeremiah");
             compP.setLastName("Madronio");
             compP.setMiddleName("Dragon");
-            com.barangay.people.complainant.model.Complainant comp = new com.barangay.people.complainant.model.Complainant();
+            Complainant comp = new Complainant();
             comp.setPerson(compP);
             c1.setComplainant(comp);
 
-            com.barangay.people.person.model.Person respP = new com.barangay.people.person.model.Person();
+            Person respP = new Person();
             respP.setFirstName("Adelaida");
             respP.setLastName("Perez");
-            com.barangay.people.respondent.model.Respondent resp = new com.barangay.people.respondent.model.Respondent();
+            Respondent resp = new Respondent();
             resp.setPerson(respP);
             c1.setRespondent(resp);
 
-            com.barangay.cases.shared.model.IncidentDetail inc = new com.barangay.cases.shared.model.IncidentDetail();
+            IncidentDetail inc = new IncidentDetail();
             inc.setNatureOfComplaint("Physical Abuse");
             c1.setIncidentDetail(inc);
 
-            org.springframework.data.domain.Page<Case> casePage = new org.springframework.data.domain.PageImpl<>(
-                    List.of(c1),
-                    org.springframework.data.domain.PageRequest.of(0, 5),
-                    1L
-            );
+            Page<Case> casePage = new PageImpl<>(List.of(c1), PageRequest.of(0, 5), 1L);
 
-            when(caseRepository.findVawcCasesFiltered(eq(filter), any(org.springframework.data.domain.Pageable.class)))
-                    .thenReturn(casePage);
+            given(caseRepository.findVawcCasesFiltered(eq(filter), any(Pageable.class)))
+                    .willReturn(casePage);
 
             // When
-            com.barangay.zshared.mapper.PageResponse<com.barangay.cases.vawc.dto.VawcTableRowResponse> response =
-                    vawcCaseService.getVawcCases(filter);
+            PageResponse<VawcTableRowResponse> response = vawcCaseService.getVawcCases(filter);
 
             // Then
             assertThat(response).isNotNull();
@@ -262,7 +295,7 @@ class VawcCaseServiceTest {
             assertThat(response.getTotalElements()).isEqualTo(1L);
             assertThat(response.getPageSize()).isEqualTo(5);
 
-            com.barangay.cases.vawc.dto.VawcTableRowResponse row = response.getContent().get(0);
+            VawcTableRowResponse row = response.getContent().get(0);
             assertThat(row.id()).isEqualTo(1001L);
             assertThat(row.caseNumber()).isEqualTo("2026-VAWC-001");
             assertThat(row.complainant()).isEqualTo("Madronio, Jeremiah D.");

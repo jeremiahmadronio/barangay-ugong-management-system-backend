@@ -17,7 +17,11 @@ import java.util.List;
 import java.util.Set;
 
 @Entity
-@Table(name = "vawc_interventions")
+@Table(name = "vawc_interventions", indexes = {
+        @Index(name = "idx_vawc_intervention_case_id", columnList = "case_id"),
+        @Index(name = "idx_vawc_intervention_bpo_id", columnList = "bpo_id"),
+        @Index(name = "idx_vawc_intervention_date", columnList = "intervention_date")
+})
 @Getter
 @Setter
 @AllArgsConstructor

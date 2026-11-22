@@ -17,7 +17,13 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "barangay_protection_orders")
+@Table(name = "barangay_protection_orders", indexes = {
+        @Index(name = "idx_bpo_case_id", columnList = "case_id"),
+        @Index(name = "idx_bpo_control_number", columnList = "bpo_control_number"),
+        @Index(name = "idx_bpo_status", columnList = "status"),
+        @Index(name = "idx_bpo_activated_at", columnList = "activated_at"),
+        @Index(name = "idx_bpo_expired_at", columnList = "expired_at")
+})
 @Getter
 @Setter
 @AllArgsConstructor
