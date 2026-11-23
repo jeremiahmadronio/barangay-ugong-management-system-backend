@@ -582,14 +582,14 @@ public class AuthService {
 
     /**
      * Handles a failed login attempt.
-     * Increments the failed attempt counter and locks the account after 10 attempts.
+     * Increments the failed attempt counter and locks the account after 5 attempts.
      */
     private void handleFailedAttempt(User user, String ipAddress) {
         int attempts = (user.getFailedAttempts() == null ? 0 : user.getFailedAttempts()) + 1;
         user.setFailedAttempts(attempts);
         user.setLastFailedAttempt(LocalDateTime.now());
 
-        if (attempts >= 10) {
+        if (attempts >= 5) {
             user.setIsLocked(true);
             user.setLockUntil(LocalDateTime.now().plusMinutes(15));
             userRepository.saveAndFlush(user);
@@ -609,7 +609,7 @@ public class AuthService {
                 Severity.WARNING, "Failed login attempt #" + attempts, ipAddress,null, null
         );
 
-        throw new BadCredentialsException("Invalid email or password. Attempt " + attempts + " of 10.");
+        throw new BadCredentialsException("Invalid email or password. Attempt " + attempts + " of 5.");
     }
 
     /**

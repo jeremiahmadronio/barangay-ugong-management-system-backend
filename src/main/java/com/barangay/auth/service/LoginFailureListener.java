@@ -32,7 +32,7 @@ public class LoginFailureListener {
             int attempts = (user.getFailedAttempts() == null ? 0 : user.getFailedAttempts()) + 1;
             user.setFailedAttempts(attempts);
 
-            if (attempts >= 10) {
+            if (attempts >= 5) {
                 user.setIsLocked(true);
                 user.setLockUntil(LocalDateTime.now().plusMinutes(15));
             }

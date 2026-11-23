@@ -19,10 +19,10 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${spring.mail.username:nermamadronio@gmail.com}")
+    @Value("${spring.mail.username:}")
     private String configuredSender;
 
-    private static final String SENDER_EMAIL = "nermamadronio@gmail.com";
+    private static final String DEFAULT_SENDER = "noreply@barangay.gov.ph";
     private static final String SYSTEM_NAME = "Barangay Management System";
 
     /**
@@ -66,7 +66,7 @@ public class EmailService {
      */
     public void sendEmail(String toEmail, String subject, String textContent) {
         try {
-            String fromAddress = (configuredSender != null && !configuredSender.isBlank()) ? configuredSender : SENDER_EMAIL;
+            String fromAddress = (configuredSender != null && !configuredSender.isBlank()) ? configuredSender : DEFAULT_SENDER;
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromAddress);
             message.setTo(toEmail);

@@ -213,7 +213,7 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("Wrong password (attempt 1–9) → BadCredentialsException with attempt count")
+        @DisplayName("Wrong password (attempt 1–4) → BadCredentialsException with attempt count")
         void wrongPassword_incrementsAttempts() {
             User user = activeUser();
             when(userRepository.findBySystemEmail(EMAIL)).thenReturn(Optional.of(user));
@@ -222,16 +222,16 @@ class AuthServiceTest {
 
             assertThatThrownBy(() -> authService.login(request, IP))
                     .isInstanceOf(BadCredentialsException.class)
-                    .hasMessageContaining("Attempt 1 of 10");
+                    .hasMessageContaining("Attempt 1 of 5");
 
             assertThat(user.getFailedAttempts()).isEqualTo(1);
         }
 
         @Test
-        @DisplayName("Wrong password on 10th attempt → account locked")
-        void tenthFailedAttempt_locksAccount() {
+        @DisplayName("Wrong password on 5th attempt → account locked")
+        void fifthFailedAttempt_locksAccount() {
             User user = activeUser();
-            user.setFailedAttempts(9); // 9 previous failures
+            user.setFailedAttempts(4); // 4 previous failures
             when(userRepository.findBySystemEmail(EMAIL)).thenReturn(Optional.of(user));
             doThrow(new BadCredentialsException("bad credentials"))
                     .when(authenticationManager).authenticate(any());

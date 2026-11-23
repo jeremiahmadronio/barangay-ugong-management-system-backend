@@ -21,21 +21,15 @@ public class SecurityConstant {
     // Endpoints that anyone can access without a token
     public static final String[] PUBLIC_ENDPOINTS = {
             "/api/v1/auth/**",
-            "/api/v1/departments/**",
-            "/api/v1/permissions/**",
-            "/api/v1/persons/**",
-            "/api/v1/residents/**",
-            "/api/v1/officers/**",
-            "/api/v1/archive/**",
-            "/api/v1/admin/**",
-            "/api/v1/blotter/**",
-            "/api/v1/ftjs/**",
-            "/api/settings",
-            "/api/public/**",
             "/api/v1/cms/announcements/public",
             "/api/v1/cms/services/public",
+            "/api/public/**",
             "/uploads/**",
-            "/error"
+            "/error",
+            "/swagger-ui/**",
+            "/swagger-ui.html",
+            "/v3/api-docs/**",
+            "/v3/api-docs.yaml"
     };
 
     // Endpoints that only ROOT_ADMIN can access
@@ -85,7 +79,8 @@ public class SecurityConstant {
     // Endpoints restricted to ROOT_ADMIN or staff assigned to the CLEARANCE department
     public static final String[] CLEARANCE_ENDPOINTS = {
             "/api/v1/clearance/**",
-            "/api/v1/permits/**"
+            "/api/v1/permits/**",
+            "/api/v1/ftjs/**"
     };
 
 
@@ -98,15 +93,7 @@ public class SecurityConstant {
             "/api/v1/notices/**",
     };
 
-    // CORS configuration settings
-    public static final String[] ALLOWED_ORIGINS = {
-            "http://localhost:5173",
-            "http://localhost:3000",
-            "http://localhost:8080",
-            "http://127.0.0.1:5173",
-            "http://127.0.0.1:3000"
-    };
-
+    // CORS configuration settings (origins are dynamically managed via application.properties / .env)
     public static final String[] ALLOWED_METHODS = {
             "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
     };

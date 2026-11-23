@@ -10,6 +10,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -17,6 +19,10 @@ public class FileStorageService {
 
     private final Path fileStorageLocation;
     private final Path secureFileStorageLocation;
+
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
+            ".jpg", ".jpeg", ".png", ".webp", ".gif", ".pdf", ".docx", ".xlsx", ".txt"
+    );
 
     public FileStorageService(@Value("${upload.path:uploads}") String uploadPath,
                               @Value("${secure.upload.path:secure_uploads}") String secureUploadPath) {
@@ -44,15 +50,24 @@ public class FileStorageService {
 
         try {
             if (originalFileName.contains(".")) {
-                fileExtension = originalFileName.substring(originalFileName.lastIndexOf("."));
+                fileExtension = originalFileName.substring(originalFileName.lastIndexOf(".")).toLowerCase(Locale.ROOT);
             }
+
+            if (!ALLOWED_EXTENSIONS.contains(fileExtension)) {
+                throw new IllegalArgumentException("File type " + fileExtension + " is not allowed. Only safe documents and images are permitted.");
+            }
+
             String fileName = UUID.randomUUID().toString() + fileExtension;
 
             if (fileName.contains("..")) {
                 throw new RuntimeException("Filename contains invalid path sequence " + fileName);
             }
 
-            Path targetLocation = targetDir.resolve(fileName);
+            Path targetLocation = targetDir.resolve(fileName).normalize();
+            if (!targetLocation.startsWith(targetDir)) {
+                throw new SecurityException("Cannot store file outside current directory: " + fileName);
+            }
+
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
 
             return urlPrefix + fileName;

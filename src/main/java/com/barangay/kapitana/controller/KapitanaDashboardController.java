@@ -15,7 +15,6 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/v1/kapitana")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 @Slf4j
 public class KapitanaDashboardController {

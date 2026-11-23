@@ -62,7 +62,6 @@ public class SystemAdminDataSeeder implements CommandLineRunner {
         updateResidentCheckConstraint();
         dropUserSystemEmailUniqueConstraint();
         seedSystemAdmin();
-        seedBarangayAdmin();
     }
 
     private void dropUserSystemEmailUniqueConstraint() {
@@ -140,61 +139,5 @@ public class SystemAdminDataSeeder implements CommandLineRunner {
         userRepository.save(admin);
         log.info("System Admin created: {} with ALL ({}) departments and ALL ({}) permissions.",
                 adminEmail, allDepartments.size(), allPermissions.size());
-    }
-
-    private void seedBarangayAdmin() {
-        String targetEmail = "jeremiahmadronio2003@gmail.com";
-
-        Role adminRole = roleRepository.findByRoleName("ADMIN")
-                .orElseGet(() -> roleRepository.findByRoleName("SYSTEM_ADMIN")
-                        .orElseThrow(() -> new RuntimeException("ADMIN role not found. Ensure RoleDataSeeder ran first.")));
-
-        Set<Department> allDepartments = new HashSet<>(departmentRepository.findAll());
-        Set<Permission> allPermissions = new HashSet<>(permissionRepository.findAll());
-
-        Optional<User> existingOpt = userRepository.findBySystemEmail(targetEmail);
-
-        if (existingOpt.isPresent()) {
-            User admin = existingOpt.get();
-            admin.setRole(adminRole);
-            admin.setPassword(passwordEncoder.encode(adminPassword));
-            admin.setIsNewAccount(false);
-            admin.setDepartments(allDepartments);
-            admin.setCustomPermissions(allPermissions);
-            userRepository.save(admin);
-            log.info("Barangay Admin account ({}) updated with ADMIN role and system admin password.", targetEmail);
-            return;
-        }
-
-        User admin = new User();
-        admin.setSystemEmail(targetEmail);
-        admin.setUsername("jeremiahmadronio");
-        admin.setPassword(passwordEncoder.encode(adminPassword));
-        admin.setStatus(UserStatus.ACTIVE);
-        admin.setIsSystem(false);
-        admin.setIsNewAccount(false);
-        admin.setMfaType(MfaType.EMAIL);
-        admin.setRole(adminRole);
-        admin.setDepartments(allDepartments);
-        admin.setCustomPermissions(allPermissions);
-
-        Optional<Person> personOpt = personRepository.findAll().stream()
-                .filter(p -> "Jeremiah".equalsIgnoreCase(p.getFirstName()) && "Madronio".equalsIgnoreCase(p.getLastName()))
-                .findFirst();
-
-        if (personOpt.isPresent()) {
-            admin.setPerson(personOpt.get());
-        } else {
-            Person person = new Person();
-            person.setFirstName("Jeremiah");
-            person.setLastName("Madronio");
-            person.setGender("Male");
-            person.setBirthDate(LocalDate.of(2003, 1, 1));
-            person = personRepository.save(person);
-            admin.setPerson(person);
-        }
-
-        userRepository.save(admin);
-        log.info("Barangay Admin created: {} with ADMIN role, linked Person Jeremiah Madronio, and system admin password.", targetEmail);
     }
 }

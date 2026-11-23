@@ -27,10 +27,10 @@ public class DepartmentSecurityService {
         return details.user().getId().equals(resourceOwnerId);
     }
 
-    /** Returns true if the user is ROOT_ADMIN or belongs to the given department. */
+    /** Returns true if the user is ROOT_ADMIN, SYSTEM_ADMIN, or belongs to the given department. */
     public boolean canAccessDept(Authentication auth, String deptName) {
-        boolean isRoot = auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ROOT_ADMIN"));
-        return isRoot || isInDept(auth, deptName);
+        boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ROOT_ADMIN") || a.getAuthority().equals("ROLE_SYSTEM_ADMIN"));
+        return isAdmin || isInDept(auth, deptName);
     }
 }
