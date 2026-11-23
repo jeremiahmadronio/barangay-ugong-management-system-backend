@@ -1,7 +1,7 @@
 package com.barangay.zshared.mapper;
 
-import com.barangay.people.respondent.model.Respondent;
 import com.barangay.people.person.model.Person;
+import com.barangay.people.respondent.model.Respondent;
 import com.barangay.zshared.dto.RespondentCreateDto;
 import com.barangay.zshared.dto.RespondentDetailDto;
 import lombok.RequiredArgsConstructor;
@@ -17,8 +17,16 @@ public class RespondentMapper {
 
     private final PersonMapper personMapper;
 
+    /**
+     * Maps a {@link Respondent} entity to a {@link RespondentDetailDto}.
+     *
+     * @param respondent the entity to convert, may be {@code null}
+     * @return the corresponding {@link RespondentDetailDto}, or {@code null} if input is {@code null}
+     */
     public RespondentDetailDto toDetailDto(Respondent respondent) {
-        if (respondent == null || respondent.getPerson() == null) return null;
+        if (respondent == null || respondent.getPerson() == null) {
+            return null;
+        }
         Person p = respondent.getPerson();
 
         return new RespondentDetailDto(
@@ -45,7 +53,9 @@ public class RespondentMapper {
      * @return a new, unsaved {@link Person} entity
      */
     public Person toNewPerson(RespondentCreateDto dto) {
-        if (dto == null) return null;
+        if (dto == null) {
+            return null;
+        }
 
         Person person = new Person();
         person.setLastName(dto.lastName());
@@ -59,7 +69,6 @@ public class RespondentMapper {
         person.setCompleteAddress(dto.completeAddress());
         return person;
     }
-
 
     /**
      * Wraps an already-persisted {@link Person} in a new, unsaved {@link Respondent},

@@ -18,8 +18,16 @@ public class WitnessMapper {
 
     private final PersonMapper personMapper;
 
+    /**
+     * Maps a {@link Witness} entity to a {@link WitnessDetailDto}.
+     *
+     * @param witness the entity to convert, may be {@code null}
+     * @return the corresponding {@link WitnessDetailDto}, or {@code null} if input is {@code null}
+     */
     public WitnessDetailDto toDetailDto(Witness witness) {
-        if (witness == null) return null;
+        if (witness == null) {
+            return null;
+        }
         Person p = witness.getPerson();
 
         return new WitnessDetailDto(
@@ -37,7 +45,7 @@ public class WitnessMapper {
 
     /**
      * Builds a new, unsaved {@link Person} from the create request.
-     * Missing name fields fall back to placeholder values ("Witness" / "N/A").
+     * Missing name fields fall back to placeholder values ("Witness" / "Statement").
      * Returns {@code null} if both name fields are missing, signaling that
      * no witness should be created.
      *
@@ -45,7 +53,9 @@ public class WitnessMapper {
      * @return a new, unsaved {@link Person}, or {@code null} if no name was provided
      */
     public Person toNewPerson(WitnessCreateDto dto) {
-        if (dto == null) return null;
+        if (dto == null) {
+            return null;
+        }
 
         String fName = (dto.firstName() != null && !dto.firstName().isBlank()) ? dto.firstName().trim() : "Witness";
         String lName = (dto.lastName() != null && !dto.lastName().isBlank()) ? dto.lastName().trim() : "Statement";
@@ -57,7 +67,6 @@ public class WitnessMapper {
         person.setCompleteAddress(dto.completeAddress());
         return person;
     }
-
 
     /**
      * Wraps an already-persisted {@link Person} in a new, unsaved {@link Witness},
@@ -77,6 +86,4 @@ public class WitnessMapper {
         witness.setTestimonyFile(dto.testimonyFile());
         return witness;
     }
-
-
 }

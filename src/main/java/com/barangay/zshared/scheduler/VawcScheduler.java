@@ -18,10 +18,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Scheduled jobs for VAWC cases and Barangay Protection Orders (BPO):
- * Runs daily at midnight to check active BPOs exceeding the 15-day validity/monitoring period.
- * If the 15-day monitoring period has elapsed and the case is not yet settled or referred,
- * updates BPO status to EXPIRED and updates the VAWC Case status to EXPIRED_UNACTIONED / Unsettled.
+ * Scheduled job service for VAWC cases and Barangay Protection Orders (BPO).
  */
 @Slf4j
 @Component
@@ -33,8 +30,7 @@ public class VawcScheduler {
     private final CaseTimelineService caseTimelineService;
 
     /**
-     * Daily automated scheduler running every midnight (12:00 AM) to automatically expire
-     * overdue 15-day BPO monitoring validity periods and transition unsettled VAWC cases.
+     * Executes daily at midnight to expire active 15-day BPO monitoring validity periods and transition unsettled cases.
      */
     @Scheduled(cron = "0 0 0 * * *")
     @Transactional
@@ -60,16 +56,16 @@ public class VawcScheduler {
 
             if (expiryDate != null && today.isAfter(expiryDate)) {
                 Case aCase = bpo.getCases();
-                if (aCase == null) continue;
+                if (aCase == null) {
+                    continue;
+                }
 
-                // Check if case is already in a terminal/referred state
                 CaseStatus currentStatus = aCase.getCaseStatus();
                 if (currentStatus == CaseStatus.SETTLED ||
                     currentStatus == CaseStatus.DISMISSED ||
                     currentStatus == CaseStatus.WITHDRAWN ||
                     currentStatus == CaseStatus.ISSUED_REFERRAL ||
                     currentStatus == CaseStatus.DECLINED_REFERRAL) {
-                    // Mark BPO as EXPIRED without altering closed case status
                     bpo.setStatus(BpoStatus.EXPIRED);
                     barangayProtectionOrderRepository.save(bpo);
                     continue;

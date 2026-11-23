@@ -2,6 +2,9 @@ package com.barangay.zshared.entity;
 
 import java.time.LocalDateTime;
 
+/**
+ * Interface contract for entities that support archival operations and tracking.
+ */
 public interface Archivable {
 
     Boolean getIsArchived();
@@ -18,17 +21,4 @@ public interface Archivable {
         setArchivedAt(LocalDateTime.now());
         setArchiveRemarks(remarks);
     }
-
-    default void unarchive(String remarks) {
-        setIsArchived(false);
-        setArchivedAt(null);
-        setArchiveRemarks(remarks);
-    }
-
-    default void unarchive() {
-        setIsArchived(false);
-        setArchivedAt(null);
-        setArchiveRemarks(null);
-    }
-
 }

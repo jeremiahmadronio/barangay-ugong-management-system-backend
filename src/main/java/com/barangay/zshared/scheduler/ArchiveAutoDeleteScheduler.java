@@ -23,6 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * Scheduled job for automatically purging expired archived and soft-deleted records.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -35,7 +38,11 @@ public class ArchiveAutoDeleteScheduler {
     private final CaseRepository caseRepository;
     private final BlotterArchiveAndDeleteService blotterArchiveAndDeleteService;
 
-    @Scheduled(cron = "0 0 0 * * *") // Runs every 12:00 AM (midnight)
+    /**
+     * Executes daily at midnight to permanently delete expired soft-deleted and archived records
+     * that have exceeded the system retention period.
+     */
+    @Scheduled(cron = "0 0 0 * * *")
     @Transactional
     public void autoDeleteExpiredArchives() {
         log.info("Checking for expired archive items for permanent-delete transfer...");
@@ -49,7 +56,6 @@ public class ArchiveAutoDeleteScheduler {
             int retentionDays = settings.getDeleteAfterDays() != null ? settings.getDeleteAfterDays() : 30;
             LocalDateTime cutoff = LocalDateTime.now().minusDays(retentionDays);
 
-            // 1. Transfer Soft-Deleted Cases (Blotter, Lupon, and VAWC) to Permanent Delete State (Audit-Safe Purge)
             List<Case> expiredCases = caseRepository.findExpiredSoftDeletedCases(cutoff);
             for (Case c : expiredCases) {
                 try {
@@ -60,7 +66,6 @@ public class ArchiveAutoDeleteScheduler {
                 }
             }
 
-            // 2. Transfer Users to Permanent Delete State
             List<User> archivedUsers = userRepository.findAllByStatus(UserStatus.ARCHIVED);
             for (User u : archivedUsers) {
                 if (!Boolean.TRUE.equals(u.getIsPermanentDeleted()) && u.getArchivedAt() != null && u.getArchivedAt().isBefore(cutoff)) {
@@ -70,7 +75,6 @@ public class ArchiveAutoDeleteScheduler {
                 }
             }
 
-            // 3. Transfer Officers to Permanent Delete State
             List<Officer> archivedOfficers = officerRepository.findAllByStatus(OfficerStatus.ARCHIVED);
             for (Officer o : archivedOfficers) {
                 if (!Boolean.TRUE.equals(o.getIsPermanentDeleted()) && o.getUpdatedAt() != null && o.getUpdatedAt().isBefore(cutoff)) {
@@ -80,7 +84,6 @@ public class ArchiveAutoDeleteScheduler {
                 }
             }
 
-            // 4. Transfer Residents to Permanent Delete State
             List<Resident> archivedResidents = residentRepository.findAllByStatus(ResidentStatus.ARCHIVED);
             for (Resident r : archivedResidents) {
                 if (!Boolean.TRUE.equals(r.getIsPermanentDeleted()) && r.getUpdatedAt() != null && r.getUpdatedAt().isBefore(cutoff)) {

@@ -15,12 +15,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Scheduled job service for Barangay Council for the Protection of Children (BCPC) cases.
- * Runs daily at midnight to monitor pending cases.
- *
- * If a BCPC case remains in PENDING status for 7 days without recorded action
- * (such as custody turnover, inter-agency referral, or intervention program),
- * its status is automatically updated to EXPIRED_UNACTIONED and an audit timeline event is logged.
+ * Scheduled job service for monitoring pending Barangay Council for the Protection of Children (BCPC) cases.
  */
 @Slf4j
 @Component
@@ -31,9 +26,7 @@ public class BcpcScheduler {
     private final CaseTimelineService caseTimelineService;
 
     /**
-     * Daily automated check running every midnight (12:00 AM).
-     * Any BCPC case that has been in PENDING status for more than 7 days
-     * is automatically transitioned to EXPIRED_UNACTIONED.
+     * Executes daily at midnight to expire BCPC cases remaining in PENDING status for more than 7 days.
      */
     @Scheduled(cron = "0 0 0 * * ?")
     @Transactional
@@ -82,4 +75,3 @@ public class BcpcScheduler {
         log.info("[BcpcScheduler] Overdue BCPC cases check completed. Total cases transitioned to EXPIRED_UNACTIONED: {}", expiredCount);
     }
 }
-

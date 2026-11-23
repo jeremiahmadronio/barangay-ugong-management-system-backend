@@ -9,6 +9,9 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
+/**
+ * Base mapped superclass providing standard lifecycle timestamps and soft/permanent deletion flags for entities.
+ */
 @MappedSuperclass
 @Getter @Setter
 public abstract class BaseEntity {

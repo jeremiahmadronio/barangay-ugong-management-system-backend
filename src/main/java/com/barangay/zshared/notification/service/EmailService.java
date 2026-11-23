@@ -53,7 +53,6 @@ public class EmailService {
         String content = "Good day,\n\n" +
                 "Your user account has been successfully created for the " + SYSTEM_NAME + ".\n\n" +
                 "Your login credentials are:\n" +
-                "Username: " + username + "\n" +
                 "Temporary Password: " + tempPassword + "\n\n" +
                 "Please log in using these credentials. You will be prompted to set up a new password upon first login.\n\n" +
                 "Thank you,\n" +

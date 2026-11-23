@@ -17,9 +17,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Scheduled jobs for Clearance and Certificate management:
- * 1. Daily 12:00 AM midnight check for expired soft-deleted certificates in trash to permanently purge/delete.
- * 2. Daily 12:00 AM midnight check for expired certificate validity dates (ACTIVE -> EXPIRED).
+ * Scheduled jobs for clearance validity tracking and expired trash certificate retention.
  */
 @Slf4j
 @Component
@@ -31,8 +29,7 @@ public class ClearanceScheduler {
     private final ClearanceArchive clearanceArchive;
 
     /**
-     * Executes every day at 12:00 AM (midnight) to automatically transition expired soft-deleted clearance certificates
-     * in the trash vault into permanent-delete status based on Barangay Archive Settings retention days.
+     * Executes daily at midnight to permanently delete expired soft-deleted certificates.
      */
     @Scheduled(cron = "0 0 0 * * *")
     @Transactional
@@ -72,7 +69,7 @@ public class ClearanceScheduler {
     }
 
     /**
-     * Executes every day at 12:00 AM (midnight) to update status of active certificates that have reached their expiration date.
+     * Executes daily at midnight to update active certificates past their expiration date to EXPIRED.
      */
     @Scheduled(cron = "0 0 0 * * *")
     @Transactional

@@ -15,10 +15,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Scheduled job for User Account management:
- * Executes daily at 12:00 AM (midnight) to automatically transition expired
- * soft-deleted user accounts in the trash vault into permanent-delete status
- * based on Barangay Archive Settings retention days.
+ * Scheduled job for user account archive retention and automated permanent deletion.
  */
 @Slf4j
 @Component
@@ -28,7 +25,10 @@ public class UserScheduler {
     private final ArchiveSettingsRepository archiveSettingsRepository;
     private final UserRepository userRepository;
 
-    @Scheduled(cron = "0 0 0 * * *") // Runs every 12:00 AM (midnight)
+    /**
+     * Executes daily at midnight to permanently delete soft-deleted user accounts exceeding retention threshold.
+     */
+    @Scheduled(cron = "0 0 0 * * *")
     @Transactional
     public void autoPurgeExpiredSoftDeletedUsers() {
         log.info("[UserScheduler] Checking soft-deleted users exceeding retention threshold for permanent deletion...");

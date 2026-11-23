@@ -15,10 +15,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Scheduled job for Resident Record management:
- * Executes daily at 12:00 AM (midnight) to automatically transition expired
- * soft-deleted resident records in the trash vault into permanent-delete status
- * based on Barangay Archive Settings retention days.
+ * Scheduled job for resident archive retention and automated permanent deletion.
  */
 @Slf4j
 @Component
@@ -28,7 +25,10 @@ public class ResidentScheduler {
     private final ArchiveSettingsRepository archiveSettingsRepository;
     private final ResidentRepository residentRepository;
 
-    @Scheduled(cron = "0 0 0 * * *") // Runs every 12:00 AM (midnight)
+    /**
+     * Executes daily at midnight to permanently delete soft-deleted resident records exceeding retention threshold.
+     */
+    @Scheduled(cron = "0 0 0 * * *")
     @Transactional
     public void autoPurgeExpiredSoftDeletedResidents() {
         log.info("[ResidentScheduler] Checking soft-deleted residents exceeding retention threshold for permanent deletion...");

@@ -1,10 +1,19 @@
 package com.barangay.zshared.mapper;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.data.domain.Page;
 
 import java.util.List;
 
+/**
+ * Generic pagination wrapper DTO representing paginated query results.
+ *
+ * @param <T> the type of items contained in the page
+ */
 @Getter
 @Setter
 @Builder
@@ -28,8 +37,17 @@ public class PageResponse<T> {
         return pageSize;
     }
 
+    /**
+     * Creates a {@link PageResponse} instance wrapping the provided Spring Data {@link Page}.
+     *
+     * @param page Spring Data page, may be {@code null}
+     * @param <T>  item element type
+     * @return a mapped {@link PageResponse}, or {@code null} if page is {@code null}
+     */
     public static <T> PageResponse<T> of(Page<T> page) {
-        if (page == null) return null;
+        if (page == null) {
+            return null;
+        }
 
         return PageResponse.<T>builder()
                 .content(page.getContent())

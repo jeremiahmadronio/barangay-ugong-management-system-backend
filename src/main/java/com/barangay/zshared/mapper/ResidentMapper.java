@@ -3,20 +3,29 @@ package com.barangay.zshared.mapper;
 import com.barangay.people.complainant.model.Complainant;
 import com.barangay.people.person.model.Person;
 import com.barangay.people.resident.model.Resident;
-import com.barangay.zshared.dto.ComplainantCreateDto;
-import com.barangay.zshared.dto.ComplainantDetailDto;
 import com.barangay.zshared.dto.ResidentDetailDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-@RequiredArgsConstructor
+/**
+ * Converts between resident or complainant entities and {@link ResidentDetailDto}.
+ */
 @Component
+@RequiredArgsConstructor
 public class ResidentMapper {
 
     private final PersonMapper personMapper;
 
+    /**
+     * Maps a {@link Complainant} entity to a {@link ResidentDetailDto}.
+     *
+     * @param complainant the complainant entity, may be {@code null}
+     * @return the mapped resident detail DTO, or {@code null} if input is {@code null}
+     */
     public ResidentDetailDto toDetailDto(Complainant complainant) {
-        if (complainant == null || complainant.getPerson() == null) return null;
+        if (complainant == null || complainant.getPerson() == null) {
+            return null;
+        }
         Person p = complainant.getPerson();
 
         Short age = p.getAge();
@@ -45,9 +54,16 @@ public class ResidentMapper {
         );
     }
 
-
+    /**
+     * Maps a {@link Resident} entity to a {@link ResidentDetailDto}.
+     *
+     * @param resident the resident entity, may be {@code null}
+     * @return the mapped resident detail DTO, or {@code null} if input is {@code null}
+     */
     public ResidentDetailDto toDetailDto(Resident resident) {
-        if (resident == null || resident.getPerson() == null) return null;
+        if (resident == null || resident.getPerson() == null) {
+            return null;
+        }
         Person p = resident.getPerson();
 
         Short age = p.getAge();
@@ -75,6 +91,4 @@ public class ResidentMapper {
                 resident.getBarangayIdNumber()
         );
     }
-
-
 }

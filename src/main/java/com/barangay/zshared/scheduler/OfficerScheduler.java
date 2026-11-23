@@ -15,10 +15,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Scheduled job for Officer Record management:
- * Executes daily at 12:00 AM (midnight) to automatically transition expired
- * soft-deleted officer records in the trash vault into permanent-delete status
- * based on Barangay Archive Settings retention days.
+ * Scheduled job for officer archive retention and automated permanent deletion.
  */
 @Slf4j
 @Component
@@ -28,7 +25,10 @@ public class OfficerScheduler {
     private final ArchiveSettingsRepository archiveSettingsRepository;
     private final OfficerRepository officerRepository;
 
-    @Scheduled(cron = "0 0 0 * * *") // Runs every 12:00 AM (midnight)
+    /**
+     * Executes daily at midnight to permanently delete soft-deleted officer records exceeding retention threshold.
+     */
+    @Scheduled(cron = "0 0 0 * * *")
     @Transactional
     public void autoPurgeExpiredSoftDeletedOfficers() {
         log.info("[OfficerScheduler] Checking soft-deleted officers exceeding retention threshold for permanent deletion...");

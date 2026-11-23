@@ -3,10 +3,12 @@ package com.barangay.zshared.mapper;
 import com.barangay.cases.shared.model.IncidentDetail;
 import com.barangay.zshared.dto.IncidentCreateDto;
 import com.barangay.zshared.dto.IncidentDetailDto;
+import com.barangay.zshared.enumerated.RelatedBarangayService;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+
 /**
  * Converts between {@link IncidentDetail} entities and their corresponding DTOs.
  * Pure transformation only — no persistence logic.
@@ -22,7 +24,9 @@ public class IncidentDetailMapper {
      * @return the corresponding DTO, or {@code null} if input is {@code null}
      */
     public IncidentDetailDto toDetailDto(IncidentDetail incident) {
-        if (incident == null) return null;
+        if (incident == null) {
+            return null;
+        }
 
         return new IncidentDetailDto(
                 incident.getId(),
@@ -38,17 +42,14 @@ public class IncidentDetailMapper {
 
     /**
      * Builds a new, unsaved {@link IncidentDetail} entity from a create request.
-     * <p>
-     * <b>Note:</b> date and time strings are parsed as ISO {@link LocalDate}/
-     * {@link LocalTime}; if parsing fails, the exception is currently swallowed
-     * and the corresponding field is left {@code null} rather than surfacing
-     * a validation error to the caller.
      *
      * @param dto the create request
      * @return a new, unsaved {@link IncidentDetail} entity, or {@code null} if {@code dto} is {@code null}
      */
     public IncidentDetail fromCreateDto(IncidentCreateDto dto) {
-        if (dto == null) return null;
+        if (dto == null) {
+            return null;
+        }
 
         IncidentDetail incidentDetail = new IncidentDetail();
         incidentDetail.setNatureOfComplaint(dto.natureOfComplaint());
@@ -59,20 +60,23 @@ public class IncidentDetailMapper {
         if (dto.relatedBarangayService() != null && !dto.relatedBarangayService().isBlank()) {
             try {
                 incidentDetail.setRelatedBarangayService(
-                    com.barangay.zshared.enumerated.RelatedBarangayService.valueOf(dto.relatedBarangayService().trim().toUpperCase())
+                        RelatedBarangayService.valueOf(dto.relatedBarangayService().trim().toUpperCase())
                 );
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
 
         if (dto.dateOfIncident() != null && !dto.dateOfIncident().isBlank()) {
             try {
                 incidentDetail.setDateOfIncident(LocalDate.parse(dto.dateOfIncident()));
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
         if (dto.timeOfIncident() != null && !dto.timeOfIncident().isBlank()) {
             try {
                 incidentDetail.setTimeOfIncident(LocalTime.parse(dto.timeOfIncident()));
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
 
         return incidentDetail;

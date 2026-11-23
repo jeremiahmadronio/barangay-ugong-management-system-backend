@@ -23,8 +23,16 @@ public class ComplainantMapper {
     private final PersonMapper personMapper;
     private final ObjectProvider<UserRepository> userRepositoryProvider;
 
+    /**
+     * Maps a {@link Complainant} entity to a {@link ComplainantDetailDto}.
+     *
+     * @param complainant the entity to convert, may be {@code null}
+     * @return the corresponding {@link ComplainantDetailDto}, or {@code null} if input is {@code null}
+     */
     public ComplainantDetailDto toDetailDto(Complainant complainant) {
-        if (complainant == null || complainant.getPerson() == null) return null;
+        if (complainant == null || complainant.getPerson() == null) {
+            return null;
+        }
         Person p = complainant.getPerson();
 
         Short age = p.getAge();
@@ -73,7 +81,9 @@ public class ComplainantMapper {
      * @return a new, unsaved {@link Person} entity
      */
     public Person toNewPerson(ComplainantCreateDto dto) {
-        if (dto == null) return null;
+        if (dto == null) {
+            return null;
+        }
 
         Person person = new Person();
         person.setLastName(dto.lastName());
