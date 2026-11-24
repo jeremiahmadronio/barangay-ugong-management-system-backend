@@ -113,6 +113,7 @@ public class SecurityConfig {
         config.setAllowedOrigins(origins);
         config.setAllowedMethods(Arrays.asList(ALLOWED_METHODS));
         config.setAllowedHeaders(Arrays.asList(ALLOWED_HEADERS));
+        config.setExposedHeaders(Arrays.asList(EXPOSED_HEADERS));
         config.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

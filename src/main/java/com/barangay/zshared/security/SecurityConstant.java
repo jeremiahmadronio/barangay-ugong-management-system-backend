@@ -101,4 +101,8 @@ public class SecurityConstant {
     public static final String[] ALLOWED_HEADERS = {
             "Authorization", "Content-Type", "X-Requested-With", "Accept"
     };
+
+    public static final String[] EXPOSED_HEADERS = {
+            "Content-Disposition", "Content-Type", "Content-Length"
+    };
 }
