@@ -550,6 +550,44 @@ public interface CaseRepository extends JpaRepository<Case, Long>, CaseRepositor
         );
 
     @Query("""
+            SELECT c FROM Case c
+            LEFT JOIN FETCH c.complainant comp
+            LEFT JOIN FETCH comp.person compPerson
+            LEFT JOIN FETCH c.respondent resp
+            LEFT JOIN FETCH resp.person respPerson
+            LEFT JOIN FETCH c.luponReferral lr
+            WHERE c.caseNumber IN :caseNumbers
+        """)
+    List<Case> findByCaseNumberInWithDetails(@Param("caseNumbers") Collection<String> caseNumbers);
+
+    @Query("""
+            SELECT
+                SUM(CASE WHEN (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') THEN 1L ELSE 0L END) AS totalCases,
+                SUM(CASE WHEN (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') AND c.createdAt >= :currentMonthStart THEN 1L ELSE 0L END) AS currentTotal,
+                SUM(CASE WHEN (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') AND c.createdAt BETWEEN :prevMonthStart AND :prevMonthEnd THEN 1L ELSE 0L END) AS prevTotal,
+                SUM(CASE WHEN (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') AND c.filingType = com.barangay.zshared.enumerated.FilingType.FOR_RECORD_ONLY THEN 1L ELSE 0L END) AS totalForTheRecord,
+                SUM(CASE WHEN (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') AND c.filingType = com.barangay.zshared.enumerated.FilingType.FOR_RECORD_ONLY AND c.createdAt >= :currentMonthStart THEN 1L ELSE 0L END) AS currentForRecord,
+                SUM(CASE WHEN (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '') AND c.filingType = com.barangay.zshared.enumerated.FilingType.FOR_RECORD_ONLY AND c.createdAt BETWEEN :prevMonthStart AND :prevMonthEnd THEN 1L ELSE 0L END) AS prevForRecord,
+                SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '') AND c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.UNDER_MEDIATION THEN 1L ELSE 0L END) AS inProgressCases,
+                SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '') AND c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.SETTLED THEN 1L ELSE 0L END) AS resolvedCases,
+                SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '') AND c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.SETTLED AND c.settledAt >= :currentMonthStart THEN 1L ELSE 0L END) AS currentResolved,
+                SUM(CASE WHEN (c.reOpenedCaseNumber IS NULL OR TRIM(c.reOpenedCaseNumber) = '') AND c.caseStatus = com.barangay.zshared.enumerated.CaseStatus.SETTLED AND c.settledAt BETWEEN :prevMonthStart AND :prevMonthEnd THEN 1L ELSE 0L END) AS prevResolved
+            FROM Case c
+            LEFT JOIN c.department d
+            WHERE (d IS NULL OR UPPER(d.name) IN ('BLOTTER', 'LUPON'))
+              AND (d IS NULL OR UPPER(d.name) != 'VAWC')
+              AND UPPER(c.caseNumber) NOT LIKE '%VAWC%'
+              AND (c.isArchived IS NULL OR c.isArchived = false)
+              AND (c.isDeleted IS NULL OR c.isDeleted = false)
+              AND (c.isPermanentDeleted IS NULL OR c.isPermanentDeleted = false)
+        """)
+    com.barangay.cases.shared.projection.BlotterStatsAggregateProjection getBlotterStatsAggregate(
+            @Param("currentMonthStart") LocalDateTime currentMonthStart,
+            @Param("prevMonthStart") LocalDateTime prevMonthStart,
+            @Param("prevMonthEnd") LocalDateTime prevMonthEnd
+    );
+
+    @Query("""
             SELECT COUNT(c.id)
             FROM Case c
             WHERE (c.previousCaseNumber IS NULL OR TRIM(c.previousCaseNumber) = '')

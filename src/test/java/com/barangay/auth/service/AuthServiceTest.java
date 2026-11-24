@@ -272,6 +272,26 @@ class AuthServiceTest {
 
             assertThat(response.totpEnabled()).isTrue();
         }
+
+        @Test
+        @DisplayName("Global MFA disabled BUT user is SYSTEM_ADMIN → MFA is still mandatory")
+        void globalMfaDisabled_adminRole_mfaStillRequired() {
+            User user = activeUser();
+            var adminRole = mock(com.barangay.usermanagement.role.model.Role.class);
+            when(adminRole.getRoleName()).thenReturn("ROLE_SYSTEM_ADMIN");
+            user.setRole(adminRole);
+
+            // Mock global MFA disabled in DB
+            var mfaSetting = new com.barangay.contentmanagement.model.SystemSetting("global_mfa_enabled", "false");
+            when(systemSettingRepository.findById("global_mfa_enabled")).thenReturn(Optional.of(mfaSetting));
+            when(userRepository.findBySystemEmail(EMAIL)).thenReturn(Optional.of(user));
+            when(mfaService.generateCode()).thenReturn(OTP_CODE);
+
+            LoginResponse response = authService.login(request, IP);
+
+            assertThat(response.status()).isEqualTo("MFA_REQUIRED");
+            verify(mfaService).sendMfaEmail(EMAIL, OTP_CODE);
+        }
     }
 
 

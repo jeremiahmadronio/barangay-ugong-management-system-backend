@@ -54,7 +54,11 @@ import lombok.Setter;
         @Index(name = "idx_case_complainant", columnList = "complainant_id"),
         @Index(name = "idx_case_respondent", columnList = "respondent_id"),
         @Index(name = "idx_case_officer", columnList = "case_assign_to"),
-        @Index(name = "idx_case_created_at", columnList = "created_at")
+        @Index(name = "idx_case_created_at", columnList = "created_at"),
+        @Index(name = "idx_case_prev_number", columnList = "previous_case_number"),
+        @Index(name = "idx_case_reopened_number", columnList = "reopened_case_number"),
+        @Index(name = "idx_case_settled_at", columnList = "settled_at"),
+        @Index(name = "idx_case_stats_lookup", columnList = "department_id, is_archived, is_deleted, is_permanent_deleted")
 })
 @Getter
 @Setter

@@ -291,17 +291,92 @@ public class LuponService {
         );
         Page<Case> casePage = caseRepository.findLuponCasesFiltered(filter, pageable);
 
+        if (casePage.isEmpty()) {
+            return PageResponse.of(Page.empty(pageable));
+        }
+
+        // Batch pre-fetch all referenced case numbers to eliminate N+1 queries
+        Set<String> referencedCaseNumbers = new HashSet<>();
+        for (Case c : casePage.getContent()) {
+            if (c.getPreviousCaseNumber() != null && !c.getPreviousCaseNumber().isBlank()) {
+                referencedCaseNumbers.add(c.getPreviousCaseNumber().trim());
+            }
+            if (c.getReOpenedCaseNumber() != null && !c.getReOpenedCaseNumber().isBlank()) {
+                referencedCaseNumbers.add(c.getReOpenedCaseNumber().trim());
+            }
+        }
+
+        Map<String, Case> caseCache = new HashMap<>();
+        for (Case c : casePage.getContent()) {
+            if (c.getCaseNumber() != null) {
+                caseCache.put(c.getCaseNumber().trim(), c);
+            }
+        }
+
+        if (!referencedCaseNumbers.isEmpty()) {
+            List<Case> fetched = caseRepository.findByCaseNumberInWithDetails(referencedCaseNumbers);
+            for (Case c : fetched) {
+                if (c.getCaseNumber() != null) {
+                    caseCache.put(c.getCaseNumber().trim(), c);
+                }
+            }
+        }
+
         Page<LuponTableRowResponse> dtoPage =
-                casePage.map(this::toLuponTableRowResponse);
+                casePage.map(c -> toLuponTableRowResponseWithCache(c, caseCache));
 
         return PageResponse.of(dtoPage);
     }
 
-    private LuponTableRowResponse toLuponTableRowResponse(Case rootCase) {
+    private Case lookupCase(String caseNumber, Map<String, Case> cache) {
+        if (caseNumber == null || caseNumber.isBlank()) return null;
+        String trimmed = caseNumber.trim();
+        if (cache.containsKey(trimmed)) {
+            return cache.get(trimmed);
+        }
+        Optional<Case> opt = caseRepository.findByCaseNumber(trimmed);
+        opt.ifPresent(c -> cache.put(trimmed, c));
+        return opt.orElse(null);
+    }
+
+    private LuponTableRowResponse toLuponTableRowResponseWithCache(Case rootCase, Map<String, Case> cache) {
         if (rootCase == null) return null;
 
-        Case trueRoot = findRootCase(rootCase);
-        List<Case> lineage = getCaseLineage(trueRoot);
+        Case trueRoot = rootCase;
+        Set<String> visited = new HashSet<>();
+        if (trueRoot.getCaseNumber() != null) visited.add(trueRoot.getCaseNumber().trim());
+
+        while (trueRoot.getPreviousCaseNumber() != null && !trueRoot.getPreviousCaseNumber().trim().isEmpty()) {
+            String prevNum = trueRoot.getPreviousCaseNumber().trim();
+            if (visited.contains(prevNum)) break;
+            Case prev = lookupCase(prevNum, cache);
+            if (prev != null) {
+                trueRoot = prev;
+                visited.add(prevNum);
+            } else {
+                break;
+            }
+        }
+
+        List<Case> lineage = new ArrayList<>();
+        Case curr = trueRoot;
+        lineage.add(curr);
+        Set<String> forwardVisited = new HashSet<>();
+        if (curr.getCaseNumber() != null) forwardVisited.add(curr.getCaseNumber().trim());
+
+        while (curr.getReOpenedCaseNumber() != null && !curr.getReOpenedCaseNumber().trim().isEmpty()) {
+            String nextNum = curr.getReOpenedCaseNumber().trim();
+            if (forwardVisited.contains(nextNum)) break;
+            Case next = lookupCase(nextNum, cache);
+            if (next != null) {
+                curr = next;
+                lineage.add(curr);
+                forwardVisited.add(nextNum);
+            } else {
+                break;
+            }
+        }
+
         Case latestCase = lineage.get(lineage.size() - 1);
         int cycleCount = lineage.size();
         boolean isReopened = cycleCount > 1;

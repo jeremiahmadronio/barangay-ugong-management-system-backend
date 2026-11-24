@@ -18,6 +18,9 @@ FROM eclipse-temurin:24-jre-alpine AS runner
 
 WORKDIR /app
 
+# Install PostgreSQL client for pg_dump backup operations
+RUN apk add --no-cache postgresql-client
+
 # Non-root user setup
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 RUN mkdir -p /app/uploads /app/secure_uploads && chown -R appuser:appgroup /app

@@ -9,17 +9,13 @@ import com.barangay.ftjs.repository.FirstTimeJobSeekerRepository;
 import com.barangay.zshared.dto.RespondentCreateDto;
 import com.barangay.zshared.enumerated.DocumentReissuanceStatus;
 import com.barangay.zshared.enumerated.RelatedBarangayService;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
+
+import java.util.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
 
 import com.barangay.cases.blotter.dto.*;
 import com.barangay.cases.shared.model.*;
@@ -75,7 +71,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class BlotterCaseService {
+public class    BlotterCaseService {
 
     private final CaseRepository caseRepository;
     private final PersonRepository personRepository;
@@ -106,21 +102,69 @@ public class BlotterCaseService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Case> casePage = caseRepository.findBlotterCasesFiltered(filter, pageable);
 
-        Page<BlotterTableRowResponse> dtoPage = casePage.map(this::toTableRowResponse);
+        if (casePage.isEmpty()) {
+            return PageResponse.of(Page.empty(pageable));
+        }
+
+        // Batch pre-fetch all referenced case numbers (previous and reopened) to eliminate N+1 queries
+        Set<String> referencedCaseNumbers = new HashSet<>();
+        for (Case c : casePage.getContent()) {
+            if (c.getPreviousCaseNumber() != null && !c.getPreviousCaseNumber().isBlank()) {
+                referencedCaseNumbers.add(c.getPreviousCaseNumber().trim());
+            }
+            if (c.getReOpenedCaseNumber() != null && !c.getReOpenedCaseNumber().isBlank()) {
+                referencedCaseNumbers.add(c.getReOpenedCaseNumber().trim());
+            }
+        }
+
+        Map<String, Case> caseCache = new HashMap<>();
+        for (Case c : casePage.getContent()) {
+            if (c.getCaseNumber() != null) {
+                caseCache.put(c.getCaseNumber().trim(), c);
+            }
+        }
+
+        if (!referencedCaseNumbers.isEmpty()) {
+            List<Case> fetched = caseRepository.findByCaseNumberInWithDetails(referencedCaseNumbers);
+            for (Case c : fetched) {
+                if (c.getCaseNumber() != null) {
+                    caseCache.put(c.getCaseNumber().trim(), c);
+                }
+            }
+        }
+
+        Page<BlotterTableRowResponse> dtoPage = casePage.map(c -> toTableRowResponseWithCache(c, caseCache));
         return PageResponse.of(dtoPage);
+    }
+
+    private Case lookupCase(String caseNumber, Map<String, Case> cache) {
+        if (caseNumber == null || caseNumber.isBlank()) return null;
+        String trimmed = caseNumber.trim();
+        if (cache.containsKey(trimmed)) {
+            return cache.get(trimmed);
+        }
+        Optional<Case> opt = caseRepository.findByCaseNumber(trimmed);
+        opt.ifPresent(c -> cache.put(trimmed, c));
+        return opt.orElse(null);
     }
 
     /**
      * Maps a root {@link Case} entity to {@link BlotterTableRowResponse} for the Blotter Records Table.
      */
-    private BlotterTableRowResponse toTableRowResponse(Case rootCase) {
+    private BlotterTableRowResponse toTableRowResponseWithCache(Case rootCase, Map<String, Case> cache) {
         if (rootCase == null) return null;
 
         Case trueRoot = rootCase;
+        Set<String> visited = new HashSet<>();
+        if (trueRoot.getCaseNumber() != null) visited.add(trueRoot.getCaseNumber().trim());
+
         while (trueRoot.getPreviousCaseNumber() != null && !trueRoot.getPreviousCaseNumber().trim().isEmpty()) {
-            Optional<Case> prevOpt = caseRepository.findByCaseNumber(trueRoot.getPreviousCaseNumber().trim());
-            if (prevOpt.isPresent()) {
-                trueRoot = prevOpt.get();
+            String prevNum = trueRoot.getPreviousCaseNumber().trim();
+            if (visited.contains(prevNum)) break;
+            Case prev = lookupCase(prevNum, cache);
+            if (prev != null) {
+                trueRoot = prev;
+                visited.add(prevNum);
             } else {
                 break;
             }
@@ -129,11 +173,17 @@ public class BlotterCaseService {
         List<Case> lineage = new ArrayList<>();
         Case curr = trueRoot;
         lineage.add(curr);
+        Set<String> forwardVisited = new HashSet<>();
+        if (curr.getCaseNumber() != null) forwardVisited.add(curr.getCaseNumber().trim());
+
         while (curr.getReOpenedCaseNumber() != null && !curr.getReOpenedCaseNumber().trim().isEmpty()) {
-            Optional<Case> nextOpt = caseRepository.findByCaseNumber(curr.getReOpenedCaseNumber().trim());
-            if (nextOpt.isPresent()) {
-                curr = nextOpt.get();
+            String nextNum = curr.getReOpenedCaseNumber().trim();
+            if (forwardVisited.contains(nextNum)) break;
+            Case next = lookupCase(nextNum, cache);
+            if (next != null) {
+                curr = next;
                 lineage.add(curr);
+                forwardVisited.add(nextNum);
             } else {
                 break;
             }
@@ -202,27 +252,24 @@ public class BlotterCaseService {
         LocalDateTime prevMonthStart = YearMonth.now().minusMonths(1).atDay(1).atStartOfDay();
         LocalDateTime prevMonthEnd = currentMonthStart.minusNanos(1);
 
-        // 1. Total Blotter Cases
-        long totalCases = caseRepository.countRootBlotterCases();
-        long currentTotal = caseRepository.countRootBlotterCasesByCreatedAtGreaterThanEqual(currentMonthStart);
-        long prevTotal = caseRepository.countRootBlotterCasesByCreatedAtBetween(prevMonthStart, prevMonthEnd);
+        com.barangay.cases.shared.projection.BlotterStatsAggregateProjection agg =
+                caseRepository.getBlotterStatsAggregate(currentMonthStart, prevMonthStart, prevMonthEnd);
+
+        long totalCases = agg != null && agg.getTotalCases() != null ? agg.getTotalCases().longValue() : 0L;
+        long currentTotal = agg != null && agg.getCurrentTotal() != null ? agg.getCurrentTotal().longValue() : 0L;
+        long prevTotal = agg != null && agg.getPrevTotal() != null ? agg.getPrevTotal().longValue() : 0L;
         String totalCasesTrend = calculateMonthlyTrend(currentTotal, prevTotal);
 
-        // 2. Total For the Record Only
-        long totalForTheRecord = caseRepository.countRootBlotterCasesByFilingType(FilingType.FOR_RECORD_ONLY);
-        long currentForRecord = caseRepository.countRootBlotterCasesByFilingTypeAndCreatedAtGreaterThanEqual(FilingType.FOR_RECORD_ONLY, currentMonthStart);
-        long prevForRecord = caseRepository.countRootBlotterCasesByFilingTypeAndCreatedAtBetween(FilingType.FOR_RECORD_ONLY, prevMonthStart, prevMonthEnd);
+        long totalForTheRecord = agg != null && agg.getTotalForTheRecord() != null ? agg.getTotalForTheRecord().longValue() : 0L;
+        long currentForRecord = agg != null && agg.getCurrentForRecord() != null ? agg.getCurrentForRecord().longValue() : 0L;
+        long prevForRecord = agg != null && agg.getPrevForRecord() != null ? agg.getPrevForRecord().longValue() : 0L;
         String totalForTheRecordTrend = calculateMonthlyTrend(currentForRecord, prevForRecord);
 
-        // 3. Under Mediation / In Progress
-        List<CaseStatus> activeStatuses = List.of(CaseStatus.UNDER_MEDIATION);
-        long inProgressCases = caseRepository.countLatestBlotterCasesByCaseStatusIn(activeStatuses);
+        long inProgressCases = agg != null && agg.getInProgressCases() != null ? agg.getInProgressCases().longValue() : 0L;
 
-        // 4. Settled / Resolved Cases (Gamit ang settledAt para sa accurate monthly resolution metrics)
-        List<CaseStatus> resolvedStatuses = List.of(CaseStatus.SETTLED);
-        long resolvedCases = caseRepository.countLatestSettledBlotterCases(resolvedStatuses);
-        long currentResolved = caseRepository.countLatestSettledBlotterCasesBySettledAtGreaterThanEqual(resolvedStatuses, currentMonthStart);
-        long prevResolved = caseRepository.countLatestSettledBlotterCasesBySettledAtBetween(resolvedStatuses, prevMonthStart, prevMonthEnd);
+        long resolvedCases = agg != null && agg.getResolvedCases() != null ? agg.getResolvedCases().longValue() : 0L;
+        long currentResolved = agg != null && agg.getCurrentResolved() != null ? agg.getCurrentResolved().longValue() : 0L;
+        long prevResolved = agg != null && agg.getPrevResolved() != null ? agg.getPrevResolved().longValue() : 0L;
         String resolvedCasesTrend = calculateMonthlyTrend(currentResolved, prevResolved);
 
         return new BlotterStatsResponse(

@@ -51,6 +51,8 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         // Data Query
         CriteriaQuery<Case> cq = cb.createQuery(Case.class);
         Root<Case> root = cq.from(Case.class);
+        root.fetch("complainant", JoinType.LEFT).fetch("person", JoinType.LEFT);
+        root.fetch("respondent", JoinType.LEFT).fetch("person", JoinType.LEFT);
 
         List<Predicate> predicates = buildPredicates(filter, cb, cq, root);
         cq.where(predicates.toArray(new Predicate[0]));
@@ -85,6 +87,9 @@ public class CaseRepositoryCustomImpl implements CaseRepositoryCustom {
         // Data Query
         CriteriaQuery<Case> cq = cb.createQuery(Case.class);
         Root<Case> root = cq.from(Case.class);
+        root.fetch("complainant", JoinType.LEFT).fetch("person", JoinType.LEFT);
+        root.fetch("respondent", JoinType.LEFT).fetch("person", JoinType.LEFT);
+        root.fetch("luponReferral", JoinType.LEFT);
 
         List<Predicate> predicates = buildLuponPredicates(filter, cb, cq, root);
         cq.where(predicates.toArray(new Predicate[0]));

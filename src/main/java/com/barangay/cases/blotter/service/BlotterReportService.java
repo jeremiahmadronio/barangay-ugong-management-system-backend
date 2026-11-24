@@ -459,15 +459,39 @@ public class BlotterReportService {
                 endOfDay
         );
 
+        if (casesToday.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Pre-populate lookup cache with cases created today to avoid N+1 queries
+        Map<String, Case> caseCache = new HashMap<>();
+        Set<String> referencedNumbers = new HashSet<>();
+        for (Case c : casesToday) {
+            if (c.getCaseNumber() != null) caseCache.put(c.getCaseNumber().trim(), c);
+            if (c.getPreviousCaseNumber() != null && !c.getPreviousCaseNumber().isBlank()) {
+                referencedNumbers.add(c.getPreviousCaseNumber().trim());
+            }
+            if (c.getReOpenedCaseNumber() != null && !c.getReOpenedCaseNumber().isBlank()) {
+                referencedNumbers.add(c.getReOpenedCaseNumber().trim());
+            }
+        }
+
+        if (!referencedNumbers.isEmpty()) {
+            List<Case> fetched = caseRepository.findByCaseNumberInWithDetails(referencedNumbers);
+            for (Case c : fetched) {
+                if (c.getCaseNumber() != null) caseCache.put(c.getCaseNumber().trim(), c);
+            }
+        }
+
         Map<Long, RecentBlotterCaseResponse> distinctRootCasesMap = new LinkedHashMap<>();
 
         for (Case c : casesToday) {
-            Case rootCase = findRootCase(c);
+            Case rootCase = findRootCaseWithCache(c, caseCache);
             if (distinctRootCasesMap.containsKey(rootCase.getId())) {
                 continue;
             }
 
-            List<Case> lineage = getCaseLineage(rootCase);
+            List<Case> lineage = getCaseLineageWithCache(rootCase, caseCache);
             Case endmostCase = lineage.get(lineage.size() - 1);
 
             String complainantName = "—";
@@ -506,12 +530,27 @@ public class BlotterReportService {
         return new ArrayList<>(distinctRootCasesMap.values());
     }
 
-    private Case findRootCase(Case targetCase) {
+    private Case lookupCase(String caseNumber, Map<String, Case> cache) {
+        if (caseNumber == null || caseNumber.isBlank()) return null;
+        String trimmed = caseNumber.trim();
+        if (cache.containsKey(trimmed)) return cache.get(trimmed);
+        Optional<Case> opt = caseRepository.findByCaseNumber(trimmed);
+        opt.ifPresent(c -> cache.put(trimmed, c));
+        return opt.orElse(null);
+    }
+
+    private Case findRootCaseWithCache(Case targetCase, Map<String, Case> cache) {
         Case root = targetCase;
+        Set<String> visited = new HashSet<>();
+        if (root.getCaseNumber() != null) visited.add(root.getCaseNumber().trim());
+
         while (root.getPreviousCaseNumber() != null && !root.getPreviousCaseNumber().trim().isEmpty()) {
-            Optional<Case> prevOpt = caseRepository.findByCaseNumber(root.getPreviousCaseNumber().trim());
-            if (prevOpt.isPresent()) {
-                root = prevOpt.get();
+            String prevNum = root.getPreviousCaseNumber().trim();
+            if (visited.contains(prevNum)) break;
+            Case prev = lookupCase(prevNum, cache);
+            if (prev != null) {
+                root = prev;
+                visited.add(prevNum);
             } else {
                 break;
             }
@@ -519,15 +558,21 @@ public class BlotterReportService {
         return root;
     }
 
-    private List<Case> getCaseLineage(Case rootCase) {
+    private List<Case> getCaseLineageWithCache(Case rootCase, Map<String, Case> cache) {
         List<Case> lineage = new ArrayList<>();
         Case curr = rootCase;
         lineage.add(curr);
+        Set<String> visited = new HashSet<>();
+        if (curr.getCaseNumber() != null) visited.add(curr.getCaseNumber().trim());
+
         while (curr.getReOpenedCaseNumber() != null && !curr.getReOpenedCaseNumber().trim().isEmpty()) {
-            Optional<Case> nextOpt = caseRepository.findByCaseNumber(curr.getReOpenedCaseNumber().trim());
-            if (nextOpt.isPresent()) {
-                curr = nextOpt.get();
+            String nextNum = curr.getReOpenedCaseNumber().trim();
+            if (visited.contains(nextNum)) break;
+            Case next = lookupCase(nextNum, cache);
+            if (next != null) {
+                curr = next;
                 lineage.add(curr);
+                visited.add(nextNum);
             } else {
                 break;
             }

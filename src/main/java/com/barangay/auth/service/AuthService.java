@@ -114,7 +114,15 @@ public class AuthService {
                 .map(setting -> "true".equalsIgnoreCase(setting.getSettingValue()))
                 .orElse(true);
 
-        boolean isMfaRequired = isGlobalMfaEnforced || Boolean.TRUE.equals(user.getTotpEnabled());
+        // Security Policy: Administrative roles (SYSTEM_ADMIN, ROOT_ADMIN, ADMIN) must ALWAYS require MFA
+        // regardless of the global MFA toggle.
+        boolean isAdminRole = false;
+        if (user.getRole() != null && user.getRole().getRoleName() != null) {
+            String roleName = user.getRole().getRoleName().toUpperCase().replace("ROLE_", "");
+            isAdminRole = "SYSTEM_ADMIN".equals(roleName) || "ROOT_ADMIN".equals(roleName) || "ADMIN".equals(roleName);
+        }
+
+        boolean isMfaRequired = isAdminRole || isGlobalMfaEnforced || Boolean.TRUE.equals(user.getTotpEnabled());
 
         if (isMfaRequired) {
             // Generate and send OTP
