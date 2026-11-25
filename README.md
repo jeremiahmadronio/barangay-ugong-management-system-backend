@@ -394,4 +394,4 @@ BS Information Technology, STI College Novaliches · October 2026
 
 Copyright (c) 2026 Jeremiah D. Madronio. All Rights Reserved.
 
-This system was custom-built for Barangay Ugong, Valenzuela City, based on its own processes. The source code is available for viewing and academic review only. Copying, modifying, redistributing, or deploying it requires written permission. See [LICENCE](LICENCE) for details.
+This system was custom-built for Barangay Ugong, Valenzuela City, based on its own processes. The source code is available for viewing and academic review only. Copying, modifying, redistributing, or deploying it requires written permission. See [LICENSE](LICENSE) for details.
