@@ -252,7 +252,7 @@ Supporting services: email (OTP and notifications), AES-GCM encrypted backups to
 
 The database schema is organized across domain modules. Click any diagram below to view full resolution:
 
-#### Figure 7.0: Core Entity Relationship Diagram (p. 62)
+####  Core Entity Relationship Diagram (p. 62)
 *(Residents, Persons, Officers, Roles, Permissions, and System Administration)*
 <p align="center">
   <a href="readme_images/erd_core.png" target="_blank">
@@ -260,7 +260,7 @@ The database schema is organized across domain modules. Click any diagram below 
   </a>
 </p>
 
-#### Figure 7.1: Content Management System (CMS) Entity Relationship Diagram (p. 63)
+#### Content Management System (CMS) Entity Relationship Diagram (p. 63)
 *(Public Portal, Announcements, Officials, Barangay Services, and System Settings)*
 <p align="center">
   <a href="readme_images/erd_content.png" target="_blank">
@@ -268,7 +268,7 @@ The database schema is organized across domain modules. Click any diagram below 
   </a>
 </p>
 
-#### Figure 7.2: First Time Job Seeker (FTJS) and Clearance Entity Relationship Diagram
+#### First Time Job Seeker (FTJS) and Clearance Entity Relationship Diagram
 *(Clearance Templates, Issued Certifications, FTJS Records, Re-issuances, and Logs)*
 <p align="center">
   <a href="readme_images/erd_ftjs&clearance.png" target="_blank">
@@ -276,7 +276,7 @@ The database schema is organized across domain modules. Click any diagram below 
   </a>
 </p>
 
-#### Figure 7.3: Case Management Entity Relationship Diagram (p. 65)
+#### Case Management Entity Relationship Diagram (p. 65)
 *(Blotter, Lupon Conciliation, VAWC, BCPC, Sessions, Minutes, Summons, Evidences, and Witnesses)*
 <p align="center">
   <a href="readme_images/erd_case.png" target="_blank">
