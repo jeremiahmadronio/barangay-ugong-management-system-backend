@@ -2,9 +2,9 @@
 
 REST API for **SerbisyoKo: A Web-Based Barangay Operations Management System** for Barangay Ugong, Valenzuela City.
 
-[Frontend Repository](https://github.com/jeremiahmadronio/barangay-ugong-management-system-frontend)
+> **Frontend Repository:**      [https://github.com/jeremiahmadronio/barangay-ugong-management-system-frontend](https://github.com/jeremiahmadronio/barangay-ugong-management-system-frontend)
 
-> **Full project information:** [maya-maya.vercel.app](https://maya-maya.vercel.app)
+> **Full project information:** [https://maya-maya.vercel.app](https://maya-maya.vercel.app)
 
 ## Overview
 
