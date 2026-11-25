@@ -54,7 +54,7 @@ Residents are encoded once and reused across departments. Residents do not have 
 No `docker-compose.yml` is included. Run PostgreSQL separately (locally installed, or `docker run postgres:17`) and point `DB_URL` to it.
 
 ```bash
-git clone [TODO: insert real link]
+git clone https://github.com/jeremiahmadronio/barangay-ugong-management-system-backend
 cd serbisyoko-backend
 cp .env.example .env      # then fill in the values
 ```
