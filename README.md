@@ -2,10 +2,15 @@
 
 **SerbisyoKo: A Web-Based Barangay Operations Management System** for Barangay Ugong, Valenzuela City.
 
+<<<<<<< HEAD
 This is the REST API that powers the system.
 
 > **Frontend Repository:** [https://github.com/jeremiahmadronio/barangay-ugong-management-system-frontend](https://github.com/jeremiahmadronio/barangay-ugong-management-system-frontend)
 
+=======
+> **Frontend Repository:**      [https://github.com/jeremiahmadronio/barangay-ugong-management-system-frontend](https://github.com/jeremiahmadronio/barangay-ugong-management-system-frontend)
+
+>>>>>>> 6f45504e5ae74987e8164a5916646d25dab5eced
 > **Full project information:** [https://maya-maya.vercel.app](https://maya-maya.vercel.app)
 
 ## Overview
@@ -65,7 +70,11 @@ Fill in the values in `.env` (see [Environment variables](#environment-variables
 
 ### 2. Start PostgreSQL
 
+<<<<<<< HEAD
 No `docker-compose.yml` is included. Run PostgreSQL separately, either installed locally or with Docker:
+=======
+No `docker-compose.yml` is included. Run PostgreSQL separately (locally installed, or with Docker):
+>>>>>>> 6f45504e5ae74987e8164a5916646d25dab5eced
 
 ```bash
 docker run -d --name serbisyoko-db -e POSTGRES_PASSWORD=yourpassword -e POSTGRES_DB=serbisyoko -p 5432:5432 postgres:17
@@ -110,6 +119,22 @@ The API runs at `http://localhost:8080`.
 ./mvnw clean package -DskipTests
 ```
 
+<<<<<<< HEAD
+=======
+### 4. Verify
+
+The API runs at `http://localhost:8080`.
+
+- Health check: http://localhost:8080/actuator/health
+- Log in with `ROOT_EMAIL` and `ROOT_PASSWORD` through `POST /api/v1/auth/login`, then explore the endpoints in [Swagger UI](#api-documentation). The Root Admin account is created automatically on first startup.
+
+### Build a production jar (skips tests)
+
+```bash
+./mvnw clean package -DskipTests
+```
+
+>>>>>>> 6f45504e5ae74987e8164a5916646d25dab5eced
 **Notes**
 
 - No database migration tool (Flyway or Liquibase) is used. The schema is managed by `spring.jpa.hibernate.ddl-auto=update`.
@@ -241,7 +266,11 @@ Supporting services: email (OTP and notifications), AES-GCM encrypted backups to
 
 The schema is split by domain. Click any diagram to view it in full resolution.
 
+<<<<<<< HEAD
 #### Core Entity Relationship Diagram
+=======
+####  Core Entity Relationship Diagram (p. 62)
+>>>>>>> 6f45504e5ae74987e8164a5916646d25dab5eced
 *(Residents, Persons, Officers, Roles, Permissions, and System Administration)*
 <p align="center">
   <a href="readme_images/erd_core.png" target="_blank">
@@ -249,7 +278,11 @@ The schema is split by domain. Click any diagram to view it in full resolution.
   </a>
 </p>
 
+<<<<<<< HEAD
 #### Content Management System (CMS) Entity Relationship Diagram
+=======
+#### Content Management System (CMS) Entity Relationship Diagram (p. 63)
+>>>>>>> 6f45504e5ae74987e8164a5916646d25dab5eced
 *(Public Portal, Announcements, Officials, Barangay Services, and System Settings)*
 <p align="center">
   <a href="readme_images/erd_content.png" target="_blank">
@@ -257,7 +290,11 @@ The schema is split by domain. Click any diagram to view it in full resolution.
   </a>
 </p>
 
+<<<<<<< HEAD
 #### First-Time Job Seeker (FTJS) and Clearance Entity Relationship Diagram
+=======
+#### First Time Job Seeker (FTJS) and Clearance Entity Relationship Diagram
+>>>>>>> 6f45504e5ae74987e8164a5916646d25dab5eced
 *(Clearance Templates, Issued Certifications, FTJS Records, Re-issuances, and Logs)*
 <p align="center">
   <a href="readme_images/erd_ftjs&clearance.png" target="_blank">
@@ -265,7 +302,11 @@ The schema is split by domain. Click any diagram to view it in full resolution.
   </a>
 </p>
 
+<<<<<<< HEAD
 #### Case Management Entity Relationship Diagram
+=======
+#### Case Management Entity Relationship Diagram (p. 65)
+>>>>>>> 6f45504e5ae74987e8164a5916646d25dab5eced
 *(Blotter, Lupon Conciliation, VAWC, BCPC, Sessions, Minutes, Summons, Evidences, and Witnesses)*
 <p align="center">
   <a href="readme_images/erd_case.png" target="_blank">
@@ -390,8 +431,10 @@ flowchart LR
 
 BS Information Technology, STI College Novaliches · October 2026
 
-## License
 
+<<<<<<< HEAD
 Copyright (c) 2026 Jeremiah D. Madronio. All Rights Reserved.
 
 This system was custom-built for Barangay Ugong, Valenzuela City, based on its own processes. The source code is available for viewing and academic review only. Copying, modifying, redistributing, or deploying it requires written permission. See [LICENCE](LICENCE) for details.
+=======
+>>>>>>> 6f45504e5ae74987e8164a5916646d25dab5eced
