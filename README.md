@@ -49,36 +49,77 @@ Residents are encoded once and reused across departments. Residents do not have 
 
 ## Getting Started
 
-**Requirements:** JDK 24, a running PostgreSQL instance, and Docker (optional).
+**Requirements:** JDK 24, PostgreSQL 17, and Docker (optional).
 
-No `docker-compose.yml` is included. Run PostgreSQL separately (locally installed, or `docker run postgres:17`) and point `DB_URL` to it.
+### 1. Clone and configure
 
 ```bash
 git clone https://github.com/jeremiahmadronio/barangay-ugong-management-system-backend
-cd serbisyoko-backend
-cp .env.example .env      # then fill in the values
+cd barangay-ugong-management-system-backend
+cp .env.example .env      # Windows CMD: copy .env.example .env
 ```
 
-**Run with Docker**
+Fill in the values in `.env` (see [Environment variables](#environment-variables)). The minimum needed to start the app: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`, `ENCRYPT_KEY`, `ROOT_EMAIL`, `ROOT_PASSWORD`.
+
+### 2. Start PostgreSQL
+
+No `docker-compose.yml` is included. Run PostgreSQL separately (locally installed, or with Docker):
+
+```bash
+docker run -d --name serbisyoko-db -e POSTGRES_PASSWORD=yourpassword -e POSTGRES_DB=serbisyoko -p 5432:5432 postgres:17
+```
+
+Then set these in `.env`:
+
+```
+DB_URL=jdbc:postgresql://localhost:5432/serbisyoko
+DB_USERNAME=postgres
+DB_PASSWORD=yourpassword
+```
+
+### 3. Run the app
+
+**Option A: with Docker**
 
 ```bash
 docker build -t serbisyoko-backend .
-docker run -p 8080:8080 --env-file .env serbisyoko-backend
+docker run -p 8080:8080 --add-host=host.docker.internal:host-gateway --env-file .env serbisyoko-backend
 ```
 
-**Run without Docker** (app only)
+> Inside a container, `localhost` means the container itself. If PostgreSQL runs on your machine, use `host.docker.internal` in `DB_URL`:
+> `jdbc:postgresql://host.docker.internal:5432/serbisyoko`
+
+**Option B: without Docker** (app only)
 
 ```bash
-./mvnw spring-boot:run
+./mvnw spring-boot:run          # Windows CMD: mvnw.cmd spring-boot:run
 ```
 
-**Build a production jar** (skips tests)
+### 4. Verify
+
+The API runs at `http://localhost:8080`.
+
+- Health check: http://localhost:8080/actuator/health
+- Log in with `ROOT_EMAIL` and `ROOT_PASSWORD` through `POST /api/v1/auth/login`, then explore the endpoints in [Swagger UI](#api-documentation). The Root Admin account is created automatically on first startup.
+
+### Build a production jar (skips tests)
 
 ```bash
 ./mvnw clean package -DskipTests
 ```
 
+### 4. Verify
+
 The API runs at `http://localhost:8080`.
+
+- Health check: http://localhost:8080/actuator/health
+- Log in with `ROOT_EMAIL` and `ROOT_PASSWORD` through `POST /api/v1/auth/login`, then explore the endpoints in [Swagger UI](#api-documentation). The Root Admin account is created automatically on first startup.
+
+### Build a production jar (skips tests)
+
+```bash
+./mvnw clean package -DskipTests
+```
 
 **Notes**
 
@@ -360,6 +401,4 @@ flowchart LR
 
 BS Information Technology, STI College Novaliches · October 2026
 
-## License
 
-MIT. See [`LICENSE`](LICENSE).
